@@ -74,6 +74,7 @@ export default function CashCounterTab({
   const todayDateStr = getTodayDateString();
 
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
+  const [showResetConfirm, setShowResetConfirm] = useState(false);
 
   // State mapping denomination ID to quantity (integer >= 0)
   const [counts, setCounts] = useState<Record<string, number>>(() => {
@@ -257,17 +258,20 @@ export default function CashCounterTab({
   };
 
   const handleReset = () => {
-    if (confirm('🧹 คุณต้องการล้างจำนวนเงินที่นับไว้และข้อมูลการคำนวณทั้งหมดกลับเป็นค่าเริ่มต้นใช่หรือไม่?')) {
-      const cleared: Record<string, number> = {};
-      DENOMINATIONS.forEach(d => {
-        cleared[d.id] = 0;
-      });
-      setCounts(cleared);
-      setOpeningFloat(0);
-      setWithdrawnAmount(0);
-      setSystemSalesSource('today');
-      setCustomExpectedSales(0);
-    }
+    setShowResetConfirm(true);
+  };
+
+  const confirmReset = () => {
+    const cleared: Record<string, number> = {};
+    DENOMINATIONS.forEach(d => {
+      cleared[d.id] = 0;
+    });
+    setCounts(cleared);
+    setOpeningFloat(0);
+    setWithdrawnAmount(0);
+    setSystemSalesSource('today');
+    setCustomExpectedSales(0);
+    setShowResetConfirm(false);
   };
 
   // 1. Math totals - Physical counting
@@ -1295,6 +1299,41 @@ export default function CashCounterTab({
         </div>
 
       </div>
+
+      {/* Custom Reset Cash Counter Confirmation Modal */}
+      {showResetConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in" id="reset-counter-confirm-modal">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 p-6 flex flex-col items-center text-center space-y-5">
+            
+            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 shadow-sm">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold font-sans text-slate-900">ล้างเครื่องคำนวณเงินสด?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-sans px-2">
+                คุณต้องการล้างจำนวนเงินที่นับไว้และข้อมูลการคำนวณทั้งหมดกลับเป็นค่าเริ่มต้นใช่หรือไม่?
+              </p>
+            </div>
+            
+            <div className="flex w-full gap-3 font-sans">
+              <button
+                onClick={() => setShowResetConfirm(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={confirmReset}
+                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-amber-500/10"
+              >
+                ยืนยันการล้างข้อมูล
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
 
     </motion.div>
   );

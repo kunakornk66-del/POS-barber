@@ -33,7 +33,9 @@ import {
   Plus,
   Store,
   KeyRound,
-  BookOpen
+  BookOpen,
+  AlertTriangle,
+  Trash2
 } from 'lucide-react';
 import { 
   db, 
@@ -270,6 +272,9 @@ export default function App() {
   const [isLoading, setIsLoading] = useState(true);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [showUserGuide, setShowUserGuide] = useState(false);
+  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  const [showClearSalesConfirm, setShowClearSalesConfirm] = useState(false);
+  const [showFullResetConfirm, setShowFullResetConfirm] = useState(false);
   const [installTab, setInstallTab] = useState<'ios' | 'android'>('ios');
 
   // Dynamically update document icon and apple-touch-icon with shop logo if configured
@@ -746,9 +751,12 @@ export default function App() {
   };
 
   const handleClearSales = () => {
+    setShowClearSalesConfirm(true);
+  };
+
+  const confirmClearSales = () => {
     if (!userEmail) return;
-    if (!confirm('⚠️ คำเตือน: คุณแน่ใจหรือไม่ที่จะลบประวัติบิลยอดขายทั้งหมดออก? ข้อมูลคลาวด์จะหายไปถาวร')) return;
-    
+    setShowClearSalesConfirm(false);
     setSales([]);
 
     // Query and atomic clear using Firebase client batch
@@ -826,9 +834,12 @@ export default function App() {
   };
 
   const handleFullReset = () => {
+    setShowFullResetConfirm(true);
+  };
+
+  const confirmFullReset = () => {
     if (!userEmail) return;
-    if (!confirm('🚨 ยืนยันคืนค่าโรงงาน: ระบบจะทำการล้างข้อมูลลูกค้า ช่างตัดผม สินค้า และประวัติทั้งหมดของคุณออกจากคลาวด์และถอนบัญชีออก ยืนยันทำรายการหรือไม่?')) return;
-    
+    setShowFullResetConfirm(false);
     setIsLoading(true);
     
     const suffix = `_${userEmail}`;
@@ -1095,43 +1106,35 @@ export default function App() {
   };
 
   const handleLogout = () => {
-    if (confirm('คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบสาขานี้?')) {
-      localStorage.removeItem('barber_pos_user_email');
-      setUserEmail(null);
-    }
+    setShowLogoutConfirm(true);
+  };
+
+  const confirmLogout = () => {
+    localStorage.removeItem('barber_pos_user_email');
+    setUserEmail(null);
+    setShowLogoutConfirm(false);
   };
 
   if (!userEmail) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans antialiased py-12 px-4 selection:bg-indigo-500 selection:text-white" id="login-screen">
-        <div className="w-full max-w-sm bg-white rounded-3xl border border-slate-100 p-8 shadow-md space-y-6">
+        <div className="w-full max-w-sm bg-white rounded-3xl border border-slate-100 p-8 shadow-xl shadow-slate-100/50 space-y-8">
           
-          {/* Logo element */}
-          <div className="text-center space-y-3">
-            <div className="w-12 h-12 bg-slate-950 hover:bg-slate-900 rounded-2xl flex items-center justify-center text-amber-400 shadow-md mx-auto">
-              <Scissors className="w-6 h-6 animate-pulse" />
+          {/* Minimalist Header */}
+          <div className="text-center space-y-4">
+            <div className="w-11 h-11 bg-slate-900 rounded-2xl flex items-center justify-center text-amber-400 shadow-sm mx-auto">
+              <Scissors className="w-5.5 h-5.5" />
             </div>
             <div className="space-y-1">
-              <h1 className="text-lg font-black text-slate-900 tracking-tight">Barber POS</h1>
-              <p className="text-[10px] text-slate-400 font-mono tracking-wider uppercase">Multi-tenant Cloud Terminal Client</p>
+              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Barber POS</h1>
+              <p className="text-xs text-slate-450 font-medium">กรุณากรอกบัญชีอีเมลร้านค้าเพื่อเข้าใช้งาน</p>
             </div>
           </div>
 
-          <div className="border-t border-slate-100 pt-4 text-center space-y-2.5">
-            <p className="text-xs text-slate-500 leading-relaxed max-w-xs mx-auto">
-              กรุณากรอกบัญชีอีเมล Google/Gmail เพื่อแยกสิทธิ์การใช้งานของแต่ละร้านค้าอย่างเป็นเอกเทศ
-            </p>
-            <div className="p-3 bg-emerald-50/70 border border-emerald-100 text-emerald-800 text-[11px] rounded-xl text-left leading-relaxed font-sans font-medium">
-              🔒 <strong>ข้อมูลปลอดภัยและแยกสิทธิ์ 100%:</strong> ข้อมูลของท่านจะถูกผูกเข้ากับอีเมลที่ท่านพิมพ์เข้าใช้งานเท่านั้น คนละอีเมลจะเห็นข้อมูลแยกส่วนกันโดยไม่ปะปนกันเลย หากแชร์เครื่อง/ส่งลิงก์ปกติให้เพื่อนร่วมงานหรือร้านอื่น ท่านและเขาจะเห็นข้อมูลแยกกันอย่างเป็นอิสระ (ยกเว้นแต่จะใช้บัญชีอีเมลเดียวกัน หรือลืมกดออกจากระบบบนอุปกรณ์สาธารณะเดียวกัน) เพื่อความปลอดภัยสูงสุด กรุณากดปุ่ม 🚪 <strong>ออกจากระบบ</strong> ทุกครั้งเมื่อเลิกใช้งานบนเครื่องส่วนรวม
-            </div>
-          </div>
-
-          <form onSubmit={handleLoginSubmit} className="space-y-4">
-            <div className="space-y-1.5 pt-3">
+          {/* Clean Input Form */}
+          <form onSubmit={handleLoginSubmit} className="space-y-5">
+            <div className="space-y-2">
               <div className="relative">
-                <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none z-10">
-                  <KeyRound className="w-4 h-4 text-slate-400" />
-                </div>
                 <input
                   id="user-email"
                   type="email"
@@ -1143,28 +1146,17 @@ export default function App() {
                     setEmailInput(e.target.value);
                     setLoginError('');
                   }}
-                  placeholder={isEmailFocused ? "ตัวอย่าง: thonglor.barber@gmail.com" : ""}
-                  className={`w-full pl-10 pr-4 py-2.5 border rounded-xl outline-none text-sm font-medium transition-all ${
+                  placeholder="เช่น thonglor.barber@gmail.com"
+                  className={`w-full px-4 py-3 border rounded-xl outline-none text-sm font-medium transition-all ${
                     isEmailFocused 
-                      ? 'border-indigo-600 ring-1 ring-indigo-600 bg-white' 
-                      : 'border-slate-200 focus:ring-1 focus:ring-slate-900 focus:border-slate-900'
+                      ? 'border-indigo-600 ring-2 ring-indigo-50/70 bg-white text-slate-900' 
+                      : 'border-slate-200 bg-slate-50/50 text-slate-800 hover:border-slate-300 focus:bg-white'
                   }`}
                 />
-                <label
-                  htmlFor="user-email"
-                  className={`absolute left-10 transition-all duration-300 pointer-events-none flex items-center gap-1.5 select-none ${
-                    isEmailFocused || emailInput
-                      ? '-top-2.5 text-[11px] font-bold text-indigo-600 bg-white px-1.5 z-10'
-                      : 'top-[11px] text-sm font-medium text-slate-400'
-                  }`}
-                >
-                  <Store className={`transition-all duration-300 ${isEmailFocused || emailInput ? 'w-3.5 h-3.5 text-indigo-500' : 'w-4 h-4 text-slate-400'}`} />
-                  <span>บัญชีอีเมลผู้ใช้ (Gmail / Email ของร้าน)</span>
-                </label>
               </div>
               {loginError && (
-                <p className="text-[11px] text-rose-600 font-bold flex items-center space-x-1">
-                  <span className="w-1.5 h-1.5 bg-rose-600 rounded-full inline-block"></span>
+                <p className="text-xs text-rose-600 font-medium flex items-center space-x-1.5 pl-1 animate-pulse">
+                  <span className="w-1.5 h-1.5 bg-rose-600 rounded-full"></span>
                   <span>{loginError}</span>
                 </p>
               )}
@@ -1172,57 +1164,12 @@ export default function App() {
 
             <button
               type="submit"
-              className="w-full py-2.5 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-1.5 cursor-pointer selection:bg-transparent"
+              className="w-full py-3 bg-slate-900 hover:bg-slate-850 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-2 cursor-pointer"
             >
               <UserCheck className="w-4 h-4 text-amber-300" />
               <span>เข้าสู่พื้นที่ร้านค้าของคุณ</span>
             </button>
-
-            {/* Google Sign-in Option */}
-            <div className="relative flex py-2 items-center font-sans">
-              <div className="flex-grow border-t border-slate-200"></div>
-              <span className="flex-shrink mx-4 text-[10px] text-slate-400 font-bold uppercase tracking-wider">หรือเชื่อมต่อด่วน</span>
-              <div className="flex-grow border-t border-slate-200"></div>
-            </div>
-
-            {/* Native Google Sign-In Container */}
-            <div id="google-signin-btn-container" className="g_id_signin w-full"></div>
-
-            {/* Google Sign-In Button Trigger */}
-            {(!(import.meta as any).env.VITE_GOOGLE_CLIENT_ID || (import.meta as any).env.VITE_GOOGLE_CLIENT_ID.trim() === '') && (
-              <button
-                type="button"
-                onClick={() => setShowGoogleChooser(true)}
-                className="w-full py-2.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer font-sans"
-              >
-                <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
-                  <path
-                    fill="#4285F4"
-                    d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
-                  />
-                  <path
-                    fill="#34A853"
-                    d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"
-                  />
-                  <path
-                    fill="#FBBC05"
-                    d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l3.66-2.85z"
-                  />
-                  <path
-                    fill="#EA4335"
-                    d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.85c.87-2.6 3.3-4.53 6.16-4.53z"
-                  />
-                </svg>
-                <span>เข้าสู่ระบบผ่านบัญชี Google</span>
-              </button>
-            )}
           </form>
-
-          <footer className="text-center pt-2">
-            <p className="text-[10px] text-slate-400 font-mono">
-              SECURED BY ENCRYPTED HEADERS • DATA SEGREGATION ACTIVE
-            </p>
-          </footer>
         </div>
 
         {/* CHOOSE GOOGLE ACCOUNT SIMULATOR MODAL */}
@@ -1883,6 +1830,111 @@ export default function App() {
         onClose={() => setShowUserGuide(false)} 
         shopConfig={shopConfig} 
       />
+
+      {/* 6. Custom Logout Confirmation Modal */}
+      {showLogoutConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in" id="logout-confirm-modal">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 p-6 flex flex-col items-center text-center space-y-5">
+            
+            <div className="w-14 h-14 bg-rose-50 rounded-2xl flex items-center justify-center text-rose-500 shadow-sm">
+              <LogOut className="w-6 h-6" />
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold font-sans text-slate-900">ยืนยันออกจากระบบ?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-sans px-2">
+                คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบสาขานี้? หากออกจากระบบแล้ว คุณจะต้องกรอกอีเมลเพื่อเข้าใช้บริการใหม่อีกครั้ง
+              </p>
+            </div>
+            
+            <div className="flex w-full gap-3 font-sans">
+              <button
+                onClick={() => setShowLogoutConfirm(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={confirmLogout}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-rose-500/10"
+              >
+                ออกจากระบบ
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+      {/* 7. Custom Clear Sales Confirmation Modal */}
+      {showClearSalesConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in" id="clear-sales-confirm-modal">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 p-6 flex flex-col items-center text-center space-y-5">
+            
+            <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 shadow-sm">
+              <Trash2 className="w-6 h-6" />
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold font-sans text-slate-900">ยืนยันลบประวัติบิลทั้งหมด?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-sans px-2">
+                <strong>คำเตือน:</strong> คุณแน่ใจหรือไม่ที่จะลบประวัติบิลยอดขายทั้งหมดออก? ข้อมูลบนระบบคลาวด์จะถูกลบออกอย่างถาวรและไม่สามารถกู้คืนได้
+              </p>
+            </div>
+            
+            <div className="flex w-full gap-3 font-sans">
+              <button
+                onClick={() => setShowClearSalesConfirm(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={confirmClearSales}
+                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-amber-500/10"
+              >
+                ลบประวัติทั้งหมด
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
+
+      {/* 8. Custom Factory Reset Confirmation Modal */}
+      {showFullResetConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in" id="full-reset-confirm-modal">
+          <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 p-6 flex flex-col items-center text-center space-y-5">
+            
+            <div className="w-14 h-14 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 shadow-sm animate-bounce">
+              <AlertTriangle className="w-7 h-7" />
+            </div>
+            
+            <div className="space-y-1.5">
+              <h3 className="text-base font-extrabold font-sans text-rose-600">🚨 คืนค่าเริ่มต้นจากโรงงาน?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed font-sans px-2">
+                ระบบจะทำการล้างข้อมูลลูกค้า ช่างตัดผม รายการสินค้า และประวัติทั้งหมดของคุณออกจากระบบคลาวด์และถอนบัญชีออกอย่างสมบูรณ์
+              </p>
+            </div>
+            
+            <div className="flex w-full gap-3 font-sans">
+              <button
+                onClick={() => setShowFullResetConfirm(false)}
+                className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={confirmFullReset}
+                className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-rose-600/10"
+              >
+                ยืนยันการคืนค่า
+              </button>
+            </div>
+            
+          </div>
+        </div>
+      )}
 
     </div>
   );
