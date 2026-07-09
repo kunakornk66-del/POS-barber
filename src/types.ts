@@ -1,0 +1,167 @@
+export interface Barber {
+  id: string;
+  name: string;
+  isWorking: boolean; // มาทำงานรึป่าว
+  realName?: string;  // ชื่อจริง-นามสกุลจริง
+  position?: string;  // ตำแหน่ง เช่น Branch Manager, Hairdresser
+  baseSalary?: number; // ฐานเงินเดือนช่าง
+}
+
+export interface Product {
+  id: string;
+  name: string;
+  price: number;
+  isActive: boolean; // ปิดสถานะสินค้า ในกรณี ของหมดหรือไม่ขายแล้ว
+}
+
+export interface Promotion {
+  id: string;
+  name: string;
+  type: 'percentage' | 'fixed';
+  value: number; // 10 for 10%
+  isActive: boolean;
+}
+
+export interface Voucher {
+  id: string;
+  value: number; // e.g., 20, 50
+  isActive: boolean;
+}
+
+export interface ChemicalPromo {
+  id: string;
+  name: string; // e.g., "ดัดผมเกาหลี ยืดผม ดีดฟรอย"
+  originalPrice: number; // e.g., 2200
+  discountedPrice: number; // e.g., 1590
+  isActive: boolean;
+}
+
+export interface ShareConfig {
+  haircutBarberPct: number; // e.g. 50%
+  chemicalBarberPct: number; // e.g. 40%
+  productBarberPct: number; // e.g. 10% (editable)
+  showPromoDiscount?: boolean; // toggle showing promo discount
+  promoDiscountPct?: number; // custom promotion discount percent
+  defaultChemicalDiscountValue?: number;
+  defaultChemicalDiscountType?: 'fixed' | 'percentage';
+  showChemicalDiscountInPos?: boolean;
+  defaultBookingDuration?: number; // default booking duration in minutes (e.g. 30, 60)
+  enableChemicalService?: boolean; // toggle to enable/disable chemical service
+  enableProductSales?: boolean; // toggle to enable/disable product sales
+}
+
+export interface SaleRecord {
+  id: string;
+  timestamp: string; // ISO String
+  date: string; // YYYY-MM-DD
+  barberId: string;
+  barberName: string;
+  customerName?: string; // ชื่อลูกค้า
+  haircutPrice: number;
+  chemicalPrice: number;
+  productId: string | null;
+  productName: string | null;
+  productPrice: number;
+  productQty?: number; // จำนวนสินค้าที่ขาย
+  tip: number;
+  paymentMethod: 'cash' | 'transfer'; // เงินสด , เงินโอน
+  useDiscountPct10: boolean; // 10% discount
+  useVoucherValue: number; // 0, 20, 50
+  
+  // Chemical discount addition
+  chemicalDiscountValue?: number;
+  chemicalDiscountType?: 'fixed' | 'percentage';
+  chemicalDiscountAmount?: number;
+  chemicalPromoId?: string | null;
+  chemicalPromoName?: string | null;
+  notes?: string;
+  
+  // Financial summaries
+  subtotal: number; // Before discount/voucher
+  discountAmount: number;
+  customerPaid: number; // subtotal - discountAmount
+  
+  // Barber vs Shop calculation (after-hours/behind-doors)
+  // "ลดราคาแต่ช่างได้ส่วนแบ่งเท่าเดิมไม่นำมาหักค่าลดจากทางร้าน"
+  // So calculations are based on ORIGINAL haircutPrice & chemicalPrice & productPrice
+  barberHaircutShare: number;
+  barberChemicalShare: number;
+  barberProductShare: number;
+  barberTotalShare: number; // total for the barber (including tips)
+  shopTotalShare: number; // total retained by shop (with discount absorbed by shop)
+  
+  // Grouped / Linked Payments (Option 2)
+  groupPaymentId?: string; // รหัสกลุ่มบิลที่จ่ายร่วมกันด้วยยอดโอนเดียว
+  groupPaymentCode?: string; // ชื่ออ้างอิงหรือป้ายกำกับสำหรับยอดโอนร่วม เช่น "คุณพ่อ + คุณลูก"
+}
+
+export interface ShopConfig {
+  shopName: string;
+  pinCode?: string;      // รหัสผ่าน 4 หรือ 6 หลัก
+  isPinLocked?: boolean; // เปิดใช้งานการล็อคด้วย PIN
+  logoUrl?: string;      // URL/Base64 รูปโลโก้ร้าน
+  billingCutoffDay?: number; // วันตัดยอดของแต่ละเดือน (ค่าเริ่มต้นคือ 1 หมายถึงเริ่มนับวันที่ 1 ของทุกเดือน)
+  primaryColor?: string;  // สีหลักของแบรนด์ เช่น #6366f1
+}
+
+export interface Payslip {
+  id: string;
+  timestamp: string; // ISO String
+  month: string; // YYYY-MM
+  barberId: string;
+  barberName: string;
+  baseSalary: number;
+  overtime: number;
+  positionAllowance?: number; // ค่าตำแหน่ง
+  deductions: number;
+  socialSecurity: number;
+  taxRate: number; // e.g. 3 for 3%
+  note: string;
+  
+  // Static snapshot of calculations copied at issuance time
+  haircutCommission: number;
+  chemicalCommission: number;
+  productCommission: number;
+  tips: number;
+  totalEarnings: number; // baseSalary + OT + commission + tips
+  totalDeductions: number; // deductions + socialSecurity + withholding tax
+  netPaid: number; // totalEarnings - totalDeductions
+}
+
+export interface Expense {
+  id: string;
+  timestamp: string; // ISO String
+  date: string; // YYYY-MM-DD
+  amount: number;
+  category: 'supplies' | 'utilities' | 'rent' | 'marketing' | 'salary' | 'loans' | 'other'; // ประเภทรายจ่าย
+  notes: string;
+  payee: string; // ผู้เบิก / ผู้รับเงิน
+  isFromDrawer?: boolean; // จ่ายด้วยเงินสดจากกะหรือเก๊ะเงินเครื่อง
+}
+
+export interface Booking {
+  id: string;
+  barberId: string;
+  barberName: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  customerName: string;
+  customerPhone: string;
+  notes: string;
+  recorderBarberId: string;
+  recorderBarberName: string;
+  createdAt: string; // ISO String
+  isUnspecified?: boolean; // คิวนี้ระบุไม่เจาะจงช่าง (แต่ต้องเลือกช่างเพื่อสำรองคิวและเช็คไม่ให้ชน)
+}
+
+export interface CashCounterState {
+  counts: Record<string, number>;
+  openingFloat: number;
+  withdrawnAmount: number;
+  systemSalesSource: 'today' | 'all' | 'custom';
+  customExpectedSales: number;
+  updatedAt?: string;
+}
+
+

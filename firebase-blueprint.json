@@ -1,0 +1,189 @@
+{
+  "entities": {
+    "Salon": {
+      "title": "Salon",
+      "description": "Master settings, barbers, products, and configurations for a specific hair salon.",
+      "type": "object",
+      "properties": {
+        "shopName": {
+          "type": "string",
+          "description": "Name of the salon"
+        },
+        "shareConfig": {
+          "type": "object",
+          "description": "Commission sharing configurations"
+        },
+        "barbers": {
+          "type": "array",
+          "description": "List of barbers and their attendance"
+        },
+        "products": {
+          "type": "array",
+          "description": "List of products sold in the salon"
+        },
+        "vouchers": {
+          "type": "array",
+          "description": "List of active vouchers"
+        },
+        "payslips": {
+          "type": "array",
+          "description": "List of paid payslips for accounting"
+        },
+        "expenses": {
+          "type": "array",
+          "description": "List of salon expenses / store withdrawals"
+        },
+        "chemicalPromos": {
+          "type": "array",
+          "description": "List of chemical promotions and preset discounts"
+        },
+        "bookings": {
+          "type": "array",
+          "description": "List of client appointment bookings"
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time"
+        }
+      },
+      "required": ["shopName", "shareConfig", "barbers", "products", "vouchers", "chemicalPromos"]
+    },
+    "SaleRecord": {
+      "title": "SaleRecord",
+      "description": "A single checkout billing invoice and commission entry.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "timestamp": {
+          "type": "string",
+          "format": "date-time"
+        },
+        "date": {
+          "type": "string"
+        },
+        "barberId": {
+          "type": "string"
+        },
+        "barberName": {
+          "type": "string"
+        },
+        "haircutPrice": {
+          "type": "number"
+        },
+        "chemicalPrice": {
+          "type": "number"
+        },
+        "productId": {
+          "type": "string"
+        },
+        "productName": {
+          "type": "string"
+        },
+        "productPrice": {
+          "type": "number"
+        },
+        "tip": {
+          "type": "number"
+        },
+        "paymentMethod": {
+          "type": "string",
+          "enum": ["cash", "transfer"]
+        },
+        "useDiscountPct10": {
+          "type": "boolean"
+        },
+        "useVoucherValue": {
+          "type": "number"
+        },
+        "subtotal": {
+          "type": "number"
+        },
+        "discountAmount": {
+          "type": "number"
+        },
+        "customerPaid": {
+          "type": "number"
+        },
+        "barberHaircutShare": {
+          "type": "number"
+        },
+        "barberChemicalShare": {
+          "type": "number"
+        },
+        "barberProductShare": {
+          "type": "number"
+        },
+        "barberTotalShare": {
+          "type": "number"
+        },
+        "shopTotalShare": {
+          "type": "number"
+        }
+      },
+      "required": [
+        "id",
+        "timestamp",
+        "date",
+        "barberId",
+        "barberName",
+        "haircutPrice",
+        "chemicalPrice",
+        "productPrice",
+        "tip",
+        "paymentMethod",
+        "subtotal",
+        "discountAmount",
+        "customerPaid",
+        "barberTotalShare",
+        "shopTotalShare"
+      ]
+    },
+    "Expense": {
+      "title": "Expense",
+      "description": "Store expenses and miscellaneous cash withdrawals.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "timestamp": { "type": "string", "format": "date-time" },
+        "date": { "type": "string" },
+        "amount": { "type": "number" },
+        "category": { "type": "string" },
+        "notes": { "type": "string" },
+        "payee": { "type": "string" }
+      },
+      "required": ["id", "timestamp", "date", "amount", "category", "notes", "payee"]
+    },
+    "Booking": {
+      "title": "Booking",
+      "description": "An appointment reservation booking record.",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "barberId": { "type": "string" },
+        "barberName": { "type": "string" },
+        "date": { "type": "string", "description": "Booking Date (YYYY-MM-DD)" },
+        "startTime": { "type": "string", "description": "Start Time (HH:MM)" },
+        "endTime": { "type": "string", "description": "End Time (HH:MM)" },
+        "customerName": { "type": "string" },
+        "customerPhone": { "type": "string" },
+        "notes": { "type": "string" },
+        "recorderBarberId": { "type": "string" },
+        "recorderBarberName": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["id", "barberId", "barberName", "date", "startTime", "endTime", "customerName", "customerPhone", "recorderBarberId", "recorderBarberName", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/salons/{salonId}": {
+      "schema": "Salon",
+      "description": "Salon level settings document"
+    },
+    "/salons/{salonId}/sales/{saleId}": {
+      "schema": "SaleRecord",
+      "description": "Subcollection of transaction records"
+    }
+  }
+}

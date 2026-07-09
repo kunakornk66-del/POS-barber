@@ -1,0 +1,41 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net: Default-deny catch-all rule
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // 2. Hardened Utility Helpers
+    function isValidId(id) {
+       return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_.@-]+$');
+    }
+
+    function incoming(req) { 
+      return req.resource.data; 
+    }
+
+    // 3. Multi-Tenant Salons Rule set (Indexed uniquely by owner's Email address)
+    match /salons/{email} {
+      // Allow read/write access if the email index is structured properly
+      allow read: if isValidId(email) && email.size() <= 100;
+      allow create, update: if isValidId(email) && email.size() <= 100;
+      allow delete: if isValidId(email);
+
+      // 4. Sales Subcollection Rules (Tracked securely per Salon Tenant)
+      match /sales/{saleId} {
+        // Fix: Split read into get (for single document) and list (for collection list query)
+        // This ensures isValidId(saleId) is not checked during a collection query where saleId is empty/unbound.
+        allow get: if isValidId(email) && isValidId(saleId);
+        allow list: if isValidId(email);
+
+        allow create, update: if isValidId(email) && isValidId(saleId)
+          && incoming(request).id is string
+          && incoming(request).subtotal is number
+          && incoming(request).customerPaid is number;
+        allow delete: if isValidId(email) && isValidId(saleId);
+      }
+    }
+  }
+}
