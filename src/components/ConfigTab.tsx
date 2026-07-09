@@ -419,6 +419,7 @@ export default function ConfigTab({
   const [shopLogoUrl, setShopLogoUrl] = useState<string>(shopConfig.logoUrl || '');
   const [billingCutoffDayInput, setBillingCutoffDayInput] = useState<number>(shopConfig.billingCutoffDay || 1);
   const [primaryColorInput, setPrimaryColorInput] = useState<string>(shopConfig.primaryColor || '#6366f1');
+  const [enableBookingsInput, setEnableBookingsInput] = useState<boolean>(shopConfig.enableBookings !== false);
   const [isShopSaved, setIsShopSaved] = useState<boolean>(false);
 
   // Synchronize local states when the fetched shopConfig props change
@@ -427,6 +428,7 @@ export default function ConfigTab({
     setShopLogoUrl(shopConfig.logoUrl || '');
     setBillingCutoffDayInput(shopConfig.billingCutoffDay || 1);
     setPrimaryColorInput(shopConfig.primaryColor || '#6366f1');
+    setEnableBookingsInput(shopConfig.enableBookings !== false);
   }, [shopConfig]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -498,7 +500,8 @@ export default function ConfigTab({
       pinCode: pinCodeInput,
       logoUrl: shopLogoUrl,
       billingCutoffDay: billingCutoffDayInput,
-      primaryColor: primaryColorInput
+      primaryColor: primaryColorInput,
+      enableBookings: enableBookingsInput
     });
     setIsShopSaved(true);
     setTimeout(() => setIsShopSaved(false), 3000);
@@ -905,6 +908,27 @@ export default function ConfigTab({
                 <p className="text-[11px] text-indigo-950 font-sans leading-relaxed">
                   * เช่น หากตั้งเป็น <strong>ทุกวันที่ 25 ของเดือน</strong> รอบบัญชีเดือนมิถุนายน (2026-06) จะเริ่มนับยอดเงินสะสมตั้งแต่วันที่ 26 พฤษภาคม จนถึงวันที่ 25 มิถุนายน ของทุกปี ระบบจะทำการคำนวณและกรองรายงานให้ตรงกันโดยอัตโนมัติ
                 </p>
+              </div>
+            </div>
+
+            {/* Additional Modules: Booking System Toggle */}
+            <div className="space-y-1.5 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-4 mt-2">
+              <span className="block text-xs font-semibold text-slate-700">ระบบฟังก์ชันเสริม (Additional Modules):</span>
+              <div className="flex items-center space-x-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-200">
+                <label className="flex items-start space-x-3 cursor-pointer w-full">
+                  <input
+                    type="checkbox"
+                    checked={enableBookingsInput}
+                    onChange={(e) => setEnableBookingsInput(e.target.checked)}
+                    className="w-4.5 h-4.5 text-indigo-600 rounded-lg border-slate-300 focus:ring-indigo-500 bg-white mt-0.5"
+                  />
+                  <div>
+                    <span className="block text-xs font-extrabold text-slate-900">เปิดใช้งานระบบจองคิว / ตารางจองคิว (Enable Booking System)</span>
+                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                      หากต้องการปิดฟังก์ชันนี้ (เช่น ไม่ต้องการรับคิวล่วงหน้า หรือไม่ต้องการให้รบกวนหน้าจอหลัก) สามารถติ๊กออกเพื่อซ่อนแถบเมนู "ระบบจองคิว" ออกจากหน้าจอใช้งาน POS ได้ทันที
+                    </span>
+                  </div>
+                </label>
               </div>
             </div>
           </div>

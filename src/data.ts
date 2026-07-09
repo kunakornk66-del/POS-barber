@@ -33,6 +33,7 @@ export const DEFAULT_SHARE_CONFIG: ShareConfig = {
 export const DEFAULT_SHOP_CONFIG: ShopConfig = {
   shopName: 'Barber POS',
   primaryColor: '#6366f1',
+  enableBookings: true,
 };
 
 // Seed 30 past sales records spanning June 1st to June 9th, 2026
