@@ -137,7 +137,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
   const chemicalDiscountAmount = React.useMemo(() => {
     if (!applyChemicalDiscount || chemicalPrice <= 0 || chemicalDiscountValue <= 0) return 0;
     if (chemicalDiscountType === 'percentage') {
-      return Math.round((chemicalPrice * chemicalDiscountValue) / 100);
+      return (chemicalPrice * chemicalDiscountValue) / 100;
     } else {
       return Math.min(chemicalPrice, chemicalDiscountValue);
     }
@@ -147,7 +147,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
 
   // Calculate discounts
   // Discount is calculated ONLY on the haircut price as requested
-  const discount10Amount = useDiscount10 ? Math.round((haircutPrice * promoDiscountPct) / 100) : 0;
+  const discount10Amount = useDiscount10 ? (haircutPrice * promoDiscountPct) / 100 : 0;
   
   const selectedVoucher = vouchers.find(v => v.id === useVoucherId);
   const voucherValue = (selectedVoucher && selectedVoucher.isActive) ? selectedVoucher.value : 0;
@@ -159,13 +159,13 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
 
   // Backend Calculations (shown only back-of-house/dashboard, not on checkout UI)
   // Barber Haircut Share: calculated on full haircut price (shop absorbs discount)
-  const devBarberHaircutShare = Math.round(haircutPrice * shareConfig.haircutBarberPct) / 100;
+  const devBarberHaircutShare = (haircutPrice * shareConfig.haircutBarberPct) / 100;
   // Barber Chemical Share: "ช่างก็จะได้ส่วนแบ่งตามราคาที่ลดจริงด้วย" -> calculated based on actualChemicalPrice after discount!
-  const devBarberChemicalShare = Math.round(actualChemicalPrice * shareConfig.chemicalBarberPct) / 100;
-  const devBarberProductShare = Math.round(productPrice * shareConfig.productBarberPct) / 100;
-  const devBarberTotalShare = Math.round((devBarberHaircutShare + devBarberChemicalShare + devBarberProductShare + tipAmount) * 100) / 100;
+  const devBarberChemicalShare = (actualChemicalPrice * shareConfig.chemicalBarberPct) / 100;
+  const devBarberProductShare = (productPrice * shareConfig.productBarberPct) / 100;
+  const devBarberTotalShare = devBarberHaircutShare + devBarberChemicalShare + devBarberProductShare + tipAmount;
   // Shop Total Share retains remaining from actual customer payment minus barber shares
-  const devShopTotalShare = Math.round((Math.max(0, subtotal - totalDiscounts) - (devBarberHaircutShare + devBarberChemicalShare + devBarberProductShare)) * 100) / 100;
+  const devShopTotalShare = Math.max(0, subtotal - totalDiscounts) - (devBarberHaircutShare + devBarberChemicalShare + devBarberProductShare);
 
   const [showSuccessToast, setShowSuccessToast] = useState<boolean>(false);
   const [lastSavedRecord, setLastSavedRecord] = useState<any>(null);

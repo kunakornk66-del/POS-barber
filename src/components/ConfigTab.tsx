@@ -1005,8 +1005,9 @@ export default function ConfigTab({
                   type="number"
                   min="0"
                   max="100"
+                  step="any"
                   value={haircutPct}
-                  onChange={(e) => setHaircutPct(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) => setHaircutPct(parseFloat(e.target.value) || 0)}
                   className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500"
                 />
                 <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
@@ -1024,9 +1025,10 @@ export default function ConfigTab({
                   type="number"
                   min="0"
                   max="100"
+                  step="any"
                   disabled={!enableChemicalService}
                   value={chemicalPct}
-                  onChange={(e) => setChemicalPct(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) => setChemicalPct(parseFloat(e.target.value) || 0)}
                   className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-50"
                 />
                 <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
@@ -1044,9 +1046,10 @@ export default function ConfigTab({
                   type="number"
                   min="0"
                   max="100"
+                  step="any"
                   disabled={!enableProductSales}
                   value={productPct}
-                  onChange={(e) => setProductPct(parseInt(e.target.value, 10) || 0)}
+                  onChange={(e) => setProductPct(parseFloat(e.target.value) || 0)}
                   className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-50"
                 />
                 <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
@@ -1124,9 +1127,10 @@ export default function ConfigTab({
                     type="number"
                     min="0"
                     max="100"
+                    step="any"
                     disabled={!showPromoDiscount}
                     value={promoDiscountPct}
-                    onChange={(e) => setPromoDiscountPct(parseInt(e.target.value, 10) || 0)}
+                    onChange={(e) => setPromoDiscountPct(parseFloat(e.target.value) || 0)}
                     className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 font-medium"
                   />
                   <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>

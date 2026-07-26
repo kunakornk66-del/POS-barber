@@ -227,7 +227,7 @@ export default function App() {
       let chemicalDiscountAmount = s.chemicalDiscountAmount ?? 0;
       if (s.chemicalDiscountValue && s.chemicalDiscountValue > 0) {
         if (s.chemicalDiscountType === 'percentage') {
-          chemicalDiscountAmount = Math.round((chemicalPrice * s.chemicalDiscountValue) / 100);
+          chemicalDiscountAmount = (chemicalPrice * s.chemicalDiscountValue) / 100;
         } else {
           chemicalDiscountAmount = Math.min(chemicalPrice, s.chemicalDiscountValue);
         }
@@ -236,19 +236,19 @@ export default function App() {
       const actualChemicalPrice = Math.max(0, chemicalPrice - chemicalDiscountAmount);
 
       const promoDiscountPct = shareConfig.promoDiscountPct ?? 10;
-      const discount10Amount = s.useDiscountPct10 ? Math.round((haircutPrice * promoDiscountPct) / 100) : 0;
+      const discount10Amount = s.useDiscountPct10 ? (haircutPrice * promoDiscountPct) / 100 : 0;
       const voucherValue = s.useVoucherValue || 0;
 
       const totalDiscounts = discount10Amount + voucherValue + chemicalDiscountAmount;
       const customerPaid = Math.max(0, subtotal - totalDiscounts) + tip;
 
-      // Shares with precise decimal rounding (e.g. 7% of 110 becomes 7.70 Baht)
+      // Shares without rounding off decimals (keep exact calculated decimals)
       // Check if the record already has the calculated shares to prevent overriding historical commission settings
-      const barberHaircutShare = s.barberHaircutShare !== undefined ? s.barberHaircutShare : Math.round(haircutPrice * shareConfig.haircutBarberPct) / 100;
-      const barberChemicalShare = s.barberChemicalShare !== undefined ? s.barberChemicalShare : Math.round(actualChemicalPrice * shareConfig.chemicalBarberPct) / 100;
-      const barberProductShare = s.barberProductShare !== undefined ? s.barberProductShare : Math.round(productPrice * shareConfig.productBarberPct) / 100;
-      const barberTotalShare = s.barberTotalShare !== undefined ? s.barberTotalShare : Math.round((barberHaircutShare + barberChemicalShare + barberProductShare + tip) * 100) / 100;
-      const shopTotalShare = s.shopTotalShare !== undefined ? s.shopTotalShare : Math.round((Math.max(0, subtotal - totalDiscounts) - (barberHaircutShare + barberChemicalShare + barberProductShare)) * 100) / 100;
+      const barberHaircutShare = s.barberHaircutShare !== undefined ? s.barberHaircutShare : (haircutPrice * shareConfig.haircutBarberPct) / 100;
+      const barberChemicalShare = s.barberChemicalShare !== undefined ? s.barberChemicalShare : (actualChemicalPrice * shareConfig.chemicalBarberPct) / 100;
+      const barberProductShare = s.barberProductShare !== undefined ? s.barberProductShare : (productPrice * shareConfig.productBarberPct) / 100;
+      const barberTotalShare = s.barberTotalShare !== undefined ? s.barberTotalShare : (barberHaircutShare + barberChemicalShare + barberProductShare + tip);
+      const shopTotalShare = s.shopTotalShare !== undefined ? s.shopTotalShare : (Math.max(0, subtotal - totalDiscounts) - (barberHaircutShare + barberChemicalShare + barberProductShare));
 
       return {
         ...s,

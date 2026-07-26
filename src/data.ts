@@ -76,13 +76,13 @@ export function getSeededSales(): SaleRecord[] {
 
   salesTemplates.forEach((t, index) => {
     const subtotal = t.haircut + t.chem + t.prodPrice;
-    const discountAmount = (t.disc ? Math.round(t.haircut * (DEFAULT_SHARE_CONFIG.promoDiscountPct ?? 10) / 100) : 0) + t.vouch;
+    const discountAmount = (t.disc ? (t.haircut * (DEFAULT_SHARE_CONFIG.promoDiscountPct ?? 10)) / 100 : 0) + t.vouch;
     const customerPaid = Math.max(0, subtotal - discountAmount) + t.tip; // dynamic cost customer pays inclusive of tip
 
     // Original commissions before discount (absorbing by the shop)
-    const barberHaircutShare = Math.round((t.haircut * DEFAULT_SHARE_CONFIG.haircutBarberPct) / 100);
-    const barberChemicalShare = Math.round((t.chem * DEFAULT_SHARE_CONFIG.chemicalBarberPct) / 100);
-    const barberProductShare = Math.round((t.prodPrice * DEFAULT_SHARE_CONFIG.productBarberPct) / 100);
+    const barberHaircutShare = (t.haircut * DEFAULT_SHARE_CONFIG.haircutBarberPct) / 100;
+    const barberChemicalShare = (t.chem * DEFAULT_SHARE_CONFIG.chemicalBarberPct) / 100;
+    const barberProductShare = (t.prodPrice * DEFAULT_SHARE_CONFIG.productBarberPct) / 100;
     const barberTotalShare = barberHaircutShare + barberChemicalShare + barberProductShare + t.tip;
     
     // Shop total share = Customer total paid - Barber portion (shop absorbs the entire discount amount)

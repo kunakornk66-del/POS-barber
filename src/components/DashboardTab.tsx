@@ -114,7 +114,7 @@ export default function DashboardTab({
     let chemicalDiscountAmount = 0;
     if (currentSale.chemicalDiscountValue && currentSale.chemicalDiscountValue > 0) {
       if (currentSale.chemicalDiscountType === 'percentage') {
-        chemicalDiscountAmount = Math.round((chemicalPrice * currentSale.chemicalDiscountValue) / 100);
+        chemicalDiscountAmount = (chemicalPrice * currentSale.chemicalDiscountValue) / 100;
       } else {
         chemicalDiscountAmount = Math.min(chemicalPrice, currentSale.chemicalDiscountValue);
       }
@@ -123,18 +123,18 @@ export default function DashboardTab({
     const actualChemicalPrice = Math.max(0, chemicalPrice - chemicalDiscountAmount);
 
     const promoDiscountPct = shareConfig.promoDiscountPct ?? 10;
-    const discount10Amount = currentSale.useDiscountPct10 ? Math.round((haircutPrice * promoDiscountPct) / 100) : 0;
+    const discount10Amount = currentSale.useDiscountPct10 ? (haircutPrice * promoDiscountPct) / 100 : 0;
     const voucherValue = currentSale.useVoucherValue || 0;
 
     const totalDiscounts = discount10Amount + voucherValue + chemicalDiscountAmount;
     const customerPaid = Math.max(0, subtotal - totalDiscounts) + tip;
 
     // Shares
-    const barberHaircutShare = Math.round(haircutPrice * shareConfig.haircutBarberPct) / 100;
-    const barberChemicalShare = Math.round(actualChemicalPrice * shareConfig.chemicalBarberPct) / 100;
-    const barberProductShare = Math.round(productPrice * shareConfig.productBarberPct) / 100;
-    const barberTotalShare = Math.round((barberHaircutShare + barberChemicalShare + barberProductShare + tip) * 100) / 100;
-    const shopTotalShare = Math.round((Math.max(0, subtotal - totalDiscounts) - (barberHaircutShare + barberChemicalShare + barberProductShare)) * 100) / 100;
+    const barberHaircutShare = (haircutPrice * shareConfig.haircutBarberPct) / 100;
+    const barberChemicalShare = (actualChemicalPrice * shareConfig.chemicalBarberPct) / 100;
+    const barberProductShare = (productPrice * shareConfig.productBarberPct) / 100;
+    const barberTotalShare = barberHaircutShare + barberChemicalShare + barberProductShare + tip;
+    const shopTotalShare = Math.max(0, subtotal - totalDiscounts) - (barberHaircutShare + barberChemicalShare + barberProductShare);
 
     return {
       haircutPrice,
@@ -466,7 +466,7 @@ export default function DashboardTab({
     const guaranteeSupplement = totalSharesGenerated < base ? (base - totalSharesGenerated) : 0;
 
     const totalEarnings = earnedIncome + tip + ot + posAllowance;
-    const taxValue = Math.round(totalEarnings * (slipTaxRate / 100));
+    const taxValue = (totalEarnings * slipTaxRate) / 100;
     const deductions = slipDeductions || 0;
     const soc = slipSocialSecurity || 0;
     const totalDeductions = deductions + soc + taxValue;
@@ -1130,7 +1130,7 @@ export default function DashboardTab({
     const posAllowance = positionAllowance || 0;
     
     const totalEarnings = earnedIncome + tipTotal + overtime + posAllowance;
-    const taxValue = Math.round(totalEarnings * (taxRate / 100));
+    const taxValue = (totalEarnings * taxRate) / 100;
     const totalDeductions = deductions + soc + taxValue;
     const netPayable = totalEarnings - totalDeductions;
     const thMonth = formatThaiMonth(month);
@@ -1788,7 +1788,7 @@ export default function DashboardTab({
     const earnedIncome = Math.max(totalSharesGenerated, baseVal);
     const totalEarnings = earnedIncome + tipTotal + otVal + posAllowanceVal;
     
-    const taxValue = Math.round(totalEarnings * (slipTaxRate / 100));
+    const taxValue = (totalEarnings * slipTaxRate) / 100;
     const totalDeductions = decVal + socVal + taxValue;
     const netPayable = totalEarnings - totalDeductions;
 
@@ -1857,7 +1857,7 @@ export default function DashboardTab({
     const guaranteeSupplement = totalSharesGenerated < base ? (base - totalSharesGenerated) : 0;
     
     const totalEarnings = earnedIncome + tip + ot + posAllowance;
-    const taxValue = Math.round(totalEarnings * (slipTaxRate / 100));
+    const taxValue = (totalEarnings * slipTaxRate) / 100;
     const deductions = slipDeductions || 0;
     const soc = slipSocialSecurity || 0;
     const totalDeductions = deductions + soc + taxValue;

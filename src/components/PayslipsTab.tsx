@@ -71,7 +71,7 @@ export default function PayslipsTab({
     if (value === '') {
       setter('');
     } else {
-      setter(Math.max(0, parseInt(value, 10) || 0));
+      setter(Math.max(0, parseFloat(value) || 0));
     }
   };
   
@@ -138,7 +138,7 @@ export default function PayslipsTab({
     const guaranteeSupplement = totalSharesGenerated < base ? (base - totalSharesGenerated) : 0;
 
     const totalEarnings = earnedIncome + tip + ot + posAllowance;
-    const taxValue = Math.round(totalEarnings * (editSlipTaxRate / 100));
+    const taxValue = (totalEarnings * editSlipTaxRate) / 100;
     const deductions = Number(editSlipDeductions) || 0;
     const soc = Number(editSlipSocialSecurity) || 0;
     const totalDeductions = deductions + soc + taxValue;
@@ -309,7 +309,7 @@ export default function PayslipsTab({
     const guaranteeSupplement = totalSharesGenerated < base ? (base - totalSharesGenerated) : 0;
 
     const totalEarnings = earnedIncome + tip + ot + posAllowance;
-    const taxValue = Math.round(totalEarnings * (slipTaxRate / 100));
+    const taxValue = (totalEarnings * slipTaxRate) / 100;
     const deductions = Number(slipDeductions) || 0;
     const soc = Number(slipSocialSecurity) || 0;
     const totalDeductions = deductions + soc + taxValue;
@@ -374,7 +374,7 @@ export default function PayslipsTab({
     const posAllowance = positionAllowance || 0;
     
     const totalEarnings = earnedIncome + tipTotal + overtime + posAllowance;
-    const taxValue = Math.round(totalEarnings * (taxRate / 100));
+    const taxValue = (totalEarnings * taxRate) / 100;
     const totalDeductions = deductions + soc + taxValue;
     const netPayable = totalEarnings - totalDeductions;
     const thMonth = formatThaiMonth(month);
@@ -1030,7 +1030,7 @@ export default function PayslipsTab({
     const earnedIncome = Math.max(totalSharesGenerated, baseVal);
     const totalEarnings = earnedIncome + tipTotal + otVal + posAllowanceVal;
     
-    const taxValue = Math.round(totalEarnings * (slipTaxRate / 100));
+    const taxValue = (totalEarnings * slipTaxRate) / 100;
     const totalDeductions = decVal + socVal + taxValue;
     const netPayable = totalEarnings - totalDeductions;
 
@@ -1083,7 +1083,7 @@ export default function PayslipsTab({
     const guaranteeSupplement = totalSharesGenerated < base ? (base - totalSharesGenerated) : 0;
     
     const totalEarnings = earnedIncome + tip + ot + posAllowance;
-    const taxValue = Math.round(totalEarnings * (slipTaxRate / 100));
+    const taxValue = (totalEarnings * slipTaxRate) / 100;
     const deductions = Number(slipDeductions) || 0;
     const soc = Number(slipSocialSecurity) || 0;
     const totalDeductions = deductions + soc + taxValue;
@@ -1415,7 +1415,7 @@ export default function PayslipsTab({
                   <label className="block text-[11px] font-bold text-slate-300">หักภาษี ณ ที่จ่าย % (Withholding Tax):</label>
                   <select
                     value={slipTaxRate}
-                    onChange={(e) => setSlipTaxRate(parseInt(e.target.value) || 0)}
+                    onChange={(e) => setSlipTaxRate(parseFloat(e.target.value) || 0)}
                     className="w-full bg-slate-950 text-white text-xs px-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-bold cursor-pointer h-[34px]"
                   >
                     <option value={0}>ภาษี 0% (ไม่หักภาษี ณ ที่จ่าย)</option>
@@ -2008,7 +2008,7 @@ export default function PayslipsTab({
                     <label className="block text-[11px] font-bold text-slate-300">ภาษีหัก ณ ที่จ่าย (Withholding Tax Rate):</label>
                     <select
                       value={editSlipTaxRate}
-                      onChange={(e) => setEditSlipTaxRate(parseInt(e.target.value, 10) || 0)}
+                      onChange={(e) => setEditSlipTaxRate(parseFloat(e.target.value) || 0)}
                       className="w-full bg-slate-950 text-white text-xs px-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none cursor-pointer font-bold font-sans"
                     >
                       <option value={0}>ภาษี 0% (ไม่คำนวณหักภาษี)</option>
