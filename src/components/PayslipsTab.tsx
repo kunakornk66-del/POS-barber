@@ -3,6 +3,7 @@ import { SaleRecord, Barber, ShareConfig, ShopConfig, Payslip } from '../types';
 import { 
   formatBaht, 
   formatThaiMonth, 
+  formatThaiDate,
   downloadWordReport 
 } from '../utils';
 import { 
@@ -20,7 +21,13 @@ import {
   Search, 
   ChevronRight,
   Info,
-  Pencil
+  Pencil,
+  Calendar,
+  CalendarDays,
+  Filter,
+  Sparkles,
+  Scissors,
+  Clock
 } from 'lucide-react';
 
 interface PayslipsTabProps {
@@ -48,8 +55,91 @@ export default function PayslipsTab({
     return new Date(now.getTime() - offset).toISOString().split('T')[0].substring(0, 7);
   };
 
+  const getTodayDateString = (): string => {
+    const now = new Date();
+    const offset = now.getTimezoneOffset() * 60000;
+    return new Date(now.getTime() - offset).toISOString().split('T')[0];
+  };
+
+  const get26thLastMonthDateString = (): string => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const prevMonth26 = new Date(year, month - 1, 26);
+    const offset = prevMonth26.getTimezoneOffset() * 60000;
+    return new Date(prevMonth26.getTime() - offset).toISOString().split('T')[0];
+  };
+
   const [selectedMonth, setSelectedMonth] = useState<string>(getLocalMonthString());
+  const [dateFilterMode, setDateFilterMode] = useState<'month' | 'custom'>('month');
+  const [customStartDate, setCustomStartDate] = useState<string>(get26thLastMonthDateString());
+  const [customEndDate, setCustomEndDate] = useState<string>(getTodayDateString());
   const [slipBarberId, setSlipBarberId] = useState<string>('');
+
+  // Quick presets for custom date range
+  const handleSetPreset26to25 = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const date = now.getDate();
+
+    let startObj: Date;
+    let endObj: Date;
+
+    if (date >= 26) {
+      startObj = new Date(year, month, 26);
+      endObj = new Date(year, month + 1, 25);
+    } else {
+      startObj = new Date(year, month - 1, 26);
+      endObj = new Date(year, month, 25);
+    }
+
+    const startISO = new Date(startObj.getTime() - startObj.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const endISO = new Date(endObj.getTime() - endObj.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+
+    setCustomStartDate(startISO);
+    setCustomEndDate(endISO);
+  };
+
+  const handleSetPresetCurrentMonth = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month, 1);
+    const lastDay = new Date(year, month + 1, 0);
+
+    const startISO = new Date(firstDay.getTime() - firstDay.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const endISO = new Date(lastDay.getTime() - lastDay.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+
+    setCustomStartDate(startISO);
+    setCustomEndDate(endISO);
+  };
+
+  const handleSetPresetLastMonth = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = now.getMonth();
+    const firstDay = new Date(year, month - 1, 1);
+    const lastDay = new Date(year, month, 0);
+
+    const startISO = new Date(firstDay.getTime() - firstDay.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const endISO = new Date(lastDay.getTime() - lastDay.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+
+    setCustomStartDate(startISO);
+    setCustomEndDate(endISO);
+  };
+
+  const handleSetPresetLastDays = (days: number) => {
+    const endObj = new Date();
+    const startObj = new Date();
+    startObj.setDate(endObj.getDate() - (days - 1));
+
+    const startISO = new Date(startObj.getTime() - startObj.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+    const endISO = new Date(endObj.getTime() - endObj.getTimezoneOffset() * 60000).toISOString().split('T')[0];
+
+    setCustomStartDate(startISO);
+    setCustomEndDate(endISO);
+  };
   
   // States for Professional Payslip Builder
   const [slipBaseSalary, setSlipBaseSalary] = useState<number | ''>('');
@@ -230,15 +320,27 @@ export default function PayslipsTab({
     }
   }, [barbers, slipBarberId]);
 
-  // Fetch sales of selected month automatically
-  const monthlySales = useMemo(() => {
-    return sales.filter(s => s.date.startsWith(selectedMonth));
-  }, [sales, selectedMonth]);
+  // Fetch sales of selected month or custom date range automatically
+  const periodSales = useMemo(() => {
+    if (dateFilterMode === 'month') {
+      return sales.filter(s => s.date && s.date.startsWith(selectedMonth));
+    } else {
+      if (!customStartDate && !customEndDate) return sales;
+      if (customStartDate && customEndDate) {
+        return sales.filter(s => s.date && s.date >= customStartDate && s.date <= customEndDate);
+      } else if (customStartDate) {
+        return sales.filter(s => s.date && s.date >= customStartDate);
+      } else if (customEndDate) {
+        return sales.filter(s => s.date && s.date <= customEndDate);
+      }
+      return sales;
+    }
+  }, [sales, dateFilterMode, selectedMonth, customStartDate, customEndDate]);
 
-  // Calculate selected barber's statistics for the selected month
-  const monthlyBarberStats = useMemo(() => {
+  // Calculate selected barber's statistics for the selected period (month or custom range)
+  const periodBarberStats = useMemo(() => {
     return barbers.map(barber => {
-      const barberSales = monthlySales.filter(s => s.barberId === barber.id);
+      const barberSales = periodSales.filter(s => s.barberId === barber.id);
       const cutsCount = barberSales.filter(s => s.haircutPrice > 0).length;
       
       const haircutCom = barberSales.reduce((sum, s) => sum + s.barberHaircutShare, 0);
@@ -246,25 +348,69 @@ export default function PayslipsTab({
       const productCom = barberSales.reduce((sum, s) => sum + s.barberProductShare, 0);
       const tipTotal = barberSales.reduce((sum, s) => sum + s.tip, 0);
       const grandTotal = haircutCom + chemicalCom + productCom + tipTotal;
+      const grossRevenue = barberSales.reduce((sum, s) => sum + (s.haircutPrice + Math.max(0, s.chemicalPrice - (s.chemicalDiscountAmount || 0)) + s.productPrice), 0);
 
       return {
         id: barber.id,
         name: barber.name,
+        realName: barber.realName || barber.name,
+        position: barber.position || 'ช่างตัดผม',
         cutsCount,
         haircutCom,
         chemicalCom,
         productCom,
         tipTotal,
-        grandTotal
+        grandTotal,
+        grossRevenue,
+        salesCount: barberSales.length
       };
     });
-  }, [monthlySales, barbers]);
+  }, [periodSales, barbers]);
+
+  const periodOverallStats = useMemo(() => {
+    const totalCuts = periodBarberStats.reduce((sum, b) => sum + b.cutsCount, 0);
+    const totalHaircutCom = periodBarberStats.reduce((sum, b) => sum + b.haircutCom, 0);
+    const totalChemicalCom = periodBarberStats.reduce((sum, b) => sum + b.chemicalCom, 0);
+    const totalProductCom = periodBarberStats.reduce((sum, b) => sum + b.productCom, 0);
+    const totalCommissions = totalHaircutCom + totalChemicalCom + totalProductCom;
+    const totalTips = periodBarberStats.reduce((sum, b) => sum + b.tipTotal, 0);
+    const grandTotalEarned = periodBarberStats.reduce((sum, b) => sum + b.grandTotal, 0);
+    const totalGrossRevenue = periodBarberStats.reduce((sum, b) => sum + b.grossRevenue, 0);
+
+    return {
+      salesCount: periodSales.length,
+      totalCuts,
+      totalHaircutCom,
+      totalChemicalCom,
+      totalProductCom,
+      totalCommissions,
+      totalTips,
+      grandTotalEarned,
+      totalGrossRevenue
+    };
+  }, [periodBarberStats, periodSales]);
 
   const selectedSlipBarberStats = useMemo(() => {
-    const stats = monthlyBarberStats.find(b => b.id === slipBarberId);
+    const stats = periodBarberStats.find(b => b.id === slipBarberId);
     if (!stats) return null;
     return stats;
-  }, [monthlyBarberStats, slipBarberId]);
+  }, [periodBarberStats, slipBarberId]);
+
+  const handleApplyBarberPeriodStatsToSlip = (barberId: string) => {
+    setSlipBarberId(barberId);
+    
+    // Clear manual overrides so defaults from period stats take effect
+    setSlipHaircutCom('');
+    setSlipChemicalCom('');
+    setSlipProductCom('');
+    setSlipTipTotal('');
+
+    // Smooth scroll to the Interactive Payslip Builder
+    const element = document.getElementById('professional-payslips-generator');
+    if (element) {
+      element.scrollIntoView({ behavior: 'smooth' });
+    }
+  };
 
   const selectedBarberForSlip = useMemo(() => {
     return barbers.find(b => b.id === slipBarberId);
@@ -1210,6 +1356,244 @@ export default function PayslipsTab({
         </div>
       </div>
 
+      {/* NEW: Custom Date Range Barber Earnings Summary Section */}
+      <div className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-6">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 border-b border-slate-100 pb-4">
+          <div className="space-y-1">
+            <div className="flex items-center space-x-2">
+              <span className="p-2 bg-indigo-50 text-indigo-600 rounded-2xl">
+                <CalendarDays className="w-5 h-5" />
+              </span>
+              <h3 className="text-base font-extrabold text-slate-900 font-sans tracking-tight">
+                สรุปรายได้รวมช่างตัดผมตามช่วงเวลา (Barber Earnings Summary)
+              </h3>
+            </div>
+            <p className="text-xs text-slate-500 font-sans pl-11">
+              คำนวณยอดบริการ สัดส่วนคอมมิชชั่น และทิปสะสมของช่างแต่ละคนในแต่ละช่วงเวลาได้อย่างยืดหยุ่น เพื่อความสะดวกในการคำนวณเงินเดือน
+            </p>
+          </div>
+
+          {/* Mode Selector Toggle */}
+          <div className="flex items-center bg-slate-100 p-1 rounded-2xl self-start md:self-auto border border-slate-200/60">
+            <button
+              type="button"
+              onClick={() => setDateFilterMode('month')}
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                dateFilterMode === 'month'
+                  ? 'bg-white text-indigo-600 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Calendar className="w-3.5 h-3.5" />
+              <span>รอบปฏิทินเดือน</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setDateFilterMode('custom')}
+              className={`flex items-center space-x-1.5 px-3.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                dateFilterMode === 'custom'
+                  ? 'bg-indigo-600 text-white shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <Filter className="w-3.5 h-3.5" />
+              <span>กำหนดช่วงวันที่เอง</span>
+            </button>
+          </div>
+        </div>
+
+        {/* Date Selector Bar */}
+        {dateFilterMode === 'month' ? (
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-slate-50 p-4 rounded-2xl border border-slate-100">
+            <div className="flex items-center space-x-3">
+              <span className="text-xs font-bold text-slate-600 uppercase tracking-wider">รอบประจำเดือน:</span>
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="bg-white text-slate-800 text-xs px-3.5 py-2 border border-slate-200 rounded-xl focus:border-indigo-500 outline-none font-bold cursor-pointer shadow-2xs"
+              >
+                {availableMonths.map(m => (
+                  <option key={m} value={m}>{formatThaiMonth(m)}</option>
+                ))}
+              </select>
+            </div>
+            <div className="text-xs font-semibold text-slate-500">
+              ช่วงเวลาคำนวณ: <span className="font-bold text-indigo-600 font-mono">{formatThaiMonth(selectedMonth)}</span>
+            </div>
+          </div>
+        ) : (
+          <div className="space-y-4 bg-indigo-50/40 p-4 rounded-2xl border border-indigo-100/60">
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+              {/* Date pickers */}
+              <div className="flex flex-wrap items-center gap-3">
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold text-slate-700">ตั้งแต่วันที่:</span>
+                  <input
+                    type="date"
+                    value={customStartDate}
+                    onChange={(e) => setCustomStartDate(e.target.value)}
+                    className="bg-white text-slate-800 text-xs px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-500 outline-none font-mono font-bold cursor-pointer shadow-2xs"
+                  />
+                </div>
+                <span className="text-slate-400 font-bold hidden sm:inline">-</span>
+                <div className="flex items-center space-x-2">
+                  <span className="text-xs font-bold text-slate-700">ถึงวันที่:</span>
+                  <input
+                    type="date"
+                    value={customEndDate}
+                    onChange={(e) => setCustomEndDate(e.target.value)}
+                    className="bg-white text-slate-800 text-xs px-3 py-2 border border-slate-200 rounded-xl focus:border-indigo-500 outline-none font-mono font-bold cursor-pointer shadow-2xs"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap items-center gap-1.5">
+                <span className="text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mr-1">ทางเลือกด่วน:</span>
+                <button
+                  type="button"
+                  onClick={handleSetPreset26to25}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-indigo-200 text-indigo-700 hover:bg-indigo-50 text-[11px] font-bold transition-all shadow-2xs cursor-pointer flex items-center space-x-1"
+                >
+                  <Scissors className="w-3 h-3 text-indigo-500" />
+                  <span>ตัดวิก (26 - 25)</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSetPresetCurrentMonth}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all shadow-2xs cursor-pointer"
+                >
+                  เดือนนี้
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSetPresetLastMonth}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all shadow-2xs cursor-pointer"
+                >
+                  เดือนที่แล้ว
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetPresetLastDays(15)}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all shadow-2xs cursor-pointer"
+                >
+                  15 วันล่าสุด
+                </button>
+                <button
+                  type="button"
+                  onClick={() => handleSetPresetLastDays(7)}
+                  className="px-2.5 py-1 rounded-lg bg-white border border-slate-200 text-slate-700 hover:bg-slate-50 text-[11px] font-bold transition-all shadow-2xs cursor-pointer"
+                >
+                  7 วันล่าสุด
+                </button>
+              </div>
+            </div>
+
+            <div className="text-xs text-indigo-900 font-medium flex items-center space-x-1.5">
+              <Sparkles className="w-4 h-4 text-indigo-600 flex-shrink-0" />
+              <span>
+                กำลังคำนวณผลงานช่างจากช่วงวันที่{' '}
+                <strong className="font-mono text-indigo-700">{formatThaiDate(customStartDate)}</strong> ถึง{' '}
+                <strong className="font-mono text-indigo-700">{formatThaiDate(customEndDate)}</strong>
+              </span>
+            </div>
+          </div>
+        )}
+
+        {/* Overall Period KPIs */}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+            <span className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">จำนวนบริการสะสม</span>
+            <span className="text-base font-black font-mono text-slate-800">{periodOverallStats.salesCount} บิล ({periodOverallStats.totalCuts} หัว)</span>
+          </div>
+          <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-100">
+            <span className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider">ยอดขายร้านรวม</span>
+            <span className="text-base font-black font-mono text-slate-800">{formatBaht(periodOverallStats.totalGrossRevenue)}</span>
+          </div>
+          <div className="bg-indigo-50/50 p-3.5 rounded-2xl border border-indigo-100/50">
+            <span className="block text-[10px] font-extrabold text-indigo-500 uppercase tracking-wider">รวมคอมมิชชั่นช่างทุกส่วน</span>
+            <span className="text-base font-black font-mono text-indigo-700">{formatBaht(periodOverallStats.totalCommissions)}</span>
+          </div>
+          <div className="bg-emerald-50/50 p-3.5 rounded-2xl border border-emerald-100/50">
+            <span className="block text-[10px] font-extrabold text-emerald-600 uppercase tracking-wider">รวมเงินที่ช่างได้รับสุทธิ</span>
+            <span className="text-base font-black font-mono text-emerald-700">{formatBaht(periodOverallStats.grandTotalEarned)}</span>
+          </div>
+        </div>
+
+        {/* Barbers Breakdown Grid / Cards */}
+        <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+              สรุปรายได้แยกตามรายชื่อช่าง ({periodBarberStats.length} ท่าน):
+            </span>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+            {periodBarberStats.map((barber) => (
+              <div 
+                key={barber.id}
+                className={`bg-white rounded-2xl p-4 border transition-all hover:shadow-md flex flex-col justify-between space-y-3 ${
+                  slipBarberId === barber.id ? 'border-indigo-500 ring-2 ring-indigo-500/20 bg-indigo-50/10' : 'border-slate-200'
+                }`}
+              >
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center space-x-2.5">
+                      <div className="w-8 h-8 rounded-full bg-indigo-100 text-indigo-700 font-extrabold flex items-center justify-center text-xs font-sans">
+                        {barber.name.substring(0, 2)}
+                      </div>
+                      <div>
+                        <h4 className="text-sm font-bold text-slate-900 font-sans">{barber.name}</h4>
+                        <p className="text-[10px] text-slate-500 font-medium">{barber.realName} ({barber.position})</p>
+                      </div>
+                    </div>
+                    <span className="px-2 py-0.5 bg-slate-100 text-slate-700 text-[10px] font-extrabold font-mono rounded-full">
+                      {barber.cutsCount} หัว
+                    </span>
+                  </div>
+
+                  <div className="bg-slate-50 p-2.5 rounded-xl border border-slate-100 space-y-1.5 text-xs">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>คอมตัดผม ({shareConfig.haircutBarberPct}%):</span>
+                      <span className="font-mono font-bold">{formatBaht(barber.haircutCom)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>คอมทำสี/เคมี ({shareConfig.chemicalBarberPct}%):</span>
+                      <span className="font-mono font-bold">{formatBaht(barber.chemicalCom)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>คอมขายสินค้า ({shareConfig.productBarberPct}%):</span>
+                      <span className="font-mono font-bold">{formatBaht(barber.productCom)}</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>ทิปสะสม:</span>
+                      <span className="font-mono font-bold">{formatBaht(barber.tipTotal)}</span>
+                    </div>
+                    <div className="pt-1.5 border-t border-slate-200 flex justify-between items-center font-bold text-slate-900">
+                      <span>รวมรายรับสะสมช่วงนี้:</span>
+                      <span className="font-mono text-indigo-600 text-sm">{formatBaht(barber.grandTotal)}</span>
+                    </div>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => handleApplyBarberPeriodStatsToSlip(barber.id)}
+                  className={`w-full py-2 px-3 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center justify-center space-x-1.5 ${
+                    slipBarberId === barber.id
+                      ? 'bg-indigo-600 text-white shadow-xs'
+                      : 'bg-slate-100 text-slate-700 hover:bg-indigo-50 hover:text-indigo-600'
+                  }`}
+                >
+                  <Pencil className="w-3.5 h-3.5" />
+                  <span>ใช้ยอดช่าง{barber.name}ทำสลิปเงินเดือน</span>
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
       {/* Main calculation workspace */}
       <div className="bg-slate-950 text-slate-100 rounded-3xl p-6 border border-slate-900 space-y-6 shadow-xl" id="professional-payslips-generator">
         <div className="space-y-1 border-b border-slate-900 pb-4">
@@ -1227,16 +1611,31 @@ export default function PayslipsTab({
         {/* Form Selector Header */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-slate-900/50 p-4 rounded-2xl border border-slate-900">
           <div className="space-y-1.5">
-            <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400">เลือกช่วงเดือนยอดสะสม / SELECT CALENDAR CYCLE:</label>
-            <select
-              value={selectedMonth}
-              onChange={(e) => setSelectedMonth(e.target.value)}
-              className="w-full bg-slate-950 text-white text-xs px-3 py-2.5 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer font-bold"
-            >
-              {availableMonths.map(m => (
-                <option key={m} value={m}>งวดผลงานผลรวม: {formatThaiMonth(m)}</option>
-              ))}
-            </select>
+            <label className="block text-[10px] font-extrabold uppercase tracking-widest text-slate-400">
+              {dateFilterMode === 'custom' ? 'โหมดช่วงเวลาที่ใช้คำนวณ / CUSTOM DATE RANGE:' : 'เลือกช่วงเดือนยอดสะสม / SELECT CALENDAR CYCLE:'}
+            </label>
+            {dateFilterMode === 'custom' ? (
+              <div className="flex items-center justify-between bg-slate-950 text-indigo-300 text-xs px-3 py-2.5 border border-indigo-900/80 rounded-xl font-bold">
+                <span>📆 {formatThaiDate(customStartDate)} - {formatThaiDate(customEndDate)}</span>
+                <button
+                  type="button"
+                  onClick={() => setDateFilterMode('month')}
+                  className="text-[10px] text-slate-400 hover:text-white underline cursor-pointer"
+                >
+                  สลับเป็นรอบเดือน
+                </button>
+              </div>
+            ) : (
+              <select
+                value={selectedMonth}
+                onChange={(e) => setSelectedMonth(e.target.value)}
+                className="w-full bg-slate-950 text-white text-xs px-3 py-2.5 border border-slate-800 rounded-xl focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 outline-none transition-all cursor-pointer font-bold"
+              >
+                {availableMonths.map(m => (
+                  <option key={m} value={m}>งวดผลงานผลรวม: {formatThaiMonth(m)}</option>
+                ))}
+              </select>
+            )}
           </div>
 
           <div className="space-y-1.5">
