@@ -270,12 +270,18 @@ export default function App() {
   const [cashCounter, setCashCounter] = useState<CashCounterState | null>(null);
   const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'config' | 'cash' | 'payslips' | 'bookings'>('sales');
   
-  // Redirect away from bookings tab if it gets disabled in settings
+  // Redirect away from disabled tabs if disabled in settings
   useEffect(() => {
     if (shopConfig?.enableBookings === false && activeTab === 'bookings') {
       setActiveTab('sales');
     }
-  }, [shopConfig?.enableBookings, activeTab]);
+    if (shopConfig?.enableCashCounter === false && activeTab === 'cash') {
+      setActiveTab('sales');
+    }
+    if (shopConfig?.enablePayslips === false && activeTab === 'payslips') {
+      setActiveTab('sales');
+    }
+  }, [shopConfig?.enableBookings, shopConfig?.enableCashCounter, shopConfig?.enablePayslips, activeTab]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -1125,17 +1131,17 @@ export default function App() {
 
   if (!userEmail) {
     return (
-      <div className="min-h-screen bg-slate-50 flex flex-col items-center justify-center font-sans antialiased py-12 px-4 selection:bg-indigo-500 selection:text-white" id="login-screen">
-        <div className="w-full max-w-sm bg-white rounded-3xl border border-slate-100 p-8 shadow-xl shadow-slate-100/50 space-y-8">
+      <div className="min-h-screen bg-gradient-to-b from-slate-100/70 to-slate-50 flex flex-col items-center justify-center font-sans antialiased py-12 px-4 selection:bg-indigo-500 selection:text-white" id="login-screen">
+        <div className="w-full max-w-sm bg-white rounded-3xl border border-slate-200/80 p-8 shadow-xl shadow-slate-200/50 space-y-8 animate-slide-up transition-all">
           
           {/* Minimalist Header */}
           <div className="text-center space-y-4">
-            <div className="w-11 h-11 bg-slate-900 rounded-2xl flex items-center justify-center text-amber-400 shadow-sm mx-auto">
-              <Scissors className="w-5.5 h-5.5" />
+            <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-amber-400 shadow-md mx-auto transform transition-transform hover:scale-105">
+              <Scissors className="w-6 h-6" />
             </div>
             <div className="space-y-1">
-              <h1 className="text-xl font-bold text-slate-900 tracking-tight">Barber POS</h1>
-              <p className="text-xs text-slate-450 font-medium">กรุณากรอกบัญชีอีเมลร้านค้าเพื่อเข้าใช้งาน</p>
+              <h1 className="text-2xl font-black text-slate-900 tracking-tight">Barber POS</h1>
+              <p className="text-xs text-slate-500 font-medium">กรุณากรอกบัญชีอีเมลร้านค้าเพื่อเข้าใช้งาน</p>
             </div>
           </div>
 
@@ -1155,10 +1161,10 @@ export default function App() {
                     setLoginError('');
                   }}
                   placeholder="กรุณากรอกอีเมล"
-                  className={`w-full px-4 py-3 border rounded-xl outline-none text-sm font-medium transition-all ${
+                  className={`w-full px-4 py-3.5 border rounded-2xl outline-none text-sm font-medium transition-all duration-200 ${
                     isEmailFocused 
-                      ? 'border-indigo-600 ring-2 ring-indigo-50/70 bg-white text-slate-900' 
-                      : 'border-slate-200 bg-slate-50/50 text-slate-800 hover:border-slate-300 focus:bg-white'
+                      ? 'border-indigo-500 ring-4 ring-indigo-500/15 bg-white text-slate-900 shadow-xs' 
+                      : 'border-slate-200 bg-slate-50/70 text-slate-800 hover:border-slate-300 hover:bg-white focus:bg-white'
                   }`}
                 />
               </div>
@@ -1172,7 +1178,7 @@ export default function App() {
 
             <button
               type="submit"
-              className="w-full py-3 bg-slate-900 hover:bg-slate-850 text-white rounded-xl text-xs font-bold transition-all shadow-sm hover:shadow-md flex items-center justify-center space-x-2 cursor-pointer"
+              className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition-all shadow-md hover:shadow-lg active:scale-[0.99] flex items-center justify-center space-x-2 cursor-pointer"
             >
               <UserCheck className="w-4 h-4 text-amber-300" />
               <span>เข้าสู่พื้นที่ร้านค้าของคุณ</span>
@@ -1464,8 +1470,8 @@ export default function App() {
                 { id: 'sales' as const, label: 'หน้าบันทึกการขาย', icon: <Scissors className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> },
                 ...(shopConfig?.enableBookings !== false ? [{ id: 'bookings' as const, label: 'ระบบจองคิว', icon: <Calendar className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 { id: 'dashboard' as const, label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500" /> },
-                { id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> },
-                { id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> },
+                ...(shopConfig?.enableCashCounter !== false ? [{ id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
+                ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 { id: 'config' as const, label: 'ตั้งค่า', icon: <Settings className="w-3.5 h-3.5 text-indigo-500" /> },
               ].map((tab, idx) => (
                 <button
@@ -1591,7 +1597,7 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'cash' && (
+        {activeTab === 'cash' && shopConfig?.enableCashCounter !== false && (
           <div className="tab-content-enter">
             <CashCounterTab 
               userEmail={userEmail} 
@@ -1603,7 +1609,7 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'payslips' && (
+        {activeTab === 'payslips' && shopConfig?.enablePayslips !== false && (
           <div className="tab-content-enter">
             <PayslipsTab 
               sales={correctedSales}

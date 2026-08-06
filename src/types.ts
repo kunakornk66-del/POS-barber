@@ -103,6 +103,8 @@ export interface ShopConfig {
   billingCutoffDay?: number; // วันตัดยอดของแต่ละเดือน (ค่าเริ่มต้นคือ 1 หมายถึงเริ่มนับวันที่ 1 ของทุกเดือน)
   primaryColor?: string;  // สีหลักของแบรนด์ เช่น #6366f1
   enableBookings?: boolean; // เปิดใช้งานระบบจองคิว
+  enableCashCounter?: boolean; // เปิดใช้งานระบบนับเงินสด
+  enablePayslips?: boolean; // เปิดใช้งานระบบสลิปเงินเดือน
 }
 
 export interface Payslip {

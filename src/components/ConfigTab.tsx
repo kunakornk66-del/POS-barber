@@ -420,6 +420,8 @@ export default function ConfigTab({
   const [billingCutoffDayInput, setBillingCutoffDayInput] = useState<number>(shopConfig.billingCutoffDay || 1);
   const [primaryColorInput, setPrimaryColorInput] = useState<string>(shopConfig.primaryColor || '#6366f1');
   const [enableBookingsInput, setEnableBookingsInput] = useState<boolean>(shopConfig.enableBookings !== false);
+  const [enableCashCounterInput, setEnableCashCounterInput] = useState<boolean>(shopConfig.enableCashCounter !== false);
+  const [enablePayslipsInput, setEnablePayslipsInput] = useState<boolean>(shopConfig.enablePayslips !== false);
   const [isShopSaved, setIsShopSaved] = useState<boolean>(false);
 
   // Synchronize local states when the fetched shopConfig props change
@@ -429,6 +431,8 @@ export default function ConfigTab({
     setBillingCutoffDayInput(shopConfig.billingCutoffDay || 1);
     setPrimaryColorInput(shopConfig.primaryColor || '#6366f1');
     setEnableBookingsInput(shopConfig.enableBookings !== false);
+    setEnableCashCounterInput(shopConfig.enableCashCounter !== false);
+    setEnablePayslipsInput(shopConfig.enablePayslips !== false);
   }, [shopConfig]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -501,7 +505,9 @@ export default function ConfigTab({
       logoUrl: shopLogoUrl,
       billingCutoffDay: billingCutoffDayInput,
       primaryColor: primaryColorInput,
-      enableBookings: enableBookingsInput
+      enableBookings: enableBookingsInput,
+      enableCashCounter: enableCashCounterInput,
+      enablePayslips: enablePayslipsInput
     });
     setIsShopSaved(true);
     setTimeout(() => setIsShopSaved(false), 3000);
@@ -911,24 +917,61 @@ export default function ConfigTab({
               </div>
             </div>
 
-            {/* Additional Modules: Booking System Toggle */}
-            <div className="space-y-1.5 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-4 mt-2">
-              <span className="block text-xs font-semibold text-slate-700">ระบบฟังก์ชันเสริม (Additional Modules):</span>
-              <div className="flex items-center space-x-4 bg-slate-50/50 p-4 rounded-2xl border border-slate-200">
-                <label className="flex items-start space-x-3 cursor-pointer w-full">
+            {/* Additional Modules: Feature Toggles */}
+            <div className="space-y-3 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-4 mt-2">
+              <span className="block text-xs font-semibold text-slate-700">เปิด/ปิด เมนูบนแถบใช้งานหลัก (Toggle Main Navigation Tabs):</span>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+                {/* Booking System Toggle */}
+                <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200 flex items-start space-x-3">
                   <input
                     type="checkbox"
+                    id="toggle-bookings"
                     checked={enableBookingsInput}
                     onChange={(e) => setEnableBookingsInput(e.target.checked)}
-                    className="w-4.5 h-4.5 text-indigo-600 rounded-lg border-slate-300 focus:ring-indigo-500 bg-white mt-0.5"
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer"
                   />
-                  <div>
-                    <span className="block text-xs font-extrabold text-slate-900">เปิดใช้งานระบบจองคิว / ตารางจองคิว (Enable Booking System)</span>
+                  <label htmlFor="toggle-bookings" className="cursor-pointer">
+                    <span className="block text-xs font-extrabold text-slate-900">1. ระบบจองคิว</span>
                     <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                      หากต้องการปิดฟังก์ชันนี้ (เช่น ไม่ต้องการรับคิวล่วงหน้า หรือไม่ต้องการให้รบกวนหน้าจอหลัก) สามารถติ๊กออกเพื่อซ่อนแถบเมนู "ระบบจองคิว" ออกจากหน้าจอใช้งาน POS ได้ทันที
+                      แสดงแถบเมนู "ระบบจองคิว" สำหรับรับคิวล่วงหน้า
                     </span>
-                  </div>
-                </label>
+                  </label>
+                </div>
+
+                {/* Cash Counter Toggle */}
+                <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200 flex items-start space-x-3">
+                  <input
+                    type="checkbox"
+                    id="toggle-cash"
+                    checked={enableCashCounterInput}
+                    onChange={(e) => setEnableCashCounterInput(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer"
+                  />
+                  <label htmlFor="toggle-cash" className="cursor-pointer">
+                    <span className="block text-xs font-extrabold text-slate-900">2. ระบบนับเงินสด</span>
+                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                      แสดงแถบเมนู "นับเงินสด" ตรวจนับธนบัตรและเหรียญในลิ้นชัก
+                    </span>
+                  </label>
+                </div>
+
+                {/* Payslips Toggle */}
+                <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200 flex items-start space-x-3">
+                  <input
+                    type="checkbox"
+                    id="toggle-payslips"
+                    checked={enablePayslipsInput}
+                    onChange={(e) => setEnablePayslipsInput(e.target.checked)}
+                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer"
+                  />
+                  <label htmlFor="toggle-payslips" className="cursor-pointer">
+                    <span className="block text-xs font-extrabold text-slate-900">3. ระบบสลิปเงินเดือน</span>
+                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
+                      แสดงแถบเมนู "สลิปเงินเดือน" คำนวณรายได้ช่างและออกสลิป
+                    </span>
+                  </label>
+                </div>
               </div>
             </div>
           </div>
