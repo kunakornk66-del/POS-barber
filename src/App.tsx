@@ -1178,7 +1178,7 @@ export default function App() {
 
             <button
               type="submit"
-              className="w-full py-3.5 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-bold transition-all shadow-md hover:shadow-lg active:scale-[0.99] flex items-center justify-center space-x-2 cursor-pointer"
+              className="w-full py-3.5 bg-gradient-to-r from-slate-900 via-slate-850 to-slate-800 hover:from-slate-800 hover:to-slate-700 text-white rounded-2xl text-xs font-bold transition-all duration-200 shadow-md hover:shadow-lg hover:shadow-slate-900/20 active:scale-[0.96] flex items-center justify-center space-x-2 cursor-pointer"
             >
               <UserCheck className="w-4 h-4 text-amber-300" />
               <span>เข้าสู่พื้นที่ร้านค้าของคุณ</span>
@@ -1190,14 +1190,12 @@ export default function App() {
               <span className="absolute px-3 bg-white text-slate-400 text-xs font-semibold">หรือ</span>
             </div>
 
-            {/* Google Sign-In Container & Fallback Button */}
+            {/* Google Sign-In Single Working Button */}
             <div className="space-y-3 font-sans">
-              <div id="google-signin-btn-container" className="w-full flex justify-center"></div>
-              
               <button
                 type="button"
                 onClick={() => setShowGoogleChooser(true)}
-                className="w-full py-3 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-2.5 cursor-pointer"
+                className="w-full py-3.5 bg-white hover:bg-slate-50 border border-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-all shadow-xs hover:shadow-md flex items-center justify-center space-x-2.5 cursor-pointer active:scale-[0.99]"
               >
                 <svg className="w-4.5 h-4.5" viewBox="0 0 24 24">
                   <path
