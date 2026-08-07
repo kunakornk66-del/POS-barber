@@ -167,4 +167,17 @@ export interface CashCounterState {
   updatedAt?: string;
 }
 
+export interface CustomerSubscription {
+  email: string;
+  shopName?: string;
+  status: 'approved' | 'suspended' | 'pending';
+  isOnline?: boolean;
+  lastActiveAt?: string;
+  startDate: string; // YYYY-MM-DD
+  expiryDate: string; // YYYY-MM-DD
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
+
 

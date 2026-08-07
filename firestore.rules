@@ -37,5 +37,11 @@ service cloud.firestore {
         allow delete: if isValidId(email) && isValidId(saleId);
       }
     }
+
+    // 5. Subscriptions Collection (Managed by Super Admin & checked per store)
+    match /subscriptions/{subEmail} {
+      allow get, list, read: if true;
+      allow create, update, delete: if isValidId(subEmail);
+    }
   }
 }
