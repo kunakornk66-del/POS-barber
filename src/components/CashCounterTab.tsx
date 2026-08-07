@@ -328,7 +328,6 @@ export default function CashCounterTab({
 
     let text = `💵 **รายงานผลสรุปการนับและตรวจสอบเงินสดในเก๊ะ**\n`;
     text += `📅 ประจำวันที่: ${formattedDate}\n`;
-    text += `👤 บัญชีผู้ใช้: ${userEmail || 'Guest'}\n`;
     text += `------------------------------------\n\n`;
     
     text += `📊 **[1] หมวดธนบัตรที่นับได้ (รวม ${formatBaht(totalNotes)})\n`;
@@ -527,7 +526,7 @@ export default function CashCounterTab({
         <div style="display: flex; justify-content: space-between; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 18px 0; font-size: 11.5px;">
           <div style="width: 50%; text-align: left; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid #e2e8f0; padding-right: 20px;">
             <div style="display: flex; justify-content: space-between;"><strong style="color: #64748b;">วันและเวลาตรวจสอบ:</strong> <strong style="color: #1e293b;">${formattedDate}</strong></div>
-            <div style="display: flex; justify-content: space-between;"><strong style="color: #64748b;">เจ้าหน้าที่วิเคราะห์ยอด/ผู้ตรวจนับ:</strong> <strong style="color: #1e293b; font-family: monospace;">${userEmail || "System Administrator"}</strong></div>
+            <div style="display: flex; justify-content: space-between;"><strong style="color: #64748b;">เจ้าหน้าที่วิเคราะห์ยอด/ผู้ตรวจนับ:</strong> <strong style="color: #1e293b; font-family: monospace;">เจ้าหน้าที่ประจำร้าน</strong></div>
           </div>
           <div style="width: 46%; text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; padding-left: 20px;">
             <div style="display: flex; justify-content: space-between; width: 100%;"><strong style="color: #64748b;">เกณฑ์แหล่งข้อมูล:</strong> <span style="color: #1e40af; font-weight: 700; background-color: #eff6ff; padding: 1px 8px; border-radius: 4px; font-size: 10px; border: 1px solid #bfdbfe;">${sourceLabel}</span></div>
@@ -651,7 +650,7 @@ export default function CashCounterTab({
             <p style="font-size: 10px; font-weight: 750; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">ผู้รับผิดชอบกะลิ้นชัก (Certified Custodian Signature)</p>
             <div>
               <div style="width: 180px; border-bottom: 1.5px solid #94a3b8; margin: 0 auto;"></div>
-              <p style="font-size: 11.5px; font-weight: 750; color: #1e293b; margin: 5px 0 0 0;">( ${userEmail || "เจ้าหน้าที่แคชเชียร์ประจำจุดสำรอง"} )</p>
+              <p style="font-size: 11.5px; font-weight: 750; color: #1e293b; margin: 5px 0 0 0;">( เจ้าหน้าที่ผู้รับผิดชอบกะ )</p>
               <p style="font-size: 9px; color: #94a3b8; margin: 2px 0 0 0;">วันที่เซ็น: ______ / ______ / 2569</p>
             </div>
           </div>

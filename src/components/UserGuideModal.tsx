@@ -116,23 +116,11 @@ export default function UserGuideModal({ isOpen, onClose, shopConfig }: UserGuid
               </div>
 
               <div className="p-3.5 bg-white border border-slate-150 hover:border-indigo-200 hover:shadow-xs rounded-xl transition-all flex gap-3">
-                <div className="p-2 bg-pink-50 text-pink-600 rounded-lg shrink-0 h-9 w-9 flex items-center justify-center">
-                  <Calendar className="w-5 h-5" />
-                </div>
-                <div>
-                  <p className="font-extrabold text-slate-900">2. ระบบจองคิว (Bookings)</p>
-                  <p className="text-slate-500 mt-1 leading-relaxed text-[11px]">
-                    ตารางคิวและเวลานัดหมายแบบปฏิทิน แยกตามรายช่าง ช่วยป้องกันการลงคิวชนกัน พร้อมสถานะคิวไฟเขียว/ส้มบอกเวลาคิวปัจจุบัน และระบบล้างคิวเก่าพ้นวันโดยอัตโนมัติ
-                  </p>
-                </div>
-              </div>
-
-              <div className="p-3.5 bg-white border border-slate-150 hover:border-indigo-200 hover:shadow-xs rounded-xl transition-all flex gap-3">
                 <div className="p-2 bg-teal-50 text-teal-600 rounded-lg shrink-0 h-9 w-9 flex items-center justify-center">
                   <LayoutDashboard className="w-5 h-5" />
                 </div>
                 <div>
-                  <p className="font-extrabold text-slate-900">3. แดชบอร์ดสรุป (Dashboard)</p>
+                  <p className="font-extrabold text-slate-900">2. แดชบอร์ดสรุป (Dashboard)</p>
                   <p className="text-slate-500 mt-1 leading-relaxed text-[11px]">
                     หน้าสำคัญสำหรับเจ้าของร้านและฝ่ายบัญชี แสดงยอดขายรวม สัดส่วนช่องทางชำระ บาร์กราฟสัดส่วนรายได้แยกตามบริการ และประวัติรายการพร้อมปุ่ม **"แก้ไขยอดเงิน/เปลี่ยนช่างย้อนหลัง"**
                   </p>
@@ -352,88 +340,8 @@ export default function UserGuideModal({ isOpen, onClose, shopConfig }: UserGuid
       )
     },
     {
-      id: 'bookings',
-      title: '📅 3. การใช้งานระบบจองคิวและการตรวจสอบเวลาซ้อน',
-      icon: Calendar,
-      keywords: ['จองคิว', 'นัดหมาย', 'ตารางคิว', 'ลบ', 'ล้างคิว', 'คิวเก่า', 'เมื่อวาน', 'พ้นวัน', 'bookings', 'เวลาซ้อน', 'ตรวจคิว', 'นัดช่าง'],
-      content: (
-        <div className="space-y-6 text-xs font-sans leading-relaxed">
-          <div className="bg-emerald-50 border border-emerald-200 p-4 rounded-xl flex gap-3">
-            <CheckCircle className="w-5 h-5 text-emerald-600 shrink-0 mt-0.5" />
-            <div className="text-emerald-950">
-              <p className="font-extrabold">ระบบตรวจเช็คความพ้นวันและล้างคิวหมดอายุอัตโนมัติ 🧹</p>
-              <p className="mt-1 leading-relaxed text-[11px]">
-                เพื่อไม่ให้เกิดภาระและความสับสนกับช่างหน้างาน **เมื่อเปลี่ยนเป็นวันใหม่ ระบบจะกรองและล้างประวัติจองของเมื่อวานที่หมดเวลาและไม่มีความเคลื่อนไหวออกไปโดยอัตโนมัติ** ทำให้บอร์ดวันนี้สะอาด มีแต่ยอดจองจริงที่คุณต้องการโฟกัส
-              </p>
-            </div>
-          </div>
-
-          {/* How to add a Booking */}
-          <div className="space-y-3">
-            <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-1">📌 วิธีสร้างรายการคิวจองและบริการนัดหมาย</h4>
-            <ol className="list-decimal list-inside space-y-2 pl-1 text-slate-600">
-              <li>ไปที่เมนู <strong>"2. ระบบจองคิว"</strong></li>
-              <li>กรอกฟอร์มลงทะเบียนทางด้านซ้ายมือ:
-                <ul className="list-disc list-inside pl-4 mt-1 space-y-1 text-slate-500">
-                  <li><strong>เลือกช่าง:</strong> ระบุช่างประจำหัวที่เจาะจง หรือเลือก "ช่างทั่วไป (ไม่ระบุเจาะจง)"</li>
-                  <li><strong>วันที่นัดและเวลาเริ่ม:</strong> เลือกวันที่จะเข้าใช้บริการ และเวลาที่แน่นอน (เช่น 13:30 น.)</li>
-                  <li><strong>บริการเริ่มต้น:</strong> ค่าเริ่มต้นเวลาบริการอยู่ที่ 60 นาทีต่อหัว สามารถแก้ไขเพิ่มลดนาทีได้ตามความเหมาะสมของทรงผม</li>
-                  <li><strong>ชื่อลูกค้า และเบอร์โทรศัพท์:</strong> สำหรับติดต่อเรียกใช้บริการ</li>
-                </ul>
-              </li>
-              <li>กดปุ่มสีคราม <strong>"💾 บันทึกจองคิวใหม่"</strong> รายการจะแสดงบนกระดานทันที</li>
-            </ol>
-          </div>
-
-          {/* Overlap Prevention */}
-          <div className="bg-rose-50 border border-rose-150 p-4 rounded-xl flex gap-3">
-            <AlertTriangle className="w-5 h-5 text-rose-600 shrink-0 mt-0.5" />
-            <div className="text-slate-700">
-              <p className="font-extrabold text-rose-950">ระบบป้องกันลงคิวทับซ้อน (Overlap Booking Warning) 🛡️</p>
-              <p className="mt-1 leading-relaxed">
-                ระบบมีความปลอดภัยสูง! หากพนักงานในร้านกรอกเวลาจองให้ **"ช่างเอ"** ซ้ำกับช่วงเวลาของคิวที่พนักงานอีกคนลงไว้ก่อนแล้ว ระบบจะทำการปฏิเสธการเซฟบล็อกนั้นและแสดงแถบหน้าต่างสีแดงเตือนทันทีว่า **"ช่างท่านนี้ติดบริการคิวอื่นอยู่แล้วในช่วงเวลาดังกล่าว"** เพื่อความสุภาพของร้านไม่ให้ลูกค้าต้องมานั่งรอคิวเก้อ
-              </p>
-            </div>
-          </div>
-
-          {/* Color Indicators */}
-          <div className="space-y-3">
-            <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-1">🎨 สีแถบกระดานคิวอัจฉริยะแบบแยกตามช่าง</h4>
-            <p className="text-slate-600">
-              ตัวช่วยแคชเชียร์และช่างกวาดตามองความเร่งด่วนในร้านแบบเรียลไทม์:
-            </p>
-            <div className="space-y-2">
-              <div className="p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-xl flex justify-between items-center">
-                <div>
-                  <span className="px-2.5 py-1 bg-emerald-500 text-white font-extrabold text-[9px] rounded-lg">แถบสถานะสีเขียว</span>
-                  <p className="text-slate-700 font-bold mt-1.5 text-[11px]">🟢 กำลังรับบริการ ณ ขณะนี้ (Active Queue)</p>
-                  <p className="text-slate-500 text-[10px] mt-0.5">ถึงช่วงเวลาเริ่มทำและยังไม่หมดเวลา คิวนี้ช่างกำลังบริการจับปัตตาเลี่ยนอยู่บนเตียงตัดผม</p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-xl flex justify-between items-center">
-                <div>
-                  <span className="px-2.5 py-1 bg-amber-500 text-slate-900 font-bold text-[9px] rounded-lg">แถบสถานะสีเหลือง</span>
-                  <p className="text-slate-700 font-bold mt-1.5 text-[11px]">🟡 คิวใกล้ถึงเวลาในอีก 15 นาที (Approaching Queue)</p>
-                  <p className="text-slate-500 text-[10px] mt-0.5">แจ้งเตือนให้ช่างและแคชเชียร์เตรียมกวาดพื้น ทำความสะอาดเตียง และเตรียมพร้อมกล่าวต้อนรับลูกค้ารายถัดไปที่ใกล้มาถึง</p>
-                </div>
-              </div>
-
-              <div className="p-3 bg-slate-50 border border-slate-200 rounded-xl flex justify-between items-center">
-                <div>
-                  <span className="px-2.5 py-1 bg-slate-200 text-slate-700 font-bold text-[9px] rounded-lg">แถบสถานะสีขาว / เทา</span>
-                  <p className="text-slate-700 font-bold mt-1.5 text-[11px]">⚪ คิวล่วงหน้าทั่วไป (Upcoming Bookings)</p>
-                  <p className="text-slate-500 text-[10px] mt-0.5">คิวเวลานัดหมายในช่วงถัดไปของวัน หรือคิวที่มีการลงจองของวันข้างหน้า</p>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )
-    },
-    {
       id: 'dashboard',
-      title: '📊 4. แดชบอร์ด การเช็คยอด และวิธีแก้ไขบิลย้อนหลัง',
+      title: '📊 3. แดชบอร์ด การเช็คยอด และวิธีแก้ไขบิลย้อนหลัง',
       icon: LayoutDashboard,
       keywords: ['แดชบอร์ด', 'แก้ไขบิล', 'แก้ไขย้อนหลัง', 'ลบบิล', 'เปลี่ยนยอดเงิน', 'แก้ช่าง', 'แก้รายการ', 'dashboard', 'รายงาน', 'ปริ้น', 'พิมพ์รายงาน', 'ส่งออก'],
       content: (

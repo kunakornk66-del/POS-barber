@@ -45,7 +45,6 @@ export interface ShareConfig {
   defaultChemicalDiscountValue?: number;
   defaultChemicalDiscountType?: 'fixed' | 'percentage';
   showChemicalDiscountInPos?: boolean;
-  defaultBookingDuration?: number; // default booking duration in minutes (e.g. 30, 60)
   enableChemicalService?: boolean; // toggle to enable/disable chemical service
   enableProductSales?: boolean; // toggle to enable/disable product sales
 }
@@ -102,7 +101,6 @@ export interface ShopConfig {
   logoUrl?: string;      // URL/Base64 รูปโลโก้ร้าน
   billingCutoffDay?: number; // วันตัดยอดของแต่ละเดือน (ค่าเริ่มต้นคือ 1 หมายถึงเริ่มนับวันที่ 1 ของทุกเดือน)
   primaryColor?: string;  // สีหลักของแบรนด์ เช่น #6366f1
-  enableBookings?: boolean; // เปิดใช้งานระบบจองคิว
   enableCashCounter?: boolean; // เปิดใช้งานระบบนับเงินสด
   enablePayslips?: boolean; // เปิดใช้งานระบบสลิปเงินเดือน
 }
@@ -140,22 +138,6 @@ export interface Expense {
   notes: string;
   payee: string; // ผู้เบิก / ผู้รับเงิน
   isFromDrawer?: boolean; // จ่ายด้วยเงินสดจากกะหรือเก๊ะเงินเครื่อง
-}
-
-export interface Booking {
-  id: string;
-  barberId: string;
-  barberName: string;
-  date: string; // YYYY-MM-DD
-  startTime: string; // HH:MM
-  endTime: string; // HH:MM
-  customerName: string;
-  customerPhone: string;
-  notes: string;
-  recorderBarberId: string;
-  recorderBarberName: string;
-  createdAt: string; // ISO String
-  isUnspecified?: boolean; // คิวนี้ระบุไม่เจาะจงช่าง (แต่ต้องเลือกช่างเพื่อสำรองคิวและเช็คไม่ให้ชน)
 }
 
 export interface CashCounterState {

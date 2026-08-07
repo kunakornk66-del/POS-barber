@@ -25,10 +25,13 @@ import {
   Sparkles,
   Upload,
   Image,
-  Clock
+  Clock,
+  Mail,
+  ShieldCheck
 } from 'lucide-react';
 
 interface ConfigTabProps {
+  userEmail?: string | null;
   barbers: Barber[];
   products: Product[];
   chemicalPromos: ChemicalPromo[];
@@ -47,6 +50,7 @@ interface ConfigTabProps {
 }
 
 export default function ConfigTab({
+  userEmail,
   barbers,
   products,
   chemicalPromos,
@@ -292,7 +296,6 @@ export default function ConfigTab({
   const [defaultChemDiscountValue, setDefaultChemDiscountValue] = useState<string>(shareConfig.defaultChemicalDiscountValue?.toString() || '');
   const [defaultChemDiscountType, setDefaultChemDiscountType] = useState<'fixed' | 'percentage'>(shareConfig.defaultChemicalDiscountType || 'percentage');
   const [showChemicalDiscountInPos, setShowChemicalDiscountInPos] = useState<boolean>(shareConfig.showChemicalDiscountInPos !== false);
-  const [defaultBookingDuration, setDefaultBookingDuration] = useState<number>(shareConfig.defaultBookingDuration ?? 60);
   const [enableChemicalService, setEnableChemicalService] = useState<boolean>(shareConfig.enableChemicalService !== false);
   const [enableProductSales, setEnableProductSales] = useState<boolean>(shareConfig.enableProductSales !== false);
   const [isShareSaved, setIsShareSaved] = useState<boolean>(false);
@@ -307,7 +310,6 @@ export default function ConfigTab({
     setDefaultChemDiscountValue(shareConfig.defaultChemicalDiscountValue?.toString() || '');
     setDefaultChemDiscountType(shareConfig.defaultChemicalDiscountType || 'percentage');
     setShowChemicalDiscountInPos(shareConfig.showChemicalDiscountInPos !== false);
-    setDefaultBookingDuration(shareConfig.defaultBookingDuration ?? 60);
     setEnableChemicalService(shareConfig.enableChemicalService !== false);
     setEnableProductSales(shareConfig.enableProductSales !== false);
   }, [shareConfig]);
@@ -334,7 +336,6 @@ export default function ConfigTab({
       defaultChemicalDiscountValue: cleanChemVal,
       defaultChemicalDiscountType: defaultChemDiscountType,
       showChemicalDiscountInPos: showChemicalDiscountInPos,
-      defaultBookingDuration: defaultBookingDuration,
       enableChemicalService: enableChemicalService,
       enableProductSales: enableProductSales
     });
@@ -419,7 +420,6 @@ export default function ConfigTab({
   const [shopLogoUrl, setShopLogoUrl] = useState<string>(shopConfig.logoUrl || '');
   const [billingCutoffDayInput, setBillingCutoffDayInput] = useState<number>(shopConfig.billingCutoffDay || 1);
   const [primaryColorInput, setPrimaryColorInput] = useState<string>(shopConfig.primaryColor || '#6366f1');
-  const [enableBookingsInput, setEnableBookingsInput] = useState<boolean>(shopConfig.enableBookings !== false);
   const [enableCashCounterInput, setEnableCashCounterInput] = useState<boolean>(shopConfig.enableCashCounter !== false);
   const [enablePayslipsInput, setEnablePayslipsInput] = useState<boolean>(shopConfig.enablePayslips !== false);
   const [isShopSaved, setIsShopSaved] = useState<boolean>(false);
@@ -430,7 +430,6 @@ export default function ConfigTab({
     setShopLogoUrl(shopConfig.logoUrl || '');
     setBillingCutoffDayInput(shopConfig.billingCutoffDay || 1);
     setPrimaryColorInput(shopConfig.primaryColor || '#6366f1');
-    setEnableBookingsInput(shopConfig.enableBookings !== false);
     setEnableCashCounterInput(shopConfig.enableCashCounter !== false);
     setEnablePayslipsInput(shopConfig.enablePayslips !== false);
   }, [shopConfig]);
@@ -505,7 +504,6 @@ export default function ConfigTab({
       logoUrl: shopLogoUrl,
       billingCutoffDay: billingCutoffDayInput,
       primaryColor: primaryColorInput,
-      enableBookings: enableBookingsInput,
       enableCashCounter: enableCashCounterInput,
       enablePayslips: enablePayslipsInput
     });
@@ -733,6 +731,31 @@ export default function ConfigTab({
   return (
     <div className="space-y-6 max-w-4xl mx-auto" id="config-settings">
       
+      {/* 0. ACCOUNT INFO CARD (SECURE INSIDE SETTINGS TAB) */}
+      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-sm border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3.5">
+          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 shrink-0">
+            <Mail className="w-5 h-5" />
+          </div>
+          <div>
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-semibold text-slate-400">ข้อมูลบัญชีผู้ใช้งานระบบ (Cloud Account)</span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold flex items-center gap-1">
+                <ShieldCheck className="w-3 h-3" />
+                <span>ยืนยันสิทธิ์เรียบร้อย</span>
+              </span>
+            </div>
+            <p className="text-sm font-extrabold text-amber-300 font-mono mt-0.5">
+              {userEmail || 'guest@gmail.com'}
+            </p>
+          </div>
+        </div>
+        <div className="text-[11px] text-slate-300 bg-slate-800/90 px-3.5 py-2.5 rounded-xl border border-slate-700/80 max-w-sm">
+          <span className="font-bold text-amber-400 block mb-0.5">🔒 รักษาความเป็นส่วนตัวของบัญชี</span>
+          ข้อมูลอีเมลเจ้าของระบบจะแสดงเฉพาะในหน้าระดับผู้ดูแล (ตั้งค่า) นี้เท่านั้น เพื่อป้องกันไม่ให้พนักงานในร้านเห็นอีเมลเจ้าของบัญชี
+        </div>
+      </div>
+
       {/* 1. GENERAL SHOP SETTINGS & SECURITY */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
         <div className="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -921,24 +944,7 @@ export default function ConfigTab({
             <div className="space-y-3 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-4 mt-2">
               <span className="block text-xs font-semibold text-slate-700">เปิด/ปิด เมนูบนแถบใช้งานหลัก (Toggle Main Navigation Tabs):</span>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-                {/* Booking System Toggle */}
-                <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200 flex items-start space-x-3">
-                  <input
-                    type="checkbox"
-                    id="toggle-bookings"
-                    checked={enableBookingsInput}
-                    onChange={(e) => setEnableBookingsInput(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer"
-                  />
-                  <label htmlFor="toggle-bookings" className="cursor-pointer">
-                    <span className="block text-xs font-extrabold text-slate-900">1. ระบบจองคิว</span>
-                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                      แสดงแถบเมนู "ระบบจองคิว" สำหรับรับคิวล่วงหน้า
-                    </span>
-                  </label>
-                </div>
-
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Cash Counter Toggle */}
                 <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200 flex items-start space-x-3">
                   <input
@@ -949,7 +955,7 @@ export default function ConfigTab({
                     className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer"
                   />
                   <label htmlFor="toggle-cash" className="cursor-pointer">
-                    <span className="block text-xs font-extrabold text-slate-900">2. ระบบนับเงินสด</span>
+                    <span className="block text-xs font-extrabold text-slate-900">1. ระบบนับเงินสด</span>
                     <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
                       แสดงแถบเมนู "นับเงินสด" ตรวจนับธนบัตรและเหรียญในลิ้นชัก
                     </span>
@@ -966,7 +972,7 @@ export default function ConfigTab({
                     className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer"
                   />
                   <label htmlFor="toggle-payslips" className="cursor-pointer">
-                    <span className="block text-xs font-extrabold text-slate-900">3. ระบบสลิปเงินเดือน</span>
+                    <span className="block text-xs font-extrabold text-slate-900">2. ระบบสลิปเงินเดือน</span>
                     <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
                       แสดงแถบเมนู "สลิปเงินเดือน" คำนวณรายได้ช่างและออกสลิป
                     </span>
@@ -1184,34 +1190,6 @@ export default function ConfigTab({
               </div>
             </div>
           </div>
-
-          {/* Divider and Booking Settings */}
-          <div className="border-t border-slate-100 pt-5 space-y-3">
-            <h4 className="text-xs font-bold text-slate-700 flex items-center space-x-1">
-              <Clock className="w-3.5 h-3.5 text-indigo-600" />
-              <span>ตั้งค่าระบบการคำนวณเวลาจองอัตโนมัติ (Booking Auto-calculation)</span>
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-slate-50/50 p-4 border border-slate-100 rounded-2xl space-y-2">
-                <span className="block text-xs font-semibold text-slate-600">ระยะเวลาการบริการตั้งต้น:</span>
-                <select
-                  value={defaultBookingDuration}
-                  onChange={(e) => setDefaultBookingDuration(parseInt(e.target.value, 10))}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-xl bg-white text-xs focus:outline-none focus:border-indigo-500 cursor-pointer font-sans font-medium"
-                >
-                  <option value={30}>30 นาที (0.5 ชม.)</option>
-                  <option value={60}>60 นาที (1.0 ชม.)</option>
-                  <option value={90}>90 นาที (1.5 ชม.)</option>
-                  <option value={120}>120 นาที (2.0 ชม.)</option>
-                </select>
-                <p className="text-[10px] text-slate-500 font-sans">
-                  เมื่อคุณระบุเวลาเริ่มจอง ระบบจะคำนวณและระบุเวลาสิ้นสุดให้อัตโนมัติด้วยระยะเวลานี้
-                </p>
-              </div>
-            </div>
-          </div>
-
-
 
           <div className="flex justify-end pt-2">
             <button

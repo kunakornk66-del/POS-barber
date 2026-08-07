@@ -25,7 +25,6 @@ export const DEFAULT_SHARE_CONFIG: ShareConfig = {
   productBarberPct: 10,   // ช่าง 10% ร้าน 90% (เผื่อเป็นค่าคอมสำหรับช่างที่แนะนำสินค้า)
   showPromoDiscount: true,
   promoDiscountPct: 10,
-  defaultBookingDuration: 60, // ค่าตั้งต้นของการคำนวณเวลาจองเป็น 60 นาที (1 ชม.)
   enableChemicalService: true,
   enableProductSales: true,
 };
@@ -33,7 +32,6 @@ export const DEFAULT_SHARE_CONFIG: ShareConfig = {
 export const DEFAULT_SHOP_CONFIG: ShopConfig = {
   shopName: 'Barber POS',
   primaryColor: '#6366f1',
-  enableBookings: true,
   enableCashCounter: true,
   enablePayslips: true,
 };
