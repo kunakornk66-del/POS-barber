@@ -1268,6 +1268,9 @@ export default function App() {
   const confirmLogout = () => {
     localStorage.removeItem('barber_pos_user_email');
     setUserEmail(null);
+    setSubCheckStatus('checking');
+    setEmailInput('');
+    setLoginError('');
     setShowLogoutConfirm(false);
   };
 
@@ -1553,11 +1556,11 @@ export default function App() {
               <span>ตรวจสอบสิทธิ์อีกครั้ง</span>
             </button>
             <button
-              onClick={handleLogout}
-              className="w-full py-3 bg-slate-700/80 hover:bg-slate-700 text-slate-200 font-bold rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer"
+              onClick={confirmLogout}
+              className="w-full py-3 bg-rose-600/90 hover:bg-rose-600 text-white font-bold rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md active:scale-95"
             >
               <LogOut className="w-4 h-4" />
-              <span>ออกจากระบบ</span>
+              <span>ออกจากระบบ (Sign Out)</span>
             </button>
           </div>
 
@@ -2076,7 +2079,7 @@ export default function App() {
             <div className="space-y-1.5">
               <h3 className="text-base font-extrabold font-sans text-slate-900">ยืนยันออกจากระบบ?</h3>
               <p className="text-xs text-slate-500 leading-relaxed font-sans px-2">
-                คุณแน่ใจหรือไม่ว่าต้องการออกจากระบบสาขานี้? หากออกจากระบบแล้ว คุณจะต้องกรอกอีเมลเพื่อเข้าใช้บริการใหม่อีกครั้ง
+                เมื่อออกจากระบบแล้ว คุณจะกลับไปที่หน้ากรอกอีเมล (ข้อมูลร้านค้าและประวัติรายการของคุณจะถูกบันทึกไว้อย่างปลอดภัย ไม่สูญหาย)
               </p>
             </div>
             
