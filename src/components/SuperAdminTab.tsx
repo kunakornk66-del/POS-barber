@@ -18,7 +18,7 @@ import {
   Plus,
   Trash2
 } from 'lucide-react';
-import { db } from '../firebase';
+import { db, handleFirestoreError, OperationType } from '../firebase';
 import { collection, doc, getDocs, setDoc, updateDoc, onSnapshot, deleteDoc, writeBatch } from 'firebase/firestore';
 import { CustomerSubscription } from '../types';
 
@@ -88,8 +88,7 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
               updatedAt: new Date().toISOString()
             };
             list.push(newSub);
-            // Save to subscriptions collection so it becomes permanently tracked in firestore
-            setDoc(doc(db, "subscriptions", email), newSub, { merge: true }).catch(e => console.warn(e));
+            // Added to display list; setDoc will be called when admin modifies subscription status
           }
         });
       } catch (err) {
@@ -106,7 +105,7 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
       setSubscriptions(list);
       setLoading(false);
     }, (err) => {
-      console.error("Firestore snapshot error in SuperAdminTab:", err);
+      handleFirestoreError(err, OperationType.LIST, "subscriptions");
       setLoading(false);
     });
 
@@ -144,7 +143,6 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
               updatedAt: new Date().toISOString()
             };
             list.push(newSub);
-            setDoc(doc(db, "subscriptions", email), newSub, { merge: true }).catch(e => console.warn(e));
           }
         });
       } catch (err) {}
@@ -203,8 +201,8 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
 
   // Toggle approval / suspension status
   const handleToggleStatus = async (sub: CustomerSubscription, targetStatus: 'approved' | 'suspended' | 'pending') => {
+    const targetEmail = sub.email.toLowerCase();
     try {
-      const targetEmail = sub.email.toLowerCase();
       const docRef = doc(db, "subscriptions", targetEmail);
       const now = new Date().toISOString();
       const today = new Date().toISOString().split('T')[0];
@@ -234,15 +232,14 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
 
       await setDoc(docRef, payload, { merge: true });
     } catch (err) {
-      console.error("Failed to update customer status:", err);
-      alert("เกิดข้อผิดพลาดในการอัปเดตสิทธิ์");
+      handleFirestoreError(err, OperationType.WRITE, `subscriptions/${targetEmail}`);
     }
   };
 
   // Quick extend subscription +30 days
   const handleQuickExtend = async (sub: CustomerSubscription, days = 30) => {
+    const targetEmail = sub.email.toLowerCase();
     try {
-      const targetEmail = sub.email.toLowerCase();
       const today = new Date().toISOString().split('T')[0];
       const currentExpiry = (sub.expiryDate && sub.expiryDate > today) ? sub.expiryDate : today;
       const expDateObj = new Date(currentExpiry);
@@ -263,8 +260,7 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
       const docRef = doc(db, "subscriptions", targetEmail);
       await setDoc(docRef, payload, { merge: true });
     } catch (err) {
-      console.error("Failed to extend subscription:", err);
-      alert("เกิดข้อผิดพลาดในการขยายเวลา");
+      handleFirestoreError(err, OperationType.WRITE, `subscriptions/${targetEmail}`);
     }
   };
 
@@ -300,7 +296,7 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
         updatedAt: updatedRecord.updatedAt
       }, { merge: true });
     } catch (err) {
-      console.error("Failed to save subscription dates to Firestore:", err);
+      handleFirestoreError(err, OperationType.WRITE, `subscriptions/${targetEmail}`);
     }
   };
 
@@ -343,8 +339,7 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
       setSubscriptions(prev => prev.filter(s => s.email.toLowerCase() !== targetEmail));
       setSubToDelete(null);
     } catch (err) {
-      console.error("Failed to delete store from Firestore:", err);
-      alert("เกิดข้อผิดพลาดในการลบข้อมูลร้านค้าออกจากระบบ Cloud");
+      handleFirestoreError(err, OperationType.DELETE, `salons/${targetEmail}`);
     } finally {
       setIsDeleting(false);
     }
@@ -379,8 +374,7 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
       setNewShopName('');
       setNewDays(30);
     } catch (err) {
-      console.error(err);
-      alert("ไม่สามารถเพิ่มบัญชีลูกค้าได้");
+      handleFirestoreError(err, OperationType.WRITE, `subscriptions/${cleanEmail}`);
     }
   };
 

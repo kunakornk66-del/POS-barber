@@ -42,8 +42,7 @@ import {
   Clock,
   CheckCircle2,
   Eye,
-  EyeOff,
-  Mail
+  EyeOff
 } from 'lucide-react';
 import { 
   db, 
@@ -327,7 +326,7 @@ export default function App() {
       }
       setPendingSyncCount(0);
     } catch (err) {
-      console.error("🔴 [Manual Sync Error]:", err);
+      handleFirestoreError(err, OperationType.WRITE, 'sync');
     } finally {
       setIsSyncing(false);
     }
@@ -526,14 +525,7 @@ export default function App() {
         const data = docSnap.data() as CustomerSubscription;
         setSubscriptionInfo(data);
 
-        // Update heartbeat presence
-        try {
-          updateDoc(subDocRef, {
-            isOnline: true,
-            lastActiveAt: new Date().toISOString()
-          });
-        } catch (e) {}
-
+        // Note: do not update subDocRef inside onSnapshot callback to avoid write listener loop
         if (data.status === 'suspended') {
           setSubCheckStatus('suspended');
           setGraceDaysLeft(null);
@@ -559,7 +551,7 @@ export default function App() {
         }
       }
     }, (err) => {
-      console.error("Subscription listener error:", err);
+      handleFirestoreError(err, OperationType.GET, `subscriptions/${cleanEmail}`);
       // Fallback to approved on offline error
       setSubCheckStatus('approved');
     });
@@ -760,22 +752,23 @@ export default function App() {
             }));
 
             // Check Daily Reset
-            if (lastResetDate !== todayStr) {
+            const localResetDate = localStorage.getItem(`barber_pos_last_reset_date_${userEmail}`);
+            if (lastResetDate !== todayStr && localResetDate !== todayStr) {
               console.log(`⏰ [Daily Reset] วันใหม่ล่วงเลยมาถึงแล้ว (${lastResetDate} -> ${todayStr}) ทำการรีเซ็ตสถานะช่างให้ 'มาทำงาน' ทุกคน (Online)`);
               finalBarbers = finalBarbers.map((b: any) => ({
                 ...b,
                 isWorking: true
               }));
               
+              localStorage.setItem(`barber_pos_last_reset_date_${userEmail}`, todayStr);
+              localStorage.setItem(`barber_pos_barbers_${userEmail}`, JSON.stringify(finalBarbers));
+
               setDoc(salonDocRef, { 
                 barbers: finalBarbers, 
                 lastResetDate: todayStr, 
                 updatedAt: new Date().toISOString() 
               }, { merge: true })
-                .catch(err => console.error("🔴 [Daily Reset] บันทึกรีเซ็ตรายชื่อช่างไม่สำเร็จ:", err));
-                
-              localStorage.setItem(`barber_pos_last_reset_date_${userEmail}`, todayStr);
-              localStorage.setItem(`barber_pos_barbers_${userEmail}`, JSON.stringify(finalBarbers));
+                .catch(err => console.warn("🟡 [Daily Reset] บันทึกรีเซ็ตรายชื่อช่างบนคลาวด์ไม่สำเร็จ (ทำงานต่อในโหมดออฟไลน์):", err));
             } else {
               localStorage.setItem(`barber_pos_last_reset_date_${userEmail}`, todayStr);
             }
@@ -799,7 +792,6 @@ export default function App() {
             setIsLoading(false);
           }
         }, (err) => {
-          console.error("🔴 [Firebase Client] Salon Snapshot Error:", err);
           setIsLoading(false);
           handleFirestoreError(err, OperationType.GET, `salons/${userEmail}`);
         });
@@ -864,12 +856,11 @@ export default function App() {
 
           setSales(reconciledSales);
         }, (err) => {
-          console.error("🔴 [Firebase Client] Sales Snapshot Error:", err);
           handleFirestoreError(err, OperationType.LIST, `salons/${userEmail}/sales`);
         });
 
       } catch (err: any) {
-        console.error("🔴 [Firebase Client] Setup real-time listeners failed:", err);
+        handleFirestoreError(err, OperationType.GET, `salons/${userEmail}`);
         setFirebaseStatus('error');
         setFirebaseErrorMessage(err?.message || 'เชื่อมต่ออินเทอร์เน็ตล้มเหลวขณะติดต่อคลาวด์');
         setIsLoading(false);
@@ -996,7 +987,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Saved record successfully) ID:", cleanRecord.id);
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกบิลเก็บเงินบนคลาวด์ขัดข้อง:", err);
         setPendingSyncCount((prev) => prev + 1);
         handleFirestoreError(err, OperationType.WRITE, `salons/${userEmail}/sales/${cleanRecord.id}`);
       });
@@ -1025,7 +1015,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ - ล้างประวัติคำสั่งซื้อทั้งหมดแล้ว");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกประวัติบิลไม่ได้:", err);
         handleFirestoreError(err, OperationType.DELETE, `salons/${userEmail}/sales`);
       });
   };
@@ -1040,7 +1029,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Deleted record successfully) ID:", saleId);
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] การเขียนข้อมูลขัดข้อง ลบบิลปลายทางไม่พบคีย์:", err);
         handleFirestoreError(err, OperationType.DELETE, `salons/${userEmail}/sales/${saleId}`);
       });
   };
@@ -1062,7 +1050,6 @@ export default function App() {
         console.log(`🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Updated paymentMethod to ${newMethod}) ID:`, saleId);
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] ปรับปรุงช่องทางชำระเงินขัดข้อง:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}/sales/${saleId}`);
       });
   };
@@ -1080,7 +1067,6 @@ export default function App() {
         console.log(`🟢 [Firebase] บันทึกการแก้ไขบิลสำเร็จ ID:`, saleId);
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกการแก้ไขบิลขัดข้อง:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}/sales/${saleId}`);
       });
   };
@@ -1171,7 +1157,6 @@ export default function App() {
         setPayslips([]);
         setIsLoading(false);
       } catch (err: any) {
-        console.error("🔴 [Firebase] กระบวนการคืนค่าเริ่มต้นขัดข้อง:", err);
         handleFirestoreError(err, OperationType.DELETE, `salons/${userEmail}`);
       }
     };
@@ -1191,7 +1176,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Set barbers successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกรายชื่อช่างไม่สำเร็จ:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1207,7 +1191,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Set products successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกรายการสินค้าขัดข้อง:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1223,7 +1206,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Set chemical promos successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกรายการส่วนลดเคมีขัดข้อง:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1239,7 +1221,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Set share config successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกอัตราส่วนส่วนแบ่งรายได้ช่างล้มเหลว:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1255,7 +1236,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Set shop config successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกชื่อและระบบป้องกันของหน้าร้านล้มเหลว:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1271,7 +1251,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Set vouchers successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] การบันทึกปรับปรุงรหัสส่วนลดไม่สำเร็จ:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1287,7 +1266,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Set payslips successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] การทำรายการชาร์ทประวัติเบิกเงินเดสเพลย์ไม่ได้:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1303,7 +1281,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกรายจ่ายสำเร็จ (Set expenses successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกรายจ่ายของหน้าร้านล้มเหลว:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1319,7 +1296,6 @@ export default function App() {
         console.log("🟢 [Firebase] บันทึกข้อมูลนับเงินสดสำเร็จ (Set cash counter successfully)");
       })
       .catch((err) => {
-        console.error("🔴 [Firebase] บันทึกข้อมูลนับเงินสดล้มเหลว:", err);
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
   };
@@ -1813,12 +1789,8 @@ export default function App() {
 
             {/* Tenant details & Logout */}
             <div className="flex items-center space-x-3 border-l border-slate-200 pl-4 h-8 self-center">
-              {/* User Account Info & Cloud Status */}
-              <div className="hidden lg:flex flex-col text-right">
-                <span className="text-[11px] font-mono font-extrabold text-slate-700 flex items-center justify-end gap-1">
-                  <Mail className="w-3 h-3 text-slate-400" />
-                  <span className="truncate max-w-[160px]">{userEmail}</span>
-                </span>
+              {/* Cloud Status */}
+              <div className="hidden lg:flex items-center text-right">
                 <span className="text-[10px] text-slate-400 font-medium flex items-center justify-end gap-1">
                   {firebaseStatus === 'connected' ? (
                     <span className="text-emerald-600 font-bold flex items-center gap-1" title="เชื่อมต่อกับ Cloud Firestore สำเร็จ ข้อมูลจะบันทึกและซิงก์สดทันที">

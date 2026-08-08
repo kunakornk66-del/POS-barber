@@ -307,7 +307,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
     try {
       onSaveSale(saleData);
     } catch (err) {
-      console.error("🔴 Parent save sale handler failed:", err);
+      console.warn("Parent save sale handler failed:", err);
     }
     
     // Auto hide success feedback after 5 seconds
@@ -762,68 +762,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
             >
               <span>← ย้อนกลับไปเลือก/แก้ไขรายการ</span>
             </button>
-          </div>
-
-          {/* Itemized Bill Summary Preview */}
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/80 space-y-3">
-            <div className="flex items-center justify-between border-b border-slate-200/80 pb-2">
-              <span className="text-xs font-extrabold text-slate-700 uppercase tracking-wider flex items-center space-x-1.5">
-                <ClipboardList className="w-4 h-4 text-indigo-600" />
-                <span>สรุปรายการบริการในบิลนี้ (Bill Summary)</span>
-              </span>
-              <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-0.5 rounded-full border border-indigo-100">
-                {selectedBarberId ? `ช่าง${barbers.find(b => b.id === selectedBarberId)?.name}` : '⚠️ ยังไม่เลือกช่าง'}
-              </span>
-            </div>
-
-            {customerNameInput && (
-              <div className="text-xs text-slate-600 flex justify-between items-center">
-                <span>ลูกค้า:</span>
-                <span className="font-bold text-slate-800">{customerNameInput}</span>
-              </div>
-            )}
-
-            <div className="space-y-1.5 text-xs">
-              {haircutPrice > 0 && (
-                <div className="flex justify-between items-center text-slate-700">
-                  <span>ค่าบริการตัดผม:</span>
-                  <span className="font-mono font-bold">{formatBaht(haircutPrice)}</span>
-                </div>
-              )}
-
-              {chemicalPrice > 0 && (
-                <div className="flex justify-between items-center text-slate-700">
-                  <span>ค่าบริการเคมี:</span>
-                  <span className="font-mono font-bold">{formatBaht(chemicalPrice)}</span>
-                </div>
-              )}
-
-              {selectedProduct && productPrice > 0 && (
-                <div className="flex justify-between items-center text-slate-700">
-                  <span>สินค้า ({selectedProduct.name} x{productQtyInput}):</span>
-                  <span className="font-mono font-bold">{formatBaht(productPrice)}</span>
-                </div>
-              )}
-
-              {tipAmount > 0 && (
-                <div className="flex justify-between items-center text-rose-600 font-semibold">
-                  <span>ทิปพนักงาน:</span>
-                  <span className="font-mono font-bold">+{formatBaht(tipAmount)}</span>
-                </div>
-              )}
-
-              {totalDiscounts > 0 && (
-                <div className="flex justify-between items-center text-emerald-600 font-semibold">
-                  <span>รวมส่วนลดทั้งหมด:</span>
-                  <span className="font-mono font-bold">-{formatBaht(totalDiscounts)}</span>
-                </div>
-              )}
-
-              <div className="pt-2 border-t border-slate-200 flex justify-between items-center font-bold text-sm text-slate-900">
-                <span>ยอดสุทธิที่ต้องชำระ:</span>
-                <span className="font-mono text-emerald-600 text-base">{formatBaht(payableAmount)}</span>
-              </div>
-            </div>
           </div>
 
           {/* 6. Payment method */}

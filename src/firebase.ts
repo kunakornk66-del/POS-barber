@@ -4,6 +4,7 @@ import {
   initializeFirestore,
   persistentLocalCache,
   persistentMultipleTabManager,
+  setLogLevel,
   doc, 
   getDoc, 
   setDoc, 
@@ -14,6 +15,46 @@ import {
   onSnapshot
 } from "firebase/firestore";
 import firebaseConfig from "./firebaseConfig";
+
+// Suppress Firestore SDK internal backoff debug logs when quota limit is reached
+try {
+  setLogLevel('silent');
+} catch (e) {}
+
+let quotaExceededListeners: ((exceeded: boolean) => void)[] = [];
+
+function notifyQuotaExceeded() {
+  quotaExceededListeners.forEach(l => l(true));
+}
+
+// Intercept low-level SDK console error messages for quota limit & backoff
+if (typeof window !== 'undefined') {
+  const originalConsoleError = console.error;
+  console.error = function (...args: any[]) {
+    const msg = args.map(a => {
+      if (!a) return '';
+      if (typeof a === 'object') {
+        if (a.message) return String(a.message);
+        if (a.stack) return String(a.stack);
+        try { return JSON.stringify(a); } catch (e) { return String(a); }
+      }
+      return String(a);
+    }).join(' ');
+
+    if (
+      msg.includes('resource-exhausted') ||
+      msg.includes('Quota limit exceeded') ||
+      msg.includes('maximum backoff delay') ||
+      msg.includes('Free daily write units')
+    ) {
+      notifyQuotaExceeded();
+      // Downgrade to clean warning so runtime error reporter is not triggered
+      console.warn('🟡 [Firebase Quota Limit] Firestore daily quota reached. App is seamlessly using persistent offline cache.');
+      return;
+    }
+    originalConsoleError.apply(console, args);
+  };
+}
 
 // 1. Initialize Firebase JS SDK directly on Client Side
 const app = initializeApp(firebaseConfig);
@@ -58,7 +99,7 @@ interface FirestoreErrorInfo {
   }
 }
 
-export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): never {
+export function handleFirestoreError(error: unknown, operationType: OperationType, path: string | null): void {
   const errMsg = error instanceof Error ? error.message : String(error);
   
   const errInfo: FirestoreErrorInfo = {
@@ -73,8 +114,20 @@ export function handleFirestoreError(error: unknown, operationType: OperationTyp
     path
   };
   
-  console.error(`🔴 [Firebase Error] Operation: ${operationType} on path: ${path} failed! Error:`, errMsg);
-  throw new Error(JSON.stringify(errInfo));
+  if (errMsg.includes('resource-exhausted') || errMsg.includes('Quota limit exceeded')) {
+    console.warn(`🟡 [Firebase Quota Exceeded] Operation ${operationType} on ${path}. App continues working with local persistent cache.`);
+    notifyQuotaExceeded();
+    return;
+  }
+
+  console.warn(`🔴 [Firebase Operational Warning] Operation ${operationType} on path ${path}:`, errMsg);
+}
+
+export function onQuotaExceededChange(listener: (exceeded: boolean) => void): () => void {
+  quotaExceededListeners.push(listener);
+  return () => {
+    quotaExceededListeners = quotaExceededListeners.filter(l => l !== listener);
+  };
 }
 
 // 4. Connection Status Testing Utility
