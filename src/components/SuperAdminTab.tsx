@@ -604,9 +604,10 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
                 {filteredList.map((sub) => {
                   const online = isOnline(sub);
                   const subState = getSubscriptionState(sub);
+                  const isExpiringSoon = (subState.diffDays <= 7) || subState.code === 'grace' || subState.code === 'expired';
 
                   return (
-                    <tr key={sub.email} className="hover:bg-slate-50/80 transition-colors">
+                    <tr key={sub.email} className={`transition-colors ${isExpiringSoon ? 'bg-rose-50/40 hover:bg-rose-50/70' : 'hover:bg-slate-50/80'}`}>
                       {/* Customer Email & Presence */}
                       <td className="py-4 px-4 sm:px-6">
                         <div className="flex items-start space-x-3">
@@ -629,9 +630,17 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
                                 {online ? '🟢 ออนไลน์' : '🔴 ออฟไลน์'}
                               </span>
                             </div>
-                            <div className="flex items-center space-x-1.5 text-slate-500 font-mono text-[11px]">
-                              <Mail className="w-3 h-3 text-slate-400" />
-                              <span>{sub.email}</span>
+                            <div className="flex items-center space-x-1.5 font-mono text-[11px] flex-wrap gap-y-1">
+                              <Mail className={`w-3 h-3 ${isExpiringSoon ? 'text-rose-600' : 'text-slate-400'}`} />
+                              <span className={isExpiringSoon ? 'text-rose-600 font-black' : 'text-slate-500'}>
+                                {sub.email}
+                              </span>
+                              {isExpiringSoon && (
+                                <span className="bg-rose-600 text-white font-extrabold text-[9px] px-2 py-0.5 rounded-full shadow-xs animate-pulse inline-flex items-center gap-1">
+                                  <span>⚠️</span>
+                                  <span>{subState.diffDays < 0 ? 'หมดอายุแล้ว' : `ใกล้หมดอายุ (เหลือ ${subState.diffDays} วัน)`}</span>
+                                </span>
+                              )}
                             </div>
                             {sub.notes && (
                               <p className="text-[10px] text-slate-400 italic">หมายเหตุ: {sub.notes}</p>

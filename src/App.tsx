@@ -566,6 +566,42 @@ export default function App() {
     return () => unsubscribe();
   }, [userEmail, shopConfig?.shopName]);
 
+  // Daily Expiry Warning Popup State for store clients (เตือนก่อนหมดอายุ 7 วัน)
+  const [showExpiryModalAlert, setShowExpiryModalAlert] = useState(false);
+  const [daysLeftForCustomer, setDaysLeftForCustomer] = useState<number | null>(null);
+
+  useEffect(() => {
+    if (!userEmail || isSuperAdmin || subCheckStatus !== 'approved' || !subscriptionInfo?.expiryDate) {
+      setShowExpiryModalAlert(false);
+      return;
+    }
+
+    const todayStr = new Date().toISOString().split('T')[0];
+    const todayMs = new Date(todayStr).getTime();
+    const expiryMs = new Date(subscriptionInfo.expiryDate).getTime();
+    const diffDays = Math.ceil((expiryMs - todayMs) / (1000 * 60 * 60 * 24));
+
+    setDaysLeftForCustomer(diffDays);
+
+    // Show daily warning popup if within 7 days of expiry or in grace period
+    if (diffDays <= 7) {
+      const dismissKey = `barber_pos_expiry_popup_dismissed_${userEmail}_${todayStr}`;
+      const alreadyDismissedToday = localStorage.getItem(dismissKey);
+      if (!alreadyDismissedToday) {
+        setShowExpiryModalAlert(true);
+      }
+    }
+  }, [userEmail, isSuperAdmin, subCheckStatus, subscriptionInfo?.expiryDate]);
+
+  const handleDismissExpiryModalToday = () => {
+    if (userEmail) {
+      const todayStr = new Date().toISOString().split('T')[0];
+      const dismissKey = `barber_pos_expiry_popup_dismissed_${userEmail}_${todayStr}`;
+      localStorage.setItem(dismissKey, 'true');
+    }
+    setShowExpiryModalAlert(false);
+  };
+
   // Connection & logging status for Firebase
   const [firebaseStatus, setFirebaseStatus] = useState<'checking' | 'connected' | 'error'>('checking');
   const [firebaseErrorMessage, setFirebaseErrorMessage] = useState('');
@@ -2290,6 +2326,54 @@ export default function App() {
                 className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-all cursor-pointer"
               >
                 ปิดหน้าต่าง
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Customer 7-Day Expiry Warning Modal Dialog */}
+      {showExpiryModalAlert && (
+        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-slate-100 animate-scale-up relative">
+            <div className="text-center space-y-2">
+              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl border border-amber-200/80 flex items-center justify-center mx-auto shadow-md animate-bounce">
+                <AlertTriangle className="w-8 h-8" />
+              </div>
+              <h2 className="text-lg font-black text-slate-900 tracking-tight">
+                {daysLeftForCustomer !== null && daysLeftForCustomer >= 0
+                  ? `⚠️ แพ็กเกจของคุณใกล้หมดอายุ (เหลือ ${daysLeftForCustomer} วัน)`
+                  : `⚠️ แพ็กเกจของคุณหมดอายุแล้ว (อยู่ในช่วงผ่อนผัน)`}
+              </h2>
+              <p className="text-xs text-slate-500 font-medium leading-relaxed">
+                แจ้งเตือนสำหรับร้าน <span className="font-bold text-slate-800">{subscriptionInfo?.shopName || 'ของคุณ'}</span> ({userEmail})
+              </p>
+            </div>
+
+            <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 text-xs space-y-2 text-slate-700">
+              <div className="flex justify-between items-center border-b border-amber-200/60 pb-2">
+                <span className="font-semibold text-slate-500">วันหมดอายุแพ็กเกจ:</span>
+                <span className="font-mono font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
+                  {subscriptionInfo?.expiryDate}
+                </span>
+              </div>
+              <p className="text-[11px] leading-relaxed text-slate-600 pt-1">
+                กรุณาติดต่อผู้ดูแลระบบ (Super Admin) เพื่อชำระค่าบริการต่ออายุแพ็กเกจรายเดือน จะได้สามารถใช้งานระบบได้อย่างต่อเนื่อง ข้อมูลประวัติการขาย สินค้า และสถิติทั้งหมดของคุณปลอดภัย ไม่สูญหาย
+              </p>
+            </div>
+
+            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-[10px] text-slate-400 text-center font-medium">
+              💡 ป๊อบอัปนี้จะแสดงเตือนวันละ 1 ครั้งเมื่อเข้าใช้งานโปรแกรม
+            </div>
+
+            <div className="flex items-center space-x-3 pt-1 font-sans">
+              <button
+                type="button"
+                onClick={handleDismissExpiryModalToday}
+                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold cursor-pointer transition-all shadow-md active:scale-95 flex items-center justify-center space-x-2"
+              >
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span>รับทราบ / เข้าใช้งานต่อ</span>
               </button>
             </div>
           </div>
