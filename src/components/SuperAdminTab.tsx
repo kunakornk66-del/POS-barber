@@ -15,10 +15,11 @@ import {
   Power,
   Lock,
   Unlock,
-  Plus
+  Plus,
+  Trash2
 } from 'lucide-react';
 import { db } from '../firebase';
-import { collection, doc, getDocs, setDoc, updateDoc, onSnapshot } from 'firebase/firestore';
+import { collection, doc, getDocs, setDoc, updateDoc, onSnapshot, deleteDoc, writeBatch } from 'firebase/firestore';
 import { CustomerSubscription } from '../types';
 
 interface SuperAdminTabProps {
@@ -44,6 +45,10 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
   const [newEmail, setNewEmail] = useState('');
   const [newShopName, setNewShopName] = useState('');
   const [newDays, setNewDays] = useState(30);
+
+  // Delete store modal state
+  const [subToDelete, setSubToDelete] = useState<CustomerSubscription | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   // Load subscriptions in real-time
   useEffect(() => {
@@ -199,7 +204,8 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
   // Toggle approval / suspension status
   const handleToggleStatus = async (sub: CustomerSubscription, targetStatus: 'approved' | 'suspended' | 'pending') => {
     try {
-      const docRef = doc(db, "subscriptions", sub.email.toLowerCase());
+      const targetEmail = sub.email.toLowerCase();
+      const docRef = doc(db, "subscriptions", targetEmail);
       const now = new Date().toISOString();
       const today = new Date().toISOString().split('T')[0];
       
@@ -215,13 +221,16 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
       }
 
       const payload: Partial<CustomerSubscription> = {
-        email: sub.email.toLowerCase(),
+        email: targetEmail,
         shopName: sub.shopName || 'ร้านบาร์เบอร์ POS',
         status: targetStatus,
         startDate: sub.startDate || today,
         expiryDate: nextExpiry,
         updatedAt: now
       };
+
+      // Optimistic update
+      setSubscriptions(prev => prev.map(s => s.email.toLowerCase() === targetEmail ? { ...s, ...payload } : s));
 
       await setDoc(docRef, payload, { merge: true });
     } catch (err) {
@@ -233,19 +242,26 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
   // Quick extend subscription +30 days
   const handleQuickExtend = async (sub: CustomerSubscription, days = 30) => {
     try {
+      const targetEmail = sub.email.toLowerCase();
       const today = new Date().toISOString().split('T')[0];
       const currentExpiry = (sub.expiryDate && sub.expiryDate > today) ? sub.expiryDate : today;
       const expDateObj = new Date(currentExpiry);
       expDateObj.setDate(expDateObj.getDate() + days);
       const newExpiryStr = expDateObj.toISOString().split('T')[0];
+      const now = new Date().toISOString();
 
-      const docRef = doc(db, "subscriptions", sub.email.toLowerCase());
-      await setDoc(docRef, {
-        email: sub.email.toLowerCase(),
+      const payload: Partial<CustomerSubscription> = {
+        email: targetEmail,
         status: 'approved',
         expiryDate: newExpiryStr,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+        updatedAt: now
+      };
+
+      // Optimistic update
+      setSubscriptions(prev => prev.map(s => s.email.toLowerCase() === targetEmail ? { ...s, ...payload } : s));
+
+      const docRef = doc(db, "subscriptions", targetEmail);
+      await setDoc(docRef, payload, { merge: true });
     } catch (err) {
       console.error("Failed to extend subscription:", err);
       alert("เกิดข้อผิดพลาดในการขยายเวลา");
@@ -256,22 +272,81 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
   const handleSaveEditDates = async () => {
     if (!selectedSub) return;
     setIsSaving(true);
-    try {
-      const docRef = doc(db, "subscriptions", selectedSub.email.toLowerCase());
-      await setDoc(docRef, {
-        email: selectedSub.email.toLowerCase(),
-        startDate: editStartDate,
-        expiryDate: editExpiryDate,
-        notes: editNotes,
-        updatedAt: new Date().toISOString()
-      }, { merge: true });
+    
+    const targetEmail = selectedSub.email.toLowerCase();
+    const updatedRecord: CustomerSubscription = {
+      ...selectedSub,
+      startDate: editStartDate || selectedSub.startDate || new Date().toISOString().split('T')[0],
+      expiryDate: editExpiryDate || selectedSub.expiryDate || new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
+      notes: editNotes || '',
+      updatedAt: new Date().toISOString()
+    };
 
-      setSelectedSub(null);
+    // 1. Optimistic update local state immediately
+    setSubscriptions(prev => prev.map(s => s.email.toLowerCase() === targetEmail ? updatedRecord : s));
+
+    // 2. Close modal immediately so UI doesn't hang
+    setSelectedSub(null);
+    setIsSaving(false);
+
+    // 3. Sync to Firestore in background
+    try {
+      const docRef = doc(db, "subscriptions", targetEmail);
+      await setDoc(docRef, {
+        email: targetEmail,
+        startDate: updatedRecord.startDate,
+        expiryDate: updatedRecord.expiryDate,
+        notes: updatedRecord.notes,
+        updatedAt: updatedRecord.updatedAt
+      }, { merge: true });
     } catch (err) {
-      console.error(err);
-      alert("เกิดข้อผิดพลาดในการบันทึกข้อมูล");
+      console.error("Failed to save subscription dates to Firestore:", err);
+    }
+  };
+
+  // Delete store and clear Firestore data
+  const handleDeleteStore = async () => {
+    if (!subToDelete) return;
+    setIsDeleting(true);
+    const targetEmail = subToDelete.email.toLowerCase();
+
+    try {
+      // 1. Delete sales subcollection under salons/{targetEmail}/sales
+      const salesColRef = collection(db, "salons", targetEmail, "sales");
+      const salesSnap = await getDocs(salesColRef);
+      const batch = writeBatch(db);
+      salesSnap.forEach((saleDoc) => {
+        batch.delete(saleDoc.ref);
+      });
+      await batch.commit();
+
+      // 2. Delete main salon document
+      await deleteDoc(doc(db, "salons", targetEmail));
+
+      // 3. Delete subscription document
+      await deleteDoc(doc(db, "subscriptions", targetEmail));
+
+      // 4. Clear local cache if any
+      const suffix = `_${targetEmail}`;
+      localStorage.removeItem(`barber_pos_barbers${suffix}`);
+      localStorage.removeItem(`barber_pos_products${suffix}`);
+      localStorage.removeItem(`barber_pos_chemical_promos${suffix}`);
+      localStorage.removeItem(`barber_pos_share_config${suffix}`);
+      localStorage.removeItem(`barber_pos_shop_config${suffix}`);
+      localStorage.removeItem(`barber_pos_vouchers${suffix}`);
+      localStorage.removeItem(`barber_pos_sales${suffix}`);
+      localStorage.removeItem(`barber_pos_payslips${suffix}`);
+      localStorage.removeItem(`barber_pos_expenses${suffix}`);
+      localStorage.removeItem(`barber_pos_cash_counter${suffix}`);
+
+      // 5. Update state
+      setSubscriptions(prev => prev.filter(s => s.email.toLowerCase() !== targetEmail));
+      setSubToDelete(null);
+    } catch (err) {
+      console.error("Failed to delete store from Firestore:", err);
+      alert("เกิดข้อผิดพลาดในการลบข้อมูลร้านค้าออกจากระบบ Cloud");
     } finally {
-      setIsSaving(false);
+      setIsDeleting(false);
     }
   };
 
@@ -661,6 +736,15 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
                           >
                             <Calendar className="w-4 h-4" />
                           </button>
+
+                          {/* Delete Store Data Button */}
+                          <button
+                            onClick={() => setSubToDelete(sub)}
+                            className="p-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-xl transition-all text-xs font-bold cursor-pointer border border-rose-200/80 active:scale-95"
+                            title="ลบข้อมูลร้านค้านี้ออกจาก Cloud / Firestore ถาวร"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
                         </div>
                       </td>
                     </tr>
@@ -833,6 +917,78 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
               </button>
             </div>
           </form>
+        </div>
+      )}
+
+      {/* Modal: Confirm Delete Store & Cloud Data */}
+      {subToDelete && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-6 border border-slate-100 animate-slide-up">
+            <div className="flex items-center space-x-3 text-rose-600 border-b border-slate-100 pb-4">
+              <div className="w-10 h-10 bg-rose-100 rounded-2xl flex items-center justify-center text-rose-600 flex-shrink-0">
+                <Trash2 className="w-5 h-5" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-slate-900 text-base">ยืนยันลบข้อมูลร้านค้าออกจาก Cloud?</h3>
+                <p className="text-[11px] text-slate-500 font-normal">คืนพื้นที่ Cloud / Firestore และลบข้อมูลถาวร</p>
+              </div>
+            </div>
+
+            <div className="space-y-3 text-xs">
+              <div className="bg-rose-50/80 p-3.5 rounded-2xl border border-rose-200/80 space-y-1">
+                <div className="flex items-center space-x-2 font-bold text-slate-900">
+                  <Store className="w-4 h-4 text-rose-600" />
+                  <span>{subToDelete.shopName || 'ร้านบาร์เบอร์ POS'}</span>
+                </div>
+                <div className="flex items-center space-x-2 font-mono text-slate-600">
+                  <Mail className="w-3.5 h-3.5 text-slate-400" />
+                  <span>{subToDelete.email}</span>
+                </div>
+              </div>
+
+              <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 text-slate-600 leading-relaxed space-y-2">
+                <p className="font-bold text-slate-800 flex items-center gap-1.5">
+                  <AlertTriangle className="w-4 h-4 text-amber-500" />
+                  <span>ข้อมูลที่จะถูกลบออกจาก Firestore ถาวร:</span>
+                </p>
+                <ul className="list-disc list-inside space-y-1 pl-1 text-[11px] text-slate-600">
+                  <li>ข้อมูลร้านค้าและการตั้งค่าส่วนแบ่งช่าง (Shop Config)</li>
+                  <li>รายชื่อช่างตัดผม สินค้า บริการ และโปรโมชั่น</li>
+                  <li>ประวัติรายการขาย สลิปเงินเดือน และรายรับ-รายจ่ายทั้งหมด</li>
+                  <li>ข้อมูลสิทธิ์และสถานะบัญชีรายเดือน (Subscription Record)</li>
+                </ul>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-end space-x-3 pt-2 border-t border-slate-100 font-sans">
+              <button
+                type="button"
+                onClick={() => setSubToDelete(null)}
+                disabled={isDeleting}
+                className="px-4 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-all"
+              >
+                ยกเลิก
+              </button>
+              <button
+                type="button"
+                onClick={handleDeleteStore}
+                disabled={isDeleting}
+                className="px-5 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-md flex items-center space-x-2 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <>
+                    <RefreshCw className="w-4 h-4 animate-spin" />
+                    <span>กำลังลบข้อมูล...</span>
+                  </>
+                ) : (
+                  <>
+                    <Trash2 className="w-4 h-4" />
+                    <span>ยืนยันลบข้อมูลถาวร</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
         </div>
       )}
 

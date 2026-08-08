@@ -1,7 +1,6 @@
 {
   "name": "Barber POS คิดเงินร้านตัดผม",
   "description": "ระบบคิดเงินร้านตัดผม บันทึกยอดขาย คำนวณส่วนแบ่งรายได้ช่าง แสดงรายงานรายวันและรายเดือนสำหรับนักบัญชี",
-  "majorCapabilities": [
-    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
-  ]
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
 }
