@@ -678,60 +678,76 @@ export default function App() {
         if (localPayslips) setPayslips(JSON.parse(localPayslips));
         if (localExpenses) setExpenses(JSON.parse(localExpenses));
         if (localCashCounter) setCashCounter(JSON.parse(localCashCounter));
+
+        // If local cached data was loaded, unblock UI immediately so user never waits
+        if (localShopConfig || localBarbers || localSales) {
+          setIsLoading(false);
+        }
       } catch (err) {
         console.warn("⚠️ Failed to preload cached data:", err);
       }
+
+      // Safety fallback timer: guarantee isLoading is set to false within 2 seconds
+      const fallbackTimer = setTimeout(() => {
+        setIsLoading(false);
+      }, 2000);
 
       try {
         const salonDocRef = doc(db, "salons", userEmail);
         
         // 1. Initial existence & seeding check
-        const salonSnap = await getDoc(salonDocRef);
-        if (!salonSnap.exists()) {
-          const isGuest = userEmail === "guest@gmail.com";
-          const defaultSalon = {
-            shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ระบบร้านบาร์เบอร์ POS ของคุณ",
-            shareConfig: DEFAULT_SHARE_CONFIG,
-            shopConfig: {
+        try {
+          const salonSnap = await getDoc(salonDocRef);
+          if (!salonSnap.exists()) {
+            const isGuest = userEmail === "guest@gmail.com";
+            const defaultSalon = {
               shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ระบบร้านบาร์เบอร์ POS ของคุณ",
-              pinCode: "",
-              isPinLocked: false
-            },
-            barbers: isGuest ? INITIAL_BARBERS : [
-              { id: "b-guide", name: "ช่างตัวอย่างสาธิต (Guide Barber)", isWorking: true, realName: "จิรภัทร รักสยาม", position: "Hairdresser" }
-            ],
-            products: isGuest ? INITIAL_PRODUCTS : [
-              { id: "p-guide", name: "สินค้าวินเทจจัดทรงผม (Guide Product)", price: 120, isActive: true }
-            ],
-            chemicalPromos: INITIAL_CHEMICAL_PROMOS,
-            vouchers: isGuest ? [
-              { id: "v1", value: 20, isActive: true },
-              { id: "v2", value: 50, isActive: true }
-            ] : [
-              { id: "v-guide", value: 50, isActive: true }
-            ],
-            payslips: [],
-            expenses: [],
-            lastResetDate: todayStr,
-            updatedAt: new Date().toISOString()
-          };
+              shareConfig: DEFAULT_SHARE_CONFIG,
+              shopConfig: {
+                shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ระบบร้านบาร์เบอร์ POS ของคุณ",
+                pinCode: "",
+                isPinLocked: false
+              },
+              barbers: isGuest ? INITIAL_BARBERS : [
+                { id: "b-guide", name: "ช่างตัวอย่างสาธิต (Guide Barber)", isWorking: true, realName: "จิรภัทร รักสยาม", position: "Hairdresser" }
+              ],
+              products: isGuest ? INITIAL_PRODUCTS : [
+                { id: "p-guide", name: "สินค้าวินเทจจัดทรงผม (Guide Product)", price: 120, isActive: true }
+              ],
+              chemicalPromos: INITIAL_CHEMICAL_PROMOS,
+              vouchers: isGuest ? [
+                { id: "v1", value: 20, isActive: true },
+                { id: "v2", value: 50, isActive: true }
+              ] : [
+                { id: "v-guide", value: 50, isActive: true }
+              ],
+              payslips: [],
+              expenses: [],
+              lastResetDate: todayStr,
+              updatedAt: new Date().toISOString()
+            };
 
-          await setDoc(salonDocRef, defaultSalon);
-          console.log(`🟢 [Firebase] ไม่พบบัญชีเดิม สร้างโปรไฟล์เริ่มต้นของ ${userEmail} ลงระบบฐานข้อมูลแล้ว`);
-          
-          if (isGuest) {
-            const seededSales = getSeededSales();
-            const batch = writeBatch(db);
-            seededSales.forEach(sale => {
-              const sRef = doc(db, "salons", userEmail, "sales", sale.id);
-              batch.set(sRef, sale);
-            });
-            await batch.commit();
+            await setDoc(salonDocRef, defaultSalon);
+            console.log(`🟢 [Firebase] ไม่พบบัญชีเดิม สร้างโปรไฟล์เริ่มต้นของ ${userEmail} ลงระบบฐานข้อมูลแล้ว`);
+            
+            if (isGuest) {
+              const seededSales = getSeededSales();
+              const batch = writeBatch(db);
+              seededSales.forEach(sale => {
+                const sRef = doc(db, "salons", userEmail, "sales", sale.id);
+                batch.set(sRef, sale);
+              });
+              await batch.commit();
+            }
           }
+        } catch (initErr) {
+          console.warn("⚠️ [Firebase] Initial salon fetch failed or took too long, proceeding with offline snapshot:", initErr);
+          setIsLoading(false);
         }
 
         // 2. Setup Real-time Snapshot on main Salon Document
         unsubSalon = onSnapshot(salonDocRef, (docSnap) => {
+          clearTimeout(fallbackTimer);
           if (docSnap.exists()) {
             const salonData = docSnap.data();
             const lastResetDate = salonData.lastResetDate || "";
@@ -784,6 +800,7 @@ export default function App() {
           }
         }, (err) => {
           console.error("🔴 [Firebase Client] Salon Snapshot Error:", err);
+          setIsLoading(false);
           handleFirestoreError(err, OperationType.GET, `salons/${userEmail}`);
         });
 
@@ -800,9 +817,11 @@ export default function App() {
           // Sort sales
           let reconciledSales = [...fetchedSales];
           reconciledSales.sort((a, b) => {
-            const diff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+            const timeA = a && a.timestamp ? new Date(a.timestamp).getTime() : 0;
+            const timeB = b && b.timestamp ? new Date(b.timestamp).getTime() : 0;
+            const diff = (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
             if (diff !== 0) return diff;
-            return b.id.localeCompare(a.id);
+            return (b?.id || '').localeCompare(a?.id || '');
           });
 
           // Reconcile and Dual-Restore Offline Sales Data (Only do this once on first load)
@@ -821,9 +840,11 @@ export default function App() {
                     console.log(`⚠️ POS [Reconciliation] พบยอดขายออฟไลน์ยังไม่ได้เซฟขึ้น Cloud จำนวน ${unsyncedSales.length} รายการ. กำลังซิงค์ขึ้นเซิร์ฟเวอร์...`);
                     reconciledSales = [...unsyncedSales, ...reconciledSales];
                     reconciledSales.sort((a, b) => {
-                      const diff = new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime();
+                      const timeA = a && a.timestamp ? new Date(a.timestamp).getTime() : 0;
+                      const timeB = b && b.timestamp ? new Date(b.timestamp).getTime() : 0;
+                      const diff = (isNaN(timeB) ? 0 : timeB) - (isNaN(timeA) ? 0 : timeA);
                       if (diff !== 0) return diff;
-                      return b.id.localeCompare(a.id);
+                      return (b?.id || '').localeCompare(a?.id || '');
                     });
                     
                     const batch = writeBatch(db);
@@ -928,15 +949,37 @@ export default function App() {
     const now = new Date();
     const formattedDate = getLocalDateString(now);
     
+    const safeTimestamp = newOmitRecord.timestamp || now.toISOString();
+    const safeDate = newOmitRecord.date || formattedDate;
+
     const fullyQualifiedRecord: SaleRecord = {
+      barberId: newOmitRecord.barberId || 'unknown',
+      barberName: newOmitRecord.barberName || 'ช่างตัดผม',
+      customerName: newOmitRecord.customerName || 'ลูกค้าทั่วไป',
+      haircutPrice: Number(newOmitRecord.haircutPrice) || 0,
+      chemicalPrice: Number(newOmitRecord.chemicalPrice) || 0,
+      productPrice: Number(newOmitRecord.productPrice) || 0,
+      tip: Number(newOmitRecord.tip) || 0,
+      paymentMethod: newOmitRecord.paymentMethod || 'cash',
+      subtotal: Number(newOmitRecord.subtotal) || 0,
+      discountAmount: Number(newOmitRecord.discountAmount) || 0,
+      customerPaid: Number(newOmitRecord.customerPaid) || 0,
+      barberHaircutShare: Number(newOmitRecord.barberHaircutShare) || 0,
+      barberChemicalShare: Number(newOmitRecord.barberChemicalShare) || 0,
+      barberProductShare: Number(newOmitRecord.barberProductShare) || 0,
+      barberTotalShare: Number(newOmitRecord.barberTotalShare) || 0,
+      shopTotalShare: Number(newOmitRecord.shopTotalShare) || 0,
       ...newOmitRecord,
       id: `sale-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
-      timestamp: newOmitRecord.timestamp || now.toISOString(),
-      date: newOmitRecord.date || formattedDate
+      timestamp: safeTimestamp,
+      date: safeDate
     };
 
     // Clean undefined fields recursively so Firestore doesn't reject the save request
     const cleanRecord = cleanUndefined(fullyQualifiedRecord);
+    cleanRecord.date = safeDate;
+    cleanRecord.timestamp = safeTimestamp;
+    cleanRecord.id = cleanRecord.id || `sale-${Date.now()}`;
 
     // Optimistic state updates
     setSales((prev) => [cleanRecord, ...prev]);
@@ -950,12 +993,12 @@ export default function App() {
     const saleDocRef = doc(db, "salons", userEmail, "sales", cleanRecord.id);
     setDoc(saleDocRef, cleanRecord)
       .then(() => {
-        console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Saved record successfully) ID:", fullyQualifiedRecord.id);
+        console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Saved record successfully) ID:", cleanRecord.id);
       })
       .catch((err) => {
         console.error("🔴 [Firebase] บันทึกบิลเก็บเงินบนคลาวด์ขัดข้อง:", err);
         setPendingSyncCount((prev) => prev + 1);
-        handleFirestoreError(err, OperationType.WRITE, `salons/${userEmail}/sales/${fullyQualifiedRecord.id}`);
+        handleFirestoreError(err, OperationType.WRITE, `salons/${userEmail}/sales/${cleanRecord.id}`);
       });
   };
 

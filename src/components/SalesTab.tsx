@@ -212,9 +212,23 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
     let dateToPass: string;
 
     if (customDateTime && customDateTime.includes('T')) {
-      const selected = new Date(customDateTime);
-      timestampToPass = selected.toISOString();
-      dateToPass = customDateTime.split('T')[0]; // YYYY-MM-DD
+      try {
+        const selected = new Date(customDateTime);
+        if (!isNaN(selected.getTime())) {
+          timestampToPass = selected.toISOString();
+          dateToPass = customDateTime.split('T')[0]; // YYYY-MM-DD
+        } else {
+          const now = new Date();
+          timestampToPass = now.toISOString();
+          const offset = now.getTimezoneOffset() * 60000;
+          dateToPass = new Date(now.getTime() - offset).toISOString().split('T')[0];
+        }
+      } catch (e) {
+        const now = new Date();
+        timestampToPass = now.toISOString();
+        const offset = now.getTimezoneOffset() * 60000;
+        dateToPass = new Date(now.getTime() - offset).toISOString().split('T')[0];
+      }
     } else {
       const now = new Date();
       timestampToPass = now.toISOString();

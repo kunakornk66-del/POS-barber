@@ -291,10 +291,10 @@ export default function PayslipsTab({
 
   // Dynamic list of sales record months
   const availableMonths = useMemo(() => {
-    const months = sales.map(s => s.date.substring(0, 7));
+    const months = sales.map(s => (s?.date || getLocalMonthString()).substring(0, 7));
     const curMonth = getLocalMonthString();
     if (!months.includes(curMonth)) months.push(curMonth);
-    return Array.from(new Set(months)).sort((a, b) => b.localeCompare(a));
+    return Array.from(new Set(months)).sort((a, b) => (b || '').localeCompare(a || ''));
   }, [sales]);
 
   // Dynamic lists of archived months and barbers for historical search filters
@@ -1991,24 +1991,24 @@ export default function PayslipsTab({
                       </div>
                     )}
 
-                    {slipPositionAllowance > 0 && (
+                    {Number(slipPositionAllowance) > 0 && (
                       <div className="flex justify-between text-purple-700 font-bold">
                         <span>🎖️ ค่าตำแหน่งทางการงาน:</span>
-                        <span className="font-mono">+{formatBaht(slipPositionAllowance)}</span>
+                        <span className="font-mono">+{formatBaht(Number(slipPositionAllowance) || 0)}</span>
                       </div>
                     )}
 
-                    {slipOvertime > 0 && (
+                    {Number(slipOvertime) > 0 && (
                       <div className="flex justify-between text-slate-600">
                         <span>เบี้ยขยันพิเศษ / เงิน OT:</span>
-                        <span className="font-mono">+{formatBaht(slipOvertime)}</span>
+                        <span className="font-mono">+{formatBaht(Number(slipOvertime) || 0)}</span>
                       </div>
                     )}
 
                     <div className="border-t border-slate-200 pt-2 flex justify-between font-black text-slate-800 text-[11px] font-sans">
                       <span>รวมรายได้สะสมพึงประเมิน:</span>
                       <span className="font-mono text-indigo-800">
-                        {formatBaht(previewCalculation?.totalEarnings)}
+                        {formatBaht(previewCalculation?.totalEarnings || 0)}
                       </span>
                     </div>
                   </div>
@@ -2023,24 +2023,24 @@ export default function PayslipsTab({
                     <div className="flex justify-between text-slate-600 font-medium font-sans">
                       <span>หักภาษี ณ ที่จ่ายตามใบรับ ({slipTaxRate}%):</span>
                       <span className="font-mono text-slate-800">
-                        -{formatBaht(previewCalculation?.taxValue)}
+                        -{formatBaht(previewCalculation?.taxValue || 0)}
                       </span>
                     </div>
 
                     <div className="flex justify-between text-slate-600 font-sans">
                       <span>หักสวัสดิการรวม / รอยเบิกล่วงหน้า:</span>
-                      <span className="font-mono text-slate-800">-{formatBaht(slipDeductions)}</span>
+                      <span className="font-mono text-slate-800">-{formatBaht(Number(slipDeductions) || 0)}</span>
                     </div>
 
                     <div className="flex justify-between text-slate-600 font-sans">
                       <span>หักสะสมเงินประกันของช่าง:</span>
-                      <span className="font-mono text-slate-800">-{formatBaht(slipSocialSecurity)}</span>
+                      <span className="font-mono text-slate-800">-{formatBaht(Number(slipSocialSecurity) || 0)}</span>
                     </div>
 
                     <div className="border-t border-slate-200 pt-2 flex justify-between font-black text-slate-800 text-[11px] font-sans mt-auto">
                       <span>รวมยอดหักเงินทั้งหมด:</span>
                       <span className="font-mono text-rose-800">
-                        {formatBaht(previewCalculation?.totalDeductions)}
+                        {formatBaht(previewCalculation?.totalDeductions || 0)}
                       </span>
                     </div>
                   </div>

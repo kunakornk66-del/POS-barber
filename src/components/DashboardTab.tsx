@@ -291,32 +291,32 @@ export default function DashboardTab({
 
   // List of unique dates in sales records to easily pick
   const availableDates = useMemo(() => {
-    const dates = sales.map(s => s.date);
+    const dates = sales.map(s => s?.date || getLocalDateString());
     const today = getLocalDateString();
     if (!dates.includes(today)) dates.push(today);
-    return Array.from(new Set(dates)).sort((a,b) => b.localeCompare(a));
+    return Array.from(new Set(dates)).sort((a,b) => (b || '').localeCompare(a || ''));
   }, [sales]);
 
   // List of unique months YYYY-MM
   const availableMonths = useMemo(() => {
-    const months = sales.map(s => s.date.substring(0, 7));
+    const months = sales.map(s => (s?.date || getLocalDateString()).substring(0, 7));
     const curMonth = getLocalMonthString();
     if (!months.includes(curMonth)) months.push(curMonth);
-    return Array.from(new Set(months)).sort((a,b) => b.localeCompare(a));
+    return Array.from(new Set(months)).sort((a,b) => (b || '').localeCompare(a || ''));
   }, [sales]);
 
   // ==========================================
   // DAILY STATISTICS CALCULATION
   // ==========================================
   const dailySales = useMemo(() => {
-    return sales.filter(s => s.date === selectedDate);
+    return sales.filter(s => (s?.date || '') === selectedDate);
   }, [sales, selectedDate]);
 
   const sortedDailySales = useMemo(() => {
     return [...dailySales].sort((a, b) => {
-      const cmp = b.timestamp.localeCompare(a.timestamp);
+      const cmp = (b?.timestamp || '').localeCompare(a?.timestamp || '');
       if (cmp !== 0) return cmp;
-      return b.id.localeCompare(a.id);
+      return (b?.id || '').localeCompare(a?.id || '');
     });
   }, [dailySales]);
 
@@ -509,17 +509,17 @@ export default function DashboardTab({
     const totalDiscountsCount = monthlySales.filter(s => s.useDiscountPct10 || s.useVoucherValue > 0).length;
     
     // Total income from customers without subtracting commissions (everything that customers paid)
-    const totalCustomerPaid = monthlySales.reduce((sum, s) => sum + s.customerPaid, 0);
+    const totalCustomerPaid = monthlySales.reduce((sum, s) => sum + (s?.customerPaid || 0), 0);
 
     // Unique days in this month that had sales
-    const activeDays = Array.from(new Set(monthlySales.map(s => s.date)));
-    const totalCuts = monthlySales.filter(s => s.haircutPrice > 0).length;
+    const activeDays = Array.from(new Set(monthlySales.map(s => s?.date || '')));
+    const totalCuts = monthlySales.filter(s => (s?.haircutPrice || 0) > 0).length;
     const avgCutsPerDay = activeDays.length > 0 ? (totalCuts / activeDays.length) : 0;
 
     return {
-      cashAmount: cashSales.reduce((sum, s) => sum + s.customerPaid, 0),
+      cashAmount: cashSales.reduce((sum, s) => sum + (s?.customerPaid || 0), 0),
       cashCount: cashSales.length,
-      transferAmount: transferSales.reduce((sum, s) => sum + s.customerPaid, 0),
+      transferAmount: transferSales.reduce((sum, s) => sum + (s?.customerPaid || 0), 0),
       transferCount,
       shopRevenue,
       totalDiscountsCount,
@@ -591,12 +591,15 @@ export default function DashboardTab({
 
     // Populate from records
     monthlySales.forEach(s => {
+      if (!s || !s.date) return;
       const parts = s.date.split('-');
       if (parts.length === 3) {
         const dayNum = parseInt(parts[2], 10);
-        dailyMap[dayNum].revenue += s.customerPaid;
-        if (s.haircutPrice > 0) {
-          dailyMap[dayNum].customers += 1;
+        if (dailyMap[dayNum]) {
+          dailyMap[dayNum].revenue += (s.customerPaid || 0);
+          if ((s.haircutPrice || 0) > 0) {
+            dailyMap[dayNum].customers += 1;
+          }
         }
       }
     });
