@@ -42,7 +42,8 @@ import {
   Clock,
   CheckCircle2,
   Eye,
-  EyeOff
+  EyeOff,
+  Mail
 } from 'lucide-react';
 import { 
   db, 
@@ -1716,12 +1717,12 @@ export default function App() {
                 </h1>
                 {/* Clean Sync Pill next to the shop name */}
                 {firebaseStatus === 'connected' ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/50" title="ฐานข้อมูลและทุกเครื่องอัปเดตตรงกันเรียลไทม์ 100%">
+                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-2xs" title="ฐานข้อมูลและทุกเครื่องอัปเดตตรงกันเรียลไทม์ 100%">
                     <span className="relative flex h-1.5 w-1.5 mr-1">
                       <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
                       <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
                     </span>
-                    <span>เรียลไทม์ ซิงก์สด 🟢</span>
+                    <span>เรียลไทม์ ซิงก์สด</span>
                   </span>
                 ) : firebaseStatus === 'checking' ? (
                   <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200/50 animate-pulse">
@@ -1768,28 +1769,33 @@ export default function App() {
             </nav>
 
             {/* Tenant details & Logout */}
-            <div className="flex items-center space-x-2 border-l border-slate-200 pl-4 h-8 self-center">
-              <div className="text-right">
-                {firebaseStatus === 'connected' && (
-                  <p className="text-[10px] text-emerald-600 font-mono flex items-center justify-end gap-1 font-bold" title="เชื่อมต่อกับ Cloud Firestore สำเร็จ ข้อมูลจะบันทึกและซิงก์สดทันที">
-                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                    <Wifi className="w-3 h-3 text-emerald-500 inline" />
-                    <span>เรียลไทม์ ซิงก์สด 🟢</span>
-                  </p>
-                )}
-                {firebaseStatus === 'checking' && (
-                  <p className="text-[10px] text-amber-600 font-mono flex items-center justify-end gap-1 font-bold" title="กำลังเตรียมการและตรวจเช็คเครือข่ายความสมบูรณ์ฐานข้อมูล...">
-                    <RefreshCw className="w-3 h-3 text-amber-500 animate-spin inline" />
-                    <span>กำลังซิงก์ข้อมูล...</span>
-                  </p>
-                )}
-                {firebaseStatus === 'error' && (
-                  <p className="text-[10px] text-rose-600 font-mono flex items-center justify-end gap-1 font-bold" title={`เกิดข้อผิดพลาดในการเชื่อมต่อ: ${firebaseErrorMessage}`}>
-                    <WifiOff className="w-3 h-3 text-rose-500 inline animate-bounce" />
-                    <span>ขัดข้องออฟไลน์ (ดู F12)</span>
-                  </p>
-                )}
+            <div className="flex items-center space-x-3 border-l border-slate-200 pl-4 h-8 self-center">
+              {/* User Account Info & Cloud Status */}
+              <div className="hidden lg:flex flex-col text-right">
+                <span className="text-[11px] font-mono font-extrabold text-slate-700 flex items-center justify-end gap-1">
+                  <Mail className="w-3 h-3 text-slate-400" />
+                  <span className="truncate max-w-[160px]">{userEmail}</span>
+                </span>
+                <span className="text-[10px] text-slate-400 font-medium flex items-center justify-end gap-1">
+                  {firebaseStatus === 'connected' ? (
+                    <span className="text-emerald-600 font-bold flex items-center gap-1" title="เชื่อมต่อกับ Cloud Firestore สำเร็จ ข้อมูลจะบันทึกและซิงก์สดทันที">
+                      <Wifi className="w-3 h-3 text-emerald-500" />
+                      <span>เชื่อมต่อเรียบร้อย</span>
+                    </span>
+                  ) : firebaseStatus === 'checking' ? (
+                    <span className="text-amber-600 font-bold flex items-center gap-1">
+                      <RefreshCw className="w-3 h-3 text-amber-500 animate-spin" />
+                      <span>กำลังซิงก์...</span>
+                    </span>
+                  ) : (
+                    <span className="text-rose-600 font-bold flex items-center gap-1">
+                      <WifiOff className="w-3 h-3 text-rose-500 animate-pulse" />
+                      <span>ออฟไลน์</span>
+                    </span>
+                  )}
+                </span>
               </div>
+
               <button
                 onClick={() => setShowUserGuide(true)}
                 className="relative overflow-hidden group flex items-center space-x-2 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black transition-all duration-300 cursor-pointer shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/35 hover:-translate-y-0.5 active:translate-y-0"
