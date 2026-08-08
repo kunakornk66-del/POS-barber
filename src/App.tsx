@@ -15,6 +15,7 @@ import CashCounterTab from './components/CashCounterTab';
 import PayslipsTab from './components/PayslipsTab';
 import UserGuideModal from './components/UserGuideModal';
 import SuperAdminTab from './components/SuperAdminTab';
+import AnnualResetModal from './components/AnnualResetModal';
 import { 
   Scissors, 
   LayoutDashboard, 
@@ -219,9 +220,9 @@ export default function App() {
     };
   }, [userEmail]);
 
-  const [barbers, setBarbers] = useState<Barber[]>(INITIAL_BARBERS);
-  const [products, setProducts] = useState<Product[]>(INITIAL_PRODUCTS);
-  const [chemicalPromos, setChemicalPromos] = useState<ChemicalPromo[]>(INITIAL_CHEMICAL_PROMOS);
+  const [barbers, setBarbers] = useState<Barber[]>([]);
+  const [products, setProducts] = useState<Product[]>([]);
+  const [chemicalPromos, setChemicalPromos] = useState<ChemicalPromo[]>([]);
   const [shareConfig, setShareConfig] = useState<ShareConfig>(DEFAULT_SHARE_CONFIG);
   const [shopConfig, setShopConfig] = useState<ShopConfig>(DEFAULT_SHOP_CONFIG);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
@@ -291,6 +292,12 @@ export default function App() {
   const [subscriptionInfo, setSubscriptionInfo] = useState<CustomerSubscription | null>(null);
   const [subCheckStatus, setSubCheckStatus] = useState<'checking' | 'approved' | 'pending' | 'suspended' | 'expired'>('checking');
   const [graceDaysLeft, setGraceDaysLeft] = useState<number | null>(null);
+
+  // 1-Year Annual Reset Tracker State
+  const [firstLoginDate, setFirstLoginDate] = useState<string>('');
+  const [showAnnualResetModal, setShowAnnualResetModal] = useState<boolean>(false);
+  const [annualDaysElapsed, setAnnualDaysElapsed] = useState<number>(0);
+  const [annualDaysRemaining, setAnnualDaysRemaining] = useState<number>(30);
   
   // Offline & Pending Sync State
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -637,6 +644,32 @@ export default function App() {
     const todayStr = getTodayDateString();
 
     const setupRealtimeSync = async () => {
+      const isGuest = userEmail === "guest@gmail.com";
+
+      // Reset in-memory state cleanly before loading user data
+      setSales([]);
+      setPayslips([]);
+      setExpenses([]);
+      setCashCounter(null);
+      if (!isGuest) {
+        setBarbers([]);
+        setProducts([]);
+        setChemicalPromos([]);
+        setVouchers([]);
+        setShopConfig({ shopName: "ร้านบาร์เบอร์ของฉัน", pinCode: "", isPinLocked: false });
+        setShareConfig(DEFAULT_SHARE_CONFIG);
+      } else {
+        setBarbers(INITIAL_BARBERS);
+        setProducts(INITIAL_PRODUCTS);
+        setChemicalPromos(INITIAL_CHEMICAL_PROMOS);
+        setVouchers([
+          { id: "v1", value: 20, isActive: true },
+          { id: "v2", value: 50, isActive: true }
+        ]);
+        setShopConfig(DEFAULT_SHOP_CONFIG);
+        setShareConfig(DEFAULT_SHARE_CONFIG);
+      }
+
       // Preload from LocalStorage first for instant visual render
       const suffix = `_${userEmail}`;
       try {
@@ -658,7 +691,7 @@ export default function App() {
         if (localShopConfig) {
           const parsed = JSON.parse(localShopConfig);
           setShopConfig({
-            shopName: "ระบบร้านบาร์เบอร์ POS ของคุณ",
+            shopName: "ร้านบาร์เบอร์ของฉัน",
             pinCode: "",
             isPinLocked: false,
             logoUrl: "",
@@ -691,31 +724,25 @@ export default function App() {
         try {
           const salonSnap = await getDoc(salonDocRef);
           if (!salonSnap.exists()) {
-            const isGuest = userEmail === "guest@gmail.com";
             const defaultSalon = {
-              shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ระบบร้านบาร์เบอร์ POS ของคุณ",
+              shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ร้านบาร์เบอร์ของฉัน",
               shareConfig: DEFAULT_SHARE_CONFIG,
               shopConfig: {
-                shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ระบบร้านบาร์เบอร์ POS ของคุณ",
+                shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ร้านบาร์เบอร์ของฉัน",
                 pinCode: "",
                 isPinLocked: false
               },
-              barbers: isGuest ? INITIAL_BARBERS : [
-                { id: "b-guide", name: "ช่างตัวอย่างสาธิต (Guide Barber)", isWorking: true, realName: "จิรภัทร รักสยาม", position: "Hairdresser" }
-              ],
-              products: isGuest ? INITIAL_PRODUCTS : [
-                { id: "p-guide", name: "สินค้าวินเทจจัดทรงผม (Guide Product)", price: 120, isActive: true }
-              ],
-              chemicalPromos: INITIAL_CHEMICAL_PROMOS,
+              barbers: isGuest ? INITIAL_BARBERS : [],
+              products: isGuest ? INITIAL_PRODUCTS : [],
+              chemicalPromos: isGuest ? INITIAL_CHEMICAL_PROMOS : [],
               vouchers: isGuest ? [
                 { id: "v1", value: 20, isActive: true },
                 { id: "v2", value: 50, isActive: true }
-              ] : [
-                { id: "v-guide", value: 50, isActive: true }
-              ],
+              ] : [],
               payslips: [],
               expenses: [],
               lastResetDate: todayStr,
+              firstLoginDate: new Date().toISOString(),
               updatedAt: new Date().toISOString()
             };
 
@@ -789,6 +816,18 @@ export default function App() {
             setPayslips(salonData.payslips || []);
             setExpenses(salonData.expenses || []);
             setCashCounter(salonData.cashCounter || null);
+
+            // First Login Date tracking & initialization
+            let loginDate = salonData.firstLoginDate || salonData.shopConfig?.firstLoginDate || localStorage.getItem(`barber_pos_first_login_date_${userEmail}`);
+            if (!loginDate) {
+              loginDate = new Date().toISOString();
+              localStorage.setItem(`barber_pos_first_login_date_${userEmail}`, loginDate);
+              setDoc(salonDocRef, { firstLoginDate: loginDate }, { merge: true }).catch(() => {});
+            } else {
+              localStorage.setItem(`barber_pos_first_login_date_${userEmail}`, loginDate);
+            }
+            setFirstLoginDate(loginDate);
+
             setIsLoading(false);
           }
         }, (err) => {
@@ -926,6 +965,50 @@ export default function App() {
     if (!userEmail || isLoading || !cashCounter) return;
     localStorage.setItem(`barber_pos_cash_counter_${userEmail}`, JSON.stringify(cashCounter));
   }, [cashCounter, userEmail, isLoading]);
+
+  // Evaluate 1-Year Annual Reset Cycle (365 days -> 30-day warning -> 395 days auto factory reset)
+  useEffect(() => {
+    if (!userEmail || !firstLoginDate) return;
+
+    try {
+      const firstLogin = new Date(firstLoginDate);
+      if (isNaN(firstLogin.getTime())) return;
+
+      const now = new Date();
+      const diffMs = Math.max(0, now.getTime() - firstLogin.getTime());
+      const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+      setAnnualDaysElapsed(diffDays);
+
+      // 1. Exceeded 1 Year + 30 Days Warning Grace Period (diffDays >= 395)
+      if (diffDays >= 395) {
+        console.warn(`⏰ [Annual Reset System] ครบกำหนด 1 ปี + ผ่อนผัน 1 เดือน (${diffDays} วัน) ระบบทำการ Factory Reset อัตโนมัติ`);
+        alert(`⏰ [แจ้งเตือนระบบ] ระบบได้ทำการ Factory Reset อัตโนมัติเรียบร้อยแล้ว\nเนื่องจากบัญชีของคุณ (${userEmail}) ครบรอบระยะเวลาใช้งาน 1 ปี + ผ่อนผันการแจ้งเตือน 1 เดือน (30 วัน)`);
+        confirmFullReset();
+        return;
+      }
+
+      // 2. Reached 1 Year (365 <= diffDays < 395) -> Daily warning popup
+      if (diffDays >= 365) {
+        const daysRem = Math.max(0, 395 - diffDays);
+        setAnnualDaysRemaining(daysRem);
+
+        const todayStr = now.toISOString().split('T')[0];
+        const dismissedToday = localStorage.getItem(`barber_pos_annual_reset_dismissed_${userEmail}_${todayStr}`);
+        if (!dismissedToday) {
+          setShowAnnualResetModal(true);
+        }
+      }
+    } catch (err) {
+      console.error("Error evaluating annual reset schedule:", err);
+    }
+  }, [userEmail, firstLoginDate]);
+
+  const handleCloseAnnualModalToday = () => {
+    if (!userEmail) return;
+    const todayStr = new Date().toISOString().split('T')[0];
+    localStorage.setItem(`barber_pos_annual_reset_dismissed_${userEmail}_${todayStr}`, 'true');
+    setShowAnnualResetModal(false);
+  };
 
 
   // Helper to get local date string YYYY-MM-DD
@@ -1882,6 +1965,9 @@ export default function App() {
               shopConfig={shopConfig}
               vouchers={vouchers}
               salesCount={correctedSales.length}
+              firstLoginDate={firstLoginDate}
+              annualDaysElapsed={annualDaysElapsed}
+              onOpenAnnualModal={() => setShowAnnualResetModal(true)}
               onUpdateBarbers={handleUpdateBarbers}
               onUpdateProducts={handleUpdateProducts}
               onUpdateChemicalPromos={handleUpdateChemicalPromos}
@@ -2122,6 +2208,23 @@ export default function App() {
         isOpen={showUserGuide} 
         onClose={() => setShowUserGuide(false)} 
         shopConfig={shopConfig} 
+      />
+
+      {/* Annual Reset Modal (1 Year Popup Warning & Report Export) */}
+      <AnnualResetModal
+        isOpen={showAnnualResetModal}
+        onCloseToday={handleCloseAnnualModalToday}
+        firstLoginDate={firstLoginDate}
+        daysElapsed={annualDaysElapsed}
+        daysRemaining={annualDaysRemaining}
+        userEmail={userEmail || ''}
+        sales={correctedSales}
+        expenses={expenses}
+        shopName={shopConfig.shopName}
+        onTriggerFactoryResetNow={() => {
+          setShowAnnualResetModal(false);
+          confirmFullReset();
+        }}
       />
 
       {/* 6. Custom Logout Confirmation Modal */}

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Barber, Product, ShareConfig, ShopConfig, Voucher, ChemicalPromo } from '../types';
-import { formatBaht } from '../utils';
+import { formatBaht, formatThaiDate } from '../utils';
 import { 
   Users, 
   Settings, 
@@ -39,6 +39,9 @@ interface ConfigTabProps {
   shopConfig: ShopConfig;
   vouchers: Voucher[];
   salesCount: number;
+  firstLoginDate?: string;
+  annualDaysElapsed?: number;
+  onOpenAnnualModal?: () => void;
   onUpdateBarbers: (barbers: Barber[]) => void;
   onUpdateProducts: (products: Product[]) => void;
   onUpdateChemicalPromos: (promos: ChemicalPromo[]) => void;
@@ -58,6 +61,9 @@ export default function ConfigTab({
   shopConfig,
   vouchers,
   salesCount,
+  firstLoginDate,
+  annualDaysElapsed = 0,
+  onOpenAnnualModal,
   onUpdateBarbers,
   onUpdateProducts,
   onUpdateChemicalPromos,
@@ -1887,6 +1893,44 @@ export default function ConfigTab({
         <p className="text-xs text-slate-500 leading-relaxed">
           หากท่านต้องการเริ่มใช้งานจริงในวันนี้ และต้องการล้างยอดขายตัวอย่างเดิมทั้งหมดออก สามารถเลือกล้างฐานข้อมูลได้จากปุ่มด้านล่างนี้ (เมื่อล้างแล้วไม่สามารถกู้คืนได้):
         </p>
+
+        {/* Annual Reset Cycle Information Banner */}
+        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-amber-600" />
+              <span className="text-xs font-bold text-amber-900">รอบระยะเวลาใช้งานบัญชี (1-Year Auto Factory Reset Cycle)</span>
+            </div>
+            {onOpenAnnualModal && (
+              <button
+                type="button"
+                onClick={onOpenAnnualModal}
+                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-xs"
+              >
+                🔔 ทดลองเปิดป๊อปอัปแจ้งเตือน
+              </button>
+            )}
+          </div>
+          
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
+            <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+              <span className="text-slate-500 block text-[11px]">วันที่เริ่มเข้าใช้งานวันแรก:</span>
+              <span className="font-bold text-slate-800 text-sm">
+                {firstLoginDate ? formatThaiDate(firstLoginDate.split('T')[0]) : 'เริ่มต้นวันนี้'}
+              </span>
+            </div>
+            <div className="bg-white p-3 rounded-xl border border-amber-200/80">
+              <span className="text-slate-500 block text-[11px]">อายุการใช้งานสะสม:</span>
+              <span className="font-bold text-amber-700 text-sm">
+                {annualDaysElapsed} วัน {annualDaysElapsed >= 365 ? '(ครบ 1 ปี - อยู่ในระยะผ่อนผัน)' : `(เหลืออีก ${Math.max(0, 365 - annualDaysElapsed)} วันก่อนครบ 1 ปี)`}
+              </span>
+            </div>
+          </div>
+
+          <p className="text-[11px] text-amber-800 leading-relaxed bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/60">
+            ℹ️ **กติการะบบอัตโนมัติ**: เมื่อใช้งานครบ 1 ปี (365 วัน) ระบบจะแสดงป๊อปอัปแจ้งเตือนทุกวันเป็นเวลา 1 เดือน (30 วัน) เพื่อให้ท่านดาวน์โหลดไฟล์ Report ย้อนหลังเก็บไว้ หลังจากนั้นระบบจะทำการ **Factory Reset อัตโนมัติ** เพื่อล้างข้อมูลและเริ่มต้นปีการทำงานใหม่
+          </p>
+        </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
           {/* Option 1: Clear Sales Data only */}
