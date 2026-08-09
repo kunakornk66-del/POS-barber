@@ -803,10 +803,10 @@ export default function App() {
             // Update States
             setBarbers(finalBarbers);
             setProducts(salonData.products || []);
-            setChemicalPromos(salonData.chemicalPromos || INITIAL_CHEMICAL_PROMOS);
+            setChemicalPromos(salonData.chemicalPromos || (isGuest ? INITIAL_CHEMICAL_PROMOS : []));
             setShareConfig(salonData.shareConfig || DEFAULT_SHARE_CONFIG);
             setShopConfig({
-              shopName: salonData.shopName || "ระบบร้านบาร์เบอร์ POS ของคุณ",
+              shopName: salonData.shopName || (isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ร้านบาร์เบอร์ของฉัน"),
               pinCode: "",
               isPinLocked: false,
               logoUrl: "",
@@ -1163,50 +1163,34 @@ export default function App() {
     setShowFullResetConfirm(false);
     setIsLoading(true);
     
-    const suffix = `_${userEmail}`;
-    localStorage.removeItem(`barber_pos_barbers${suffix}`);
-    localStorage.removeItem(`barber_pos_products${suffix}`);
-    localStorage.removeItem(`barber_pos_chemical_promos${suffix}`);
-    localStorage.removeItem(`barber_pos_share_config${suffix}`);
-    localStorage.removeItem(`barber_pos_shop_config${suffix}`);
-    localStorage.removeItem(`barber_pos_vouchers${suffix}`);
-    localStorage.removeItem(`barber_pos_sales${suffix}`);
-    localStorage.removeItem(`barber_pos_payslips${suffix}`);
-    
-    localStorage.removeItem(`barber_pos_barbers_${userEmail}`);
-    localStorage.removeItem(`barber_pos_products_${userEmail}`);
-    localStorage.removeItem(`barber_pos_chemical_promos_${userEmail}`);
-    localStorage.removeItem(`barber_pos_share_config_${userEmail}`);
-    localStorage.removeItem(`barber_pos_shop_config_${userEmail}`);
-    localStorage.removeItem(`barber_pos_vouchers_${userEmail}`);
-    localStorage.removeItem(`barber_pos_sales_${userEmail}`);
-    localStorage.removeItem(`barber_pos_payslips_${userEmail}`);
-    
-    localStorage.removeItem('barber_pos_user_email');
+    // Clear all local storage caches for this user
+    Object.keys(localStorage).forEach((key) => {
+      if (key.includes(userEmail) || key.startsWith('barber_pos_')) {
+        localStorage.removeItem(key);
+      }
+    });
 
     const isGuest = userEmail === "guest@gmail.com";
+    const freshLoginDate = new Date().toISOString();
     const freshData = {
-      shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ระบบร้านบาร์เบอร์ POS ของคุณ",
+      shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ร้านบาร์เบอร์ของฉัน",
       shareConfig: DEFAULT_SHARE_CONFIG,
       shopConfig: {
-        shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ระบบร้านบาร์เบอร์ POS ของคุณ",
+        shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ร้านบาร์เบอร์ของฉัน",
         pinCode: "",
         isPinLocked: false
       },
-      barbers: isGuest ? INITIAL_BARBERS : [
-        { id: "b-guide", name: "ช่างตัวอย่างสาธิต (Guide Barber)", isWorking: true, realName: "จิรภัทร รักสยาม", position: "Hairdresser" }
-      ],
-      products: isGuest ? INITIAL_PRODUCTS : [
-        { id: "p-guide", name: "สินค้าวินเทจจัดทรงผม (Guide Product)", price: 120, isActive: true }
-      ],
-      chemicalPromos: INITIAL_CHEMICAL_PROMOS,
+      barbers: isGuest ? INITIAL_BARBERS : [],
+      products: isGuest ? INITIAL_PRODUCTS : [],
+      chemicalPromos: isGuest ? INITIAL_CHEMICAL_PROMOS : [],
       vouchers: isGuest ? [
         { id: "v1", value: 20, isActive: true },
         { id: "v2", value: 50, isActive: true }
-      ] : [
-        { id: "v-guide", value: 50, isActive: true }
-      ],
+      ] : [],
       payslips: [],
+      expenses: [],
+      cashCounter: null,
+      firstLoginDate: freshLoginDate,
       updatedAt: new Date().toISOString()
     };
 
@@ -1233,14 +1217,28 @@ export default function App() {
         await batch.commit();
         console.log("🟢 [Firebase] บันทึกข้อมูลสำเร็จ (Cloud database reset complete)");
 
-        setUserEmail(null);
-        setBarbers([]);
-        setProducts([]);
+        // Reset in-memory state immediately so UI updates cleanly
+        setBarbers(isGuest ? INITIAL_BARBERS : []);
+        setProducts(isGuest ? INITIAL_PRODUCTS : []);
+        setChemicalPromos(isGuest ? INITIAL_CHEMICAL_PROMOS : []);
+        setVouchers(isGuest ? [
+          { id: "v1", value: 20, isActive: true },
+          { id: "v2", value: 50, isActive: true }
+        ] : []);
+        setShopConfig(isGuest ? DEFAULT_SHOP_CONFIG : { shopName: "ร้านบาร์เบอร์ของฉัน", pinCode: "", isPinLocked: false });
+        setShareConfig(DEFAULT_SHARE_CONFIG);
         setSales([]);
         setPayslips([]);
+        setExpenses([]);
+        setCashCounter(null);
+        setFirstLoginDate(freshLoginDate);
+        setAnnualDaysElapsed(0);
+        setAnnualDaysRemaining(30);
+
         setIsLoading(false);
       } catch (err: any) {
         handleFirestoreError(err, OperationType.DELETE, `salons/${userEmail}`);
+        setIsLoading(false);
       }
     };
 
