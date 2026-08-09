@@ -133,9 +133,12 @@ export function onQuotaExceededChange(listener: (exceeded: boolean) => void): ()
 // 4. Connection Status Testing Utility
 export async function testConnection(): Promise<{ success: boolean; error?: string }> {
   try {
-    // Perform a lightweight read that works with both online and local cache
+    // Perform a lightweight read that works with both online and local cache with 3s timeout
     const testDocRef = doc(db, "salons", "connection-test");
-    await getDoc(testDocRef);
+    const timeoutPromise = new Promise<{ success: boolean }>((resolve) =>
+      setTimeout(() => resolve({ success: true }), 3000)
+    );
+    await Promise.race([getDoc(testDocRef), timeoutPromise]);
     console.log("🟢 [Firebase] การเชื่อมต่อพร้อมใช้งาน (Firebase Connected & Local Persistence Active)");
     return { success: true };
   } catch (err: any) {

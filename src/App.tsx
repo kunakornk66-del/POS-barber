@@ -767,6 +767,7 @@ export default function App() {
         // 2. Setup Real-time Snapshot on main Salon Document
         unsubSalon = onSnapshot(salonDocRef, (docSnap) => {
           clearTimeout(fallbackTimer);
+          setFirebaseStatus('connected');
           if (docSnap.exists()) {
             const salonData = docSnap.data();
             const lastResetDate = salonData.lastResetDate || "";
