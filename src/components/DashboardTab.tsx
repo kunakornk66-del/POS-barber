@@ -38,6 +38,7 @@ import {
   Image as ImageIcon,
   Calculator,
   Clock,
+  Search,
   Printer,
   Trash2,
   Edit,
@@ -264,6 +265,11 @@ export default function DashboardTab({
   const [slipNote, setSlipNote] = useState<string>('');
   const [historySelectedMonth, setHistorySelectedMonth] = useState<string>('all');
   const [historySelectedBarberId, setHistorySelectedBarberId] = useState<string>('all');
+
+  // Controls for Daily Cash & Transfer Breakdown Table (1st of month to present)
+  const [breakdownSortAsc, setBreakdownSortAsc] = useState<boolean>(true); // Default: วันที่ 1 -> ปัจจุบัน
+  const [breakdownPaymentFilter, setBreakdownPaymentFilter] = useState<'all' | 'cash' | 'transfer'>('all');
+  const [showEmptyDays, setShowEmptyDays] = useState<boolean>(true); // Default: แสดงวันนับ 1 ถึงปัจจุบันทั้งหมด
 
   // Dynamic lists of archived months and barbers for historical search filters
   const archivedMonths = useMemo(() => {
@@ -528,6 +534,158 @@ export default function DashboardTab({
       totalCustomerPaid
     };
   }, [monthlySales]);
+
+  // Daily breakdown calculation across the selected month for Cash vs Transfer payment analysis
+  // Automatically pre-populates days from Day 1 (01) up to present day or last day of month
+  const monthlyDailyBreakdown = useMemo(() => {
+    const [yearStr, monthStr] = selectedMonth.split('-');
+    const year = parseInt(yearStr, 10);
+    const month = parseInt(monthStr, 10);
+
+    const now = new Date();
+    const currentYear = now.getFullYear();
+    const currentMonth = now.getMonth() + 1;
+    const currentDay = now.getDate();
+
+    let maxDay = 31;
+    if (year && month) {
+      if (year === currentYear && month === currentMonth) {
+        maxDay = currentDay;
+      } else {
+        maxDay = new Date(year, month, 0).getDate();
+      }
+    }
+
+    const dateMap = new Map<string, {
+      date: string;
+      cashAmount: number;
+      cashCount: number;
+      transferAmount: number;
+      transferCount: number;
+      totalAmount: number;
+      totalBills: number;
+      expenseAmount: number;
+      netCash: number;
+    }>();
+
+    // Pre-fill days from day 1 (01) up to maxDay
+    if (year && month) {
+      for (let d = 1; d <= maxDay; d++) {
+        const dayFormatted = d.toString().padStart(2, '0');
+        const dateKey = `${selectedMonth}-${dayFormatted}`;
+        dateMap.set(dateKey, {
+          date: dateKey,
+          cashAmount: 0,
+          cashCount: 0,
+          transferAmount: 0,
+          transferCount: 0,
+          totalAmount: 0,
+          totalBills: 0,
+          expenseAmount: 0,
+          netCash: 0,
+        });
+      }
+    }
+
+    monthlySales.forEach(s => {
+      if (!s || !s.date) return;
+      const d = s.date;
+      if (!dateMap.has(d)) {
+        dateMap.set(d, {
+          date: d,
+          cashAmount: 0,
+          cashCount: 0,
+          transferAmount: 0,
+          transferCount: 0,
+          totalAmount: 0,
+          totalBills: 0,
+          expenseAmount: 0,
+          netCash: 0,
+        });
+      }
+      const entry = dateMap.get(d)!;
+      entry.totalBills += 1;
+      entry.totalAmount += (s.customerPaid || 0);
+      if (s.paymentMethod === 'cash') {
+        entry.cashAmount += (s.customerPaid || 0);
+        entry.cashCount += 1;
+      } else {
+        entry.transferAmount += (s.customerPaid || 0);
+        entry.transferCount += 1;
+      }
+    });
+
+    monthlyExpenses.forEach(e => {
+      if (!e || !e.date) return;
+      const d = e.date;
+      if (!dateMap.has(d)) {
+        dateMap.set(d, {
+          date: d,
+          cashAmount: 0,
+          cashCount: 0,
+          transferAmount: 0,
+          transferCount: 0,
+          totalAmount: 0,
+          totalBills: 0,
+          expenseAmount: 0,
+          netCash: 0,
+        });
+      }
+      const entry = dateMap.get(d)!;
+      entry.expenseAmount += (e.amount || 0);
+    });
+
+    const list = Array.from(dateMap.values()).map(e => ({
+      ...e,
+      netCash: e.cashAmount - e.expenseAmount
+    }));
+
+    return list;
+  }, [selectedMonth, monthlySales, monthlyExpenses]);
+
+  // Sorted and filtered list for rendering in the UI
+  const filteredMonthlyBreakdown = useMemo(() => {
+    let list = [...monthlyDailyBreakdown];
+
+    if (!showEmptyDays) {
+      list = list.filter(d => d.totalBills > 0 || d.expenseAmount > 0);
+    }
+
+    if (breakdownPaymentFilter === 'cash') {
+      list = list.filter(d => d.cashAmount > 0 || (showEmptyDays && d.totalBills === 0));
+    } else if (breakdownPaymentFilter === 'transfer') {
+      list = list.filter(d => d.transferAmount > 0 || (showEmptyDays && d.totalBills === 0));
+    }
+
+    list.sort((a, b) => {
+      return breakdownSortAsc
+        ? a.date.localeCompare(b.date)
+        : b.date.localeCompare(a.date);
+    });
+
+    return list;
+  }, [monthlyDailyBreakdown, showEmptyDays, breakdownPaymentFilter, breakdownSortAsc]);
+
+  // Cumulative Month-to-Date summary from Day 1 up to selectedDate
+  const monthToDateSummary = useMemo(() => {
+    const targetDays = monthlyDailyBreakdown.filter(d => d.date <= selectedDate);
+    const cashTotal = targetDays.reduce((sum, d) => sum + d.cashAmount, 0);
+    const transferTotal = targetDays.reduce((sum, d) => sum + d.transferAmount, 0);
+    const salesTotal = targetDays.reduce((sum, d) => sum + d.totalAmount, 0);
+    const expenseTotal = targetDays.reduce((sum, d) => sum + d.expenseAmount, 0);
+    const netCashTotal = cashTotal - expenseTotal;
+    const totalBills = targetDays.reduce((sum, d) => sum + d.totalBills, 0);
+
+    return {
+      cashTotal,
+      transferTotal,
+      salesTotal,
+      expenseTotal,
+      netCashTotal,
+      totalBills,
+      dayCount: targetDays.length
+    };
+  }, [monthlyDailyBreakdown, selectedDate]);
 
   const dailyBreakdown = useMemo(() => {
     const haircutTotal = dailySales.reduce((sum, s) => sum + (s.haircutPrice || 0), 0);
@@ -1033,6 +1191,12 @@ export default function DashboardTab({
       summary += `  • ยอดที่ต้องจ่ายจริง (เงินเดือนช่าง): ${formatBaht(b.grandTotal)}\n\n`;
     });
 
+    summary += `[สถิติมียอดขายและชำระเงินแยกรายวันย้อนหลัง (Cash vs Transfer Daily Breakdown)]\n`;
+    monthlyDailyBreakdown.forEach(d => {
+      summary += `- วันที่ ${formatThaiDate(d.date)}: ยอดรวม ${formatBaht(d.totalAmount)} (${d.totalBills} บิล) | 💵 เงินสด: ${formatBaht(d.cashAmount)} (${d.cashCount} บิล) | 📱 เงินโอน: ${formatBaht(d.transferAmount)} (${d.transferCount} บิล) | 💸 รายจ่าย: ${formatBaht(d.expenseAmount)}\n`;
+    });
+    summary += `\n`;
+
     summary += `[ยอดสรุปการเงินบัญชีของร้านค้าทางบัญชี]\n`;
     summary += `- ยอดรายรับสะสมทั้งหมดที่ลูกค้าจ่าย (ก่อนหักค่าคอม): ${formatBaht(monthlyOverallStats.totalCustomerPaid)}\n`;
     summary += `- ยอดเงินสดรวมทั้งเดือน: ${formatBaht(monthlyOverallStats.cashAmount)} (${monthlyOverallStats.cashCount} รายการ)\n`;
@@ -1062,6 +1226,36 @@ export default function DashboardTab({
         b.tipTotal.toString(),
         b.grandTotal.toString()
       ]);
+
+      // Daily Breakdown Section in Excel
+      rows.push([]);
+      rows.push(['ตารางสรุปยอดเงินสด / ยอดเงินโอน แยกรายวันย้อนหลัง ประจำเดือน', '', '', '', '', '', '']);
+      rows.push(['วันที่', 'จำนวนบิลรวม', 'ยอดเงินสด (บาท)', 'จำนวนรายการเงินสด', 'ยอดเงินโอน (บาท)', 'จำนวนรายการเงินโอน', 'ยอดรวมรายได้ (บาท)', 'รายจ่ายหน้าร้าน (บาท)', 'เงินสดคงเหลือสุทธิ (บาท)']);
+      monthlyDailyBreakdown.forEach(d => {
+        rows.push([
+          formatThaiDate(d.date),
+          d.totalBills.toString(),
+          d.cashAmount.toString(),
+          d.cashCount.toString(),
+          d.transferAmount.toString(),
+          d.transferCount.toString(),
+          d.totalAmount.toString(),
+          d.expenseAmount.toString(),
+          d.netCash.toString()
+        ]);
+      });
+      rows.push([
+        'รวมสะสมทั้งเดือน',
+        monthlyDailyBreakdown.reduce((sum, d) => sum + d.totalBills, 0).toString(),
+        monthlyDailyBreakdown.reduce((sum, d) => sum + d.cashAmount, 0).toString(),
+        monthlyDailyBreakdown.reduce((sum, d) => sum + d.cashCount, 0).toString(),
+        monthlyDailyBreakdown.reduce((sum, d) => sum + d.transferAmount, 0).toString(),
+        monthlyDailyBreakdown.reduce((sum, d) => sum + d.transferCount, 0).toString(),
+        monthlyDailyBreakdown.reduce((sum, d) => sum + d.totalAmount, 0).toString(),
+        monthlyDailyBreakdown.reduce((sum, d) => sum + d.expenseAmount, 0).toString(),
+        monthlyDailyBreakdown.reduce((sum, d) => sum + d.netCash, 0).toString()
+      ]);
+
       rows.push([]);
       rows.push(['บทวิเคราะห์ข้อมูลทางการร้านค้า', 'ยอดเงินและตัวชี้วัด', '', '', '', '', '']);
       rows.push(['รายรับสะสมทั้งหมดที่ลูกค้าจ่าย (ก่อนหักค่าช่าง)', monthlyOverallStats.totalCustomerPaid.toString(), '', '', '', '', '']);
@@ -1076,11 +1270,11 @@ export default function DashboardTab({
       downloadExcelReport(title, rows, headers);
     } 
     else if (format === 'word') {
-      const html = generateMonthlyHtmlReport(shopConfig.shopName, selectedMonth, monthlyBarberStats, monthlyOverallStats, monthlyExpenses);
+      const html = generateMonthlyHtmlReport(shopConfig.shopName, selectedMonth, monthlyBarberStats, monthlyOverallStats, monthlyExpenses, monthlyDailyBreakdown);
       downloadWordReport(title, html);
     } 
     else if (format === 'pdf') {
-      const htmlBody = generateMonthlyHtmlReport(shopConfig.shopName, selectedMonth, monthlyBarberStats, monthlyOverallStats, monthlyExpenses);
+      const htmlBody = generateMonthlyHtmlReport(shopConfig.shopName, selectedMonth, monthlyBarberStats, monthlyOverallStats, monthlyExpenses, monthlyDailyBreakdown);
       downloadPlainReport(`รายงานรายเดือน ${formatThaiMonth(selectedMonth)}`, txt, 'pdf', htmlBody, shopConfig.shopName);
     }
     else {
@@ -2180,6 +2374,55 @@ export default function DashboardTab({
           </div>
         </div>
 
+        {/* CUMULATIVE MONTH-TO-DATE QUICK STATS BANNER (Day 1 to Selected Date) */}
+        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 border border-indigo-900/50 shadow-md space-y-3">
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-indigo-800/40 pb-2.5">
+            <div className="flex items-center space-x-2">
+              <span className="p-1.5 bg-indigo-500/20 text-indigo-300 rounded-lg">
+                <Calendar className="w-4 h-4" />
+              </span>
+              <span className="text-xs font-bold text-slate-200">
+                สรุปยอดสะสมตั้งแต่วันที่ 1 ถึง {formatThaiDate(selectedDate)}
+              </span>
+              <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-2.5 py-0.5 rounded-full font-mono font-bold">
+                สะสม {monthToDateSummary.dayCount} วัน
+              </span>
+            </div>
+            <button
+              onClick={() => {
+                const el = document.getElementById('daily-breakdown-section');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              className="text-[11px] text-indigo-300 hover:text-white font-bold underline cursor-pointer flex items-center space-x-1"
+            >
+              <span>ดูตารางสรุปรายวันสะสมทั้งหมด (วันที่ 1 - ปัจจุบัน)</span>
+              <Search className="w-3 h-3" />
+            </button>
+          </div>
+
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-mono">
+            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 space-y-0.5">
+              <span className="text-[10px] text-emerald-400 font-sans block">💵 เงินสดสะสม</span>
+              <span className="text-sm font-bold text-emerald-300">{formatBaht(monthToDateSummary.cashTotal)}</span>
+            </div>
+
+            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 space-y-0.5">
+              <span className="text-[10px] text-sky-400 font-sans block">📱 เงินโอนสะสม</span>
+              <span className="text-sm font-bold text-sky-300">{formatBaht(monthToDateSummary.transferTotal)}</span>
+            </div>
+
+            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 space-y-0.5">
+              <span className="text-[10px] text-slate-300 font-sans block">💰 รายรับรวมสะสม</span>
+              <span className="text-sm font-bold text-white">{formatBaht(monthToDateSummary.salesTotal)}</span>
+            </div>
+
+            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 space-y-0.5">
+              <span className="text-[10px] text-indigo-300 font-sans block">🏦 เงินสดคงเหลือสะสม</span>
+              <span className="text-sm font-bold text-indigo-200">{formatBaht(monthToDateSummary.netCashTotal)}</span>
+            </div>
+          </div>
+        </div>
+
         {/* Display daily status banner */}
         {dailySales.length === 0 ? (
           <div className="p-10 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
@@ -3027,6 +3270,168 @@ export default function DashboardTab({
                       </tr>
                     ))}
                   </tbody>
+                </table>
+              </div>
+            </div>
+
+            {/* NEW SECTION: DAILY PAYMENT METHOD BREAKDOWN TABLE (CASH VS TRANSFER) */}
+            <div id="daily-breakdown-section" className="space-y-3 pt-4 border-t border-slate-100">
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-extrabold text-slate-800 flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-sky-600" />
+                    <span>สรุปยอดเงินสด / ยอดเงินโอน แยกรายวันสะสม (ตั้งแต่วันที่ 1 ถึงปัจจุบัน)</span>
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    ตรวจสอบยอดเงินสด เงินโอน รายรับรวม และรายจ่ายย้อนหลังของทุกวันในเดือน {formatThaiMonth(selectedMonth)} เพื่อคำนวณและกระทบยอดบัญชี
+                  </p>
+                </div>
+
+                {/* Toolbar controls for sorting and filtering */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  {/* Payment Filter */}
+                  <div className="flex items-center bg-slate-100 p-0.5 rounded-xl border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => setBreakdownPaymentFilter('all')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all ${breakdownPaymentFilter === 'all' ? 'bg-white text-slate-900 shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      ทั้งหมด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBreakdownPaymentFilter('cash')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all ${breakdownPaymentFilter === 'cash' ? 'bg-emerald-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      💵 เฉพาะเงินสด
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setBreakdownPaymentFilter('transfer')}
+                      className={`px-2.5 py-1 rounded-lg font-bold transition-all ${breakdownPaymentFilter === 'transfer' ? 'bg-sky-600 text-white shadow-xs' : 'text-slate-600 hover:text-slate-900'}`}
+                    >
+                      📱 เฉพาะเงินโอน
+                    </button>
+                  </div>
+
+                  {/* Sort Order Toggle */}
+                  <button
+                    type="button"
+                    onClick={() => setBreakdownSortAsc(!breakdownSortAsc)}
+                    className="px-3 py-1 bg-white border border-slate-200 hover:border-slate-300 text-slate-700 font-bold rounded-xl flex items-center space-x-1 shadow-xs cursor-pointer"
+                  >
+                    <span>{breakdownSortAsc ? '⬇️ เรียงวันที่ 1 ➔ ปัจจุบัน' : '⬆️ เรียงวันที่ปัจจุบัน ➔ 1'}</span>
+                  </button>
+
+                  {/* Show Empty Days Toggle */}
+                  <label className="flex items-center space-x-1.5 px-2.5 py-1 bg-slate-50 border border-slate-200 rounded-xl cursor-pointer text-slate-700 font-semibold select-none">
+                    <input
+                      type="checkbox"
+                      checked={showEmptyDays}
+                      onChange={(e) => setShowEmptyDays(e.target.checked)}
+                      className="rounded text-sky-600 focus:ring-sky-500 w-3.5 h-3.5"
+                    />
+                    <span>แสดงทุกวัน</span>
+                  </label>
+                </div>
+              </div>
+
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl bg-white shadow-xs">
+                <table className="w-full text-left border-collapse font-sans text-slate-700">
+                  <thead>
+                    <tr className="bg-slate-50 text-slate-600 text-[11px] font-bold font-sans tracking-wide border-b border-slate-200">
+                      <th className="p-3.5 pl-5 text-center w-32">📅 วันที่</th>
+                      <th className="p-3.5 text-center w-24">จำนวนบิล</th>
+                      <th className="p-3.5 text-right text-emerald-700 bg-emerald-50/60 border-x border-emerald-100">💵 ยอดเงินสด</th>
+                      <th className="p-3.5 text-right text-sky-700 bg-sky-50/60 border-r border-sky-100">📱 ยอดเงินโอน</th>
+                      <th className="p-3.5 text-right font-bold text-slate-900">💰 รายรับรวม</th>
+                      <th className="p-3.5 text-right text-rose-600">💸 รายจ่ายหน้าร้าน</th>
+                      <th className="p-3.5 text-right text-indigo-700 bg-indigo-50/40">🏦 เงินสดคงเหลือ</th>
+                      <th className="p-3.5 text-center pr-5 w-28">ตรวจสอบ</th>
+                    </tr>
+                  </thead>
+                  <tbody className="text-xs divide-y divide-slate-100 font-mono">
+                    {filteredMonthlyBreakdown.length === 0 ? (
+                      <tr>
+                        <td colSpan={8} className="p-8 text-center text-slate-400 font-sans">
+                          -- ไม่พบข้อมูลการทำรายการตามเงื่อนไขที่เลือก --
+                        </td>
+                      </tr>
+                    ) : (
+                      filteredMonthlyBreakdown.map((d) => (
+                        <tr key={d.date} className="hover:bg-slate-50/90 transition-colors">
+                          <td className="p-3 pl-5 text-center font-bold text-slate-800 font-sans">
+                            {formatThaiDate(d.date)}
+                          </td>
+                          <td className="p-3 text-center font-semibold text-slate-600 font-sans">
+                            {d.totalBills} บิล
+                          </td>
+                          <td className="p-3 text-right text-emerald-600 font-bold bg-emerald-50/20 border-x border-emerald-100/40">
+                            {formatBaht(d.cashAmount)}
+                            <span className="block text-[10px] text-emerald-500 font-normal">
+                              ({d.cashCount} รายการ)
+                            </span>
+                          </td>
+                          <td className="p-3 text-right text-sky-600 font-bold bg-sky-50/20 border-r border-sky-100/40">
+                            {formatBaht(d.transferAmount)}
+                            <span className="block text-[10px] text-sky-500 font-normal">
+                              ({d.transferCount} รายการ)
+                            </span>
+                          </td>
+                          <td className="p-3 text-right font-extrabold text-slate-900 text-sm">
+                            {formatBaht(d.totalAmount)}
+                          </td>
+                          <td className="p-3 text-right text-rose-500 font-semibold">
+                            {d.expenseAmount > 0 ? `-${formatBaht(d.expenseAmount)}` : '0 ฿'}
+                          </td>
+                          <td className="p-3 text-right font-bold text-indigo-700 bg-indigo-50/20">
+                            {formatBaht(d.netCash)}
+                          </td>
+                          <td className="p-3 text-center pr-5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setSelectedDate(d.date);
+                                window.scrollTo({ top: 0, behavior: 'smooth' });
+                              }}
+                              className="px-2.5 py-1 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-[11px] font-bold transition-all flex items-center justify-center space-x-1 mx-auto cursor-pointer"
+                            >
+                              <Search className="w-3 h-3" />
+                              <span>ดูรายวัน</span>
+                            </button>
+                          </td>
+                        </tr>
+                      ))
+                    )}
+                  </tbody>
+                  {monthlyDailyBreakdown.length > 0 && (
+                    <tfoot className="bg-slate-50 font-bold text-xs border-t-2 border-slate-200">
+                      <tr>
+                        <td className="p-3 pl-5 text-center font-sans text-slate-800">
+                          รวมทั้งเดือน ({monthlyDailyBreakdown.length} วัน)
+                        </td>
+                        <td className="p-3 text-center text-slate-700 font-sans">
+                          {monthlyDailyBreakdown.reduce((sum, d) => sum + d.totalBills, 0)} บิล
+                        </td>
+                        <td className="p-3 text-right text-emerald-700 border-x border-emerald-200/50">
+                          {formatBaht(monthlyDailyBreakdown.reduce((sum, d) => sum + d.cashAmount, 0))}
+                        </td>
+                        <td className="p-3 text-right text-sky-700 border-r border-sky-200/50">
+                          {formatBaht(monthlyDailyBreakdown.reduce((sum, d) => sum + d.transferAmount, 0))}
+                        </td>
+                        <td className="p-3 text-right text-slate-900 text-sm font-extrabold">
+                          {formatBaht(monthlyDailyBreakdown.reduce((sum, d) => sum + d.totalAmount, 0))}
+                        </td>
+                        <td className="p-3 text-right text-rose-600">
+                          {formatBaht(monthlyDailyBreakdown.reduce((sum, d) => sum + d.expenseAmount, 0))}
+                        </td>
+                        <td className="p-3 text-right text-indigo-800">
+                          {formatBaht(monthlyDailyBreakdown.reduce((sum, d) => sum + d.netCash, 0))}
+                        </td>
+                        <td className="p-3 text-center pr-5">-</td>
+                      </tr>
+                    </tfoot>
+                  )}
                 </table>
               </div>
             </div>

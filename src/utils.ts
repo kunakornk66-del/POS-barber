@@ -703,7 +703,8 @@ export function generateMonthlyHtmlReport(
   monthStr: string,
   barberStats: any[],
   overallStats: any,
-  expensesList: any[] = []
+  expensesList: any[] = [],
+  dailyBreakdown: any[] = []
 ): string {
   const formattedMonth = formatThaiMonth(monthStr);
 
@@ -988,6 +989,46 @@ export function generateMonthlyHtmlReport(
             </tr>
           </tbody>
         </table>
+
+        <!-- Section 1.5: Daily Cash vs Transfer Payment Breakdown -->
+        ${dailyBreakdown.length > 0 ? `
+        <div class="section-title-bar" style="background-color: #0369a1;">ตารางสรุปยอดเงินสด / ยอดเงินโอน แยกรายวันย้อนหลัง (DAILY CASH & TRANSFER BREAKDOWN SHEET)</div>
+        <table class="table-data" style="font-size: 11px;">
+          <thead>
+            <tr style="background-color: #f0f9ff;">
+              <th style="text-align: center; width: 12%; color: #0369a1; border-color: #bae6fd; background-color: #f0f9ff;">วันที่</th>
+              <th style="text-align: center; width: 10%; color: #0369a1; border-color: #bae6fd; background-color: #f0f9ff;">จำนวนบิล</th>
+              <th style="text-align: right; width: 16%; color: #15803d; border-color: #bae6fd; background-color: #f0f9ff;">💵 ยอดเงินสด</th>
+              <th style="text-align: right; width: 16%; color: #0284c7; border-color: #bae6fd; background-color: #f0f9ff;">📱 ยอดเงินโอน</th>
+              <th style="text-align: right; width: 16%; color: #0f172a; border-color: #bae6fd; background-color: #f0f9ff;">💰 รวมรายรับ</th>
+              <th style="text-align: right; width: 14%; color: #be123c; border-color: #bae6fd; background-color: #f0f9ff;">💸 รายจ่าย</th>
+              <th style="text-align: right; width: 16%; color: #4338ca; border-color: #bae6fd; background-color: #f0f9ff;">🏦 เงินสดคงเหลือ</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dailyBreakdown.map((d) => `
+              <tr>
+                <td style="padding: 7px 10px; border-bottom: 1px solid #e0f2fe; text-align: center; font-weight: bold; color: #334155;">${formatThaiDate(d.date)}</td>
+                <td style="padding: 7px 10px; border-bottom: 1px solid #e0f2fe; text-align: center; font-weight: 600;">${d.totalBills} บิล</td>
+                <td style="padding: 7px 10px; border-bottom: 1px solid #e0f2fe; text-align: right; font-weight: 600; color: #166534; font-family: 'JetBrains Mono', monospace;">${formatBaht(d.cashAmount)} <span style="font-size: 9px; color: #64748b;">(${d.cashCount})</span></td>
+                <td style="padding: 7px 10px; border-bottom: 1px solid #e0f2fe; text-align: right; font-weight: 600; color: #0369a1; font-family: 'JetBrains Mono', monospace;">${formatBaht(d.transferAmount)} <span style="font-size: 9px; color: #64748b;">(${d.transferCount})</span></td>
+                <td style="padding: 7px 10px; border-bottom: 1px solid #e0f2fe; text-align: right; font-weight: bold; color: #0f172a; font-family: 'JetBrains Mono', monospace;">${formatBaht(d.totalAmount)}</td>
+                <td style="padding: 7px 10px; border-bottom: 1px solid #e0f2fe; text-align: right; font-weight: 600; color: #be123c; font-family: 'JetBrains Mono', monospace;">${formatBaht(d.expenseAmount)}</td>
+                <td style="padding: 7px 10px; border-bottom: 1px solid #e0f2fe; text-align: right; font-weight: bold; color: #4338ca; font-family: 'JetBrains Mono', monospace;">${formatBaht(d.netCash)}</td>
+              </tr>
+            `).join('')}
+            <tr style="background-color: #f0f9ff; font-weight: bold; border-top: 2px solid #0284c7;">
+              <td style="text-align: center; padding: 9px 10px; color: #0369a1;">รวมสะสมทั้งเดือน</td>
+              <td style="text-align: center; padding: 9px 10px; color: #0369a1;">${dailyBreakdown.reduce((sum, d) => sum + d.totalBills, 0)} บิล</td>
+              <td style="text-align: right; padding: 9px 10px; color: #166534; font-family: 'JetBrains Mono', monospace;">${formatBaht(dailyBreakdown.reduce((sum, d) => sum + d.cashAmount, 0))}</td>
+              <td style="text-align: right; padding: 9px 10px; color: #0369a1; font-family: 'JetBrains Mono', monospace;">${formatBaht(dailyBreakdown.reduce((sum, d) => sum + d.transferAmount, 0))}</td>
+              <td style="text-align: right; padding: 9px 10px; color: #0f172a; font-family: 'JetBrains Mono', monospace;">${formatBaht(dailyBreakdown.reduce((sum, d) => sum + d.totalAmount, 0))}</td>
+              <td style="text-align: right; padding: 9px 10px; color: #be123c; font-family: 'JetBrains Mono', monospace;">${formatBaht(dailyBreakdown.reduce((sum, d) => sum + d.expenseAmount, 0))}</td>
+              <td style="text-align: right; padding: 9px 10px; color: #4338ca; font-family: 'JetBrains Mono', monospace;">${formatBaht(dailyBreakdown.reduce((sum, d) => sum + d.netCash, 0))}</td>
+            </tr>
+          </tbody>
+        </table>
+        ` : ''}
 
         <!-- Section 2: Store Monthly Expenses Detail -->
         <div class="section-title-bar" style="background-color: #be123c;">บัญชีงบรายจ่ายและเบิกถอนรายเดือนสะสม (MONTHLY EXPENSES & WITHDRAWAL JOURNAL)</div>
