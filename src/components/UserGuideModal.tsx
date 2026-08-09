@@ -312,10 +312,59 @@ export default function UserGuideModal({ isOpen, onClose, shopConfig }: UserGuid
 
               <div className="relative">
                 <span className="absolute -left-[27px] top-0 w-3.5 h-3.5 bg-indigo-600 text-white rounded-full flex items-center justify-center font-bold text-[9px]">4</span>
-                <p className="font-extrabold text-slate-900 text-[11px]">เลือกช่องทางชำระเงิน & บันทึก</p>
+                <p className="font-extrabold text-slate-900 text-[11px]">เลือกช่องทางชำระเงิน (โอนเงิน / เงินสด / ⚡ ผสม)</p>
                 <p className="text-slate-500 mt-0.5">
-                  ตรวจสอบยอดสุทธิสุท้าย หากตรงตามจริงให้กดปุ่มสีเขียวขนาดใหญ่ **"💾 บันทึกและออกบิลขาย"** บิลจะถูกบันทึกลงสู่เซิร์ฟเวอร์ทันที
+                  เลือกวิธีชำระเงินตามจริง:
+                  <br />- 📱 <strong>เงินโอน:</strong> ลูกค้าสแกนจ่ายผ่าน QR Code หรือโอนผ่านแอป Mobile Banking
+                  <br />- 💵 <strong>เงินสด:</strong> รับด้วยเงินสดกระดาษหรือเหรียญ
+                  <br />- ⚡ <strong>ชำระแบบผสม (เงินสด + เงินโอนในบิลเดียว):</strong> ในกรณีที่ลูกค้ารายเดียวกันจ่ายเงินสดบางส่วน และโอนเงินอีกส่วนหนึ่ง เช่น ยอด 250 บาท ลูกค้าจ่ายสด 200 บาท และโอนเพิ่ม 50 บาท (อ่านวิธีใช้ละเอียดด้านล่าง)
                 </p>
+              </div>
+            </div>
+          </div>
+
+          {/* New Split Payment Detailed Guide */}
+          <div className="bg-indigo-900 text-white p-4 rounded-xl space-y-2.5">
+            <h4 className="font-extrabold text-indigo-300 flex items-center gap-1.5 text-xs">
+              <span className="p-1 bg-indigo-500/30 rounded">⚡</span>
+              ฟีเจอร์ใหม่! วิธีบันทึกชำระแบบผสม (Split Payment: เงินสด + เงินโอน)
+            </h4>
+            <p className="text-slate-200 text-[11px] leading-relaxed">
+              เหมาะมากสำหรับหน้าร้านเมื่อลูกค้ามีเงินสดไม่พอชำระเต็มจำนวน เช่น ยอดรวม 250 บาท จ่ายเงินสด 200 บาท และขอโอนเพิ่มอีก 50 บาท
+            </p>
+            <div className="bg-indigo-950/80 p-3 rounded-lg border border-indigo-800/80 space-y-2 text-slate-300">
+              <p className="font-bold text-white text-[11px]">⚙️ ขั้นตอนการใช้งานง่ายๆ 3 สเต็ป:</p>
+              <p>1. ในหมวดช่องทางชำระเงิน ให้คลิกเลือกปุ่ม <strong>"⚡ ผสม (สด+โอน)"</strong></p>
+              <p>2. กรอกจำนวนเงินสดที่รับมาในช่อง <strong>"💵 เงินสดที่รับ (บาท)"</strong> เช่น พิมพ์ 200 ระบบจะคำนวณเงินโอนที่เหลือให้อัตโนมัติในช่อง <strong>"📱 เงินโอนสแกนจ่าย (บาท)"</strong> เป็น 50 บาททันที (หรือจะพิมพ์ช่องเงินโอนก่อนก็ได้)</p>
+              <p>3. ตรวจสอบป้ายแจ้งเตือนสีเขียว <strong>"🟢 ยอดรวมถูกต้อง"</strong> หากตรงตามจริงให้กดบันทึกออกบิลได้ทันที</p>
+              <div className="p-2 bg-indigo-900/90 rounded border border-indigo-700 text-[10px] text-indigo-200 mt-1">
+                💡 <strong>ผลลัพธ์ในระบบ:</strong> ยอดเงินสด 200 บาทจะวิ่งเข้าลิ้นชักนับเงิน (Cash Drawer) เพื่อกระทบยอดก้นเก๊ะ ส่วนยอดโอน 50 บาทจะวิ่งเข้าหมวดเงินโอนในแดชบอร์ด โดยที่ส่วนแบ่งค่าตัดผมของช่างและสถิติร้านค้ายึดตามยอดเต็ม 250 บาทอย่างถูกต้อง 100%!
+              </div>
+            </div>
+          </div>
+
+          {/* System Notifications & Alerts Section */}
+          <div className="bg-slate-900 text-white p-4 rounded-xl space-y-2.5">
+            <h4 className="font-extrabold text-amber-400 flex items-center gap-1.5 text-xs">
+              <span className="p-1 bg-amber-400/20 rounded">🔔</span>
+              การแจ้งเตือนและการเตือนข้อผิดพลาดในระบบ (System Alerts & Notifications)
+            </h4>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-[11px]">
+              <div className="p-2.5 bg-slate-800 rounded border border-slate-700">
+                <p className="font-bold text-emerald-400">🟢 แจ้งเตือนยอดรวมชำระถูกต้อง</p>
+                <p className="text-slate-300 text-[10px] mt-0.5">แสดงเมื่อรวมยอดเงินสดและเงินโอนในการชำระแบบผสมเท่ากับยอดสุทธิของบิล สามารถกดบันทึกได้</p>
+              </div>
+              <div className="p-2.5 bg-slate-800 rounded border border-slate-700">
+                <p className="font-bold text-rose-400">🔴 เตือนยอดชำระไม่ตรงสุทธิ</p>
+                <p className="text-slate-300 text-[10px] mt-0.5">ระบบจะล็อกไม่ให้เซฟและแสดงกล่องสีแดงกะพริบ หากผลรวมเงินสด + เงินโอน ไม่เท่ากับราคาบิลจริง</p>
+              </div>
+              <div className="p-2.5 bg-slate-800 rounded border border-slate-700">
+                <p className="font-bold text-sky-400">📱 แจ้งเตือนสถานะซิงค์คลาวด์</p>
+                <p className="text-slate-300 text-[10px] mt-0.5">แสดงสถานะการเชื่อมต่อ Firestore เช่น "บันทึกแล้ว", "ออฟไลน์", หรือ "กำลังซิงค์ข้อมูล"</p>
+              </div>
+              <div className="p-2.5 bg-slate-800 rounded border border-slate-700">
+                <p className="font-bold text-amber-400">⚠️ เตือนจองเวลาคิวซ้อน</p>
+                <p className="text-slate-300 text-[10px] mt-0.5">ระบบเตือนทันทีเมื่อเลือกเวลานัดหมายช่างชนกับคิวเดิมที่มีอยู่แล้ว เพื่อป้องกันการรับคิวซ้อน</p>
               </div>
             </div>
           </div>
@@ -380,10 +429,40 @@ export default function UserGuideModal({ isOpen, onClose, shopConfig }: UserGuid
             </div>
           </div>
 
-          {/* Printing & Exporting Reports */}
+          {/* Daily vs Monthly View Toggle Documentation */}
           <div className="space-y-3">
             <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-1 flex items-center gap-1.5">
               <span className="p-1 bg-indigo-50 text-indigo-600 rounded">2</span>
+              การสลับโหมดดูข้อมูล "รายวัน" หรือ "รายเดือน" (Daily vs Monthly View Filter)
+            </h4>
+            <p className="text-slate-600">
+              ผู้จัดการร้านและนักบัญชีสามารถสลับโหมดมุมมองข้อมูลยอดขายได้อย่างยืดหยุ่นบริเวณส่วนบนของหน้าแดชบอร์ด:
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-slate-700">
+              <div className="p-3 bg-indigo-50/60 border border-indigo-200/80 rounded-xl space-y-1">
+                <p className="font-extrabold text-indigo-950 flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 bg-indigo-600 text-white rounded text-[10px]">📅 โหมดรายวัน (Daily)</span>
+                </p>
+                <p className="text-[11px] text-slate-600">
+                  แสดงสถิติเฉพาะวันที่เลือก เลือกเปลี่ยนวันที่ย้อนหลังได้ แสดงยอดรวมขายสุทธิประจำวัน สัดส่วนเงินสด/เงินโอน/โหมดผสม และตารางประวัติรายการบริการทุกบิลของวันนั้น
+                </p>
+              </div>
+
+              <div className="p-3 bg-purple-50/60 border border-purple-200/80 rounded-xl space-y-1">
+                <p className="font-extrabold text-purple-950 flex items-center gap-1.5">
+                  <span className="px-2 py-0.5 bg-purple-600 text-white rounded text-[10px]">🗓️ โหมดรายเดือน (Monthly)</span>
+                </p>
+                <p className="text-[11px] text-slate-600">
+                  แสดงภาพรวมรายรับรวมตลอดทั้งเดือน กราฟแท่งเปรียบเทียบยอดขายรายวัน และตารางสรุปรายรับสะสมแต่ละวันในเดือนนั้น เหมาะสำหรับการทำบัญชีสรุปยอดสิ้นเดือน
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Printing & Exporting Reports */}
+          <div className="space-y-3">
+            <h4 className="font-extrabold text-slate-900 text-sm border-b border-slate-100 pb-1 flex items-center gap-1.5">
+              <span className="p-1 bg-indigo-50 text-indigo-600 rounded">3</span>
               การจัดทำและพิมพ์สรุปรายงาน (PDF / Image / HTML Report)
             </h4>
             <p className="text-slate-600">

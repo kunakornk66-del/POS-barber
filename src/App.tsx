@@ -1117,7 +1117,7 @@ export default function App() {
       });
   };
 
-  const handleUpdateSalePaymentMethod = (saleId: string, newMethod: 'cash' | 'transfer') => {
+  const handleUpdateSalePaymentMethod = (saleId: string, newMethod: 'cash' | 'transfer' | 'split') => {
     if (!userEmail) return;
     
     const targetSale = sales.find((s) => s.id === saleId);
@@ -1141,12 +1141,14 @@ export default function App() {
   const handleUpdateSale = (saleId: string, updates: Partial<SaleRecord>) => {
     if (!userEmail) return;
 
+    const cleanedUpdates = cleanUndefined(updates);
+
     setSales((prev) =>
       prev.map((s) => (s.id === saleId ? { ...s, ...updates } : s))
     );
 
     const docRef = doc(db, "salons", userEmail, "sales", saleId);
-    setDoc(docRef, updates, { merge: true })
+    setDoc(docRef, cleanedUpdates, { merge: true })
       .then(() => {
         console.log(`🟢 [Firebase] บันทึกการแก้ไขบิลสำเร็จ ID:`, saleId);
       })

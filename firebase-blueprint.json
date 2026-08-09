@@ -89,7 +89,13 @@
         },
         "paymentMethod": {
           "type": "string",
-          "enum": ["cash", "transfer"]
+          "enum": ["cash", "transfer", "split"]
+        },
+        "cashAmount": {
+          "type": "number"
+        },
+        "transferAmount": {
+          "type": "number"
         },
         "useDiscountPct10": {
           "type": "boolean"

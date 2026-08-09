@@ -33,7 +33,9 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
   const [productQtyInput, setProductQtyInput] = useState<number>(1);
   const [selectedChemicalPromoId, setSelectedChemicalPromoId] = useState<string>('');
   const [tipInput, setTipInput] = useState<string>('');
-  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer'>('transfer');
+  const [paymentMethod, setPaymentMethod] = useState<'cash' | 'transfer' | 'split'>('transfer');
+  const [splitCashInput, setSplitCashInput] = useState<string>('');
+  const [splitTransferInput, setSplitTransferInput] = useState<string>('');
   const [useDiscount10, setUseDiscount10] = useState<boolean>(false);
   const [useVoucherId, setUseVoucherId] = useState<string>('');
   const [notesInput, setNotesInput] = useState<string>('');
@@ -188,6 +190,8 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
     setCustomerNameInput('');
     setCustomDateTime(getLocalISODateTime());
     setPaymentMethod('transfer');
+    setSplitCashInput('');
+    setSplitTransferInput('');
     setIsGroupPayment(false);
     setGroupPaymentOption('new');
     setNewGroupCode('');
@@ -204,6 +208,23 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
     if (subtotal === 0 && tipAmount === 0) {
       alert('กรุณากรอกราคาค่าบริการอย่างน้อย 1 รายการ');
       return;
+    }
+
+    // Split payment amounts calculation and validation
+    let finalCashAmount = paymentMethod === 'cash' ? payableAmount : 0;
+    let finalTransferAmount = paymentMethod === 'transfer' ? payableAmount : 0;
+
+    if (paymentMethod === 'split') {
+      const cVal = Math.max(0, parseFloat(splitCashInput) || 0);
+      const tVal = Math.max(0, parseFloat(splitTransferInput) || 0);
+      const totalSplit = cVal + tVal;
+
+      if (Math.abs(totalSplit - payableAmount) > 0.01) {
+        alert(`❌ ยอดเงินสด (${formatBaht(cVal)}) + ยอดโอน (${formatBaht(tVal)}) รวมกันได้ ${formatBaht(totalSplit)}\n\nไม่ตรงกับยอดชำระสุทธิ (${formatBaht(payableAmount)})\nกรุณาปรับตัวเลขให้ผลรวมเท่ากับ ${formatBaht(payableAmount)} พอดีครับ`);
+        return;
+      }
+      finalCashAmount = cVal;
+      finalTransferAmount = tVal;
     }
 
     const selectedBarber = barbers.find(b => b.id === selectedBarberId);
@@ -277,6 +298,8 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
       chemicalPromoName: selectedPromo ? selectedPromo.name : null,
       tip: tipAmount,
       paymentMethod,
+      cashAmount: finalCashAmount,
+      transferAmount: finalTransferAmount,
       useDiscountPct10: useDiscount10,
       useVoucherValue: voucherValue,
       chemicalDiscountValue,
@@ -452,6 +475,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                   placeholder="0"
                   value={haircutInput}
                   onChange={(e) => setHaircutInput(e.target.value)}
+                  onFocus={(e) => e.target.select()}
                   className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all font-mono"
                 />
               </div>
@@ -471,6 +495,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                       setChemicalInput(e.target.value);
                       setSelectedChemicalPromoId('');
                     }}
+                    onFocus={(e) => e.target.select()}
                     className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all font-mono"
                   />
                 </div>
@@ -545,6 +570,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                           placeholder="ใส่ตัวเลขส่วนลดที่นี่"
                           value={chemicalDiscountValueInput}
                           onChange={(e) => setChemicalDiscountValueInput(e.target.value)}
+                          onFocus={(e) => e.target.select()}
                           className="w-full pl-3 pr-8 py-1.5 bg-white border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-indigo-600"
                         />
                         <span className="absolute right-2.5 top-2.5 text-[10px] text-slate-400 font-semibold">
@@ -628,8 +654,9 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                     <input
                       type="number"
                       min="1"
-                      value={productQtyInput}
-                      onChange={(e) => setProductQtyInput(Math.max(1, parseInt(e.target.value) || 1))}
+                      value={productQtyInput === 0 ? '' : productQtyInput}
+                      onChange={(e) => setProductQtyInput(e.target.value === '' ? 0 : Math.max(1, parseInt(e.target.value) || 1))}
+                      onFocus={(e) => e.target.select()}
                       className="w-full px-3 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 font-mono text-center text-sm"
                       placeholder="จำนวน"
                     />
@@ -655,6 +682,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                 placeholder="0"
                 value={tipInput}
                 onChange={(e) => setTipInput(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all font-mono"
               />
             </div>
@@ -767,20 +795,20 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
           {/* 6. Payment method */}
           <div className="space-y-3">
             <label className="block text-sm font-semibold text-slate-700">ช่องทางการชำระเงิน</label>
-            <div className="grid grid-cols-2 gap-4">
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
               <button
                 type="button"
                 onClick={() => {
                   setPaymentMethod('transfer');
                 }}
-                className={`flex items-center justify-center space-x-2 py-3 rounded-xl border-2 transition-all cursor-pointer ${
+                className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
                   paymentMethod === 'transfer'
-                    ? 'border-slate-800 bg-slate-50 text-slate-900 shadow-sm font-semibold'
+                    ? 'border-sky-600 bg-sky-50/50 text-sky-950 shadow-xs font-bold'
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                <Landmark className="w-5 h-5 text-sky-600" />
-                <span>เงินโอนผ่านธนาคาร</span>
+                <Landmark className="w-4 h-4 text-sky-600 shrink-0" />
+                <span className="mt-1 sm:mt-0">เงินโอน</span>
               </button>
 
               <button
@@ -789,16 +817,162 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                   setPaymentMethod('cash');
                   setIsGroupPayment(false);
                 }}
-                className={`flex items-center justify-center space-x-2 py-3 rounded-xl border-2 transition-all cursor-pointer ${
+                className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
                   paymentMethod === 'cash'
-                    ? 'border-slate-800 bg-slate-50 text-slate-900 shadow-sm font-semibold'
+                    ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 shadow-xs font-bold'
                     : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                 }`}
               >
-                <CreditCard className="w-5 h-5 text-emerald-600" />
-                <span>เงินสด</span>
+                <CreditCard className="w-4 h-4 text-emerald-600 shrink-0" />
+                <span className="mt-1 sm:mt-0">เงินสด</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  setPaymentMethod('split');
+                  setIsGroupPayment(false);
+                  // Default split setup if empty: 80% cash or default 200 THB if total >= 250
+                  if (!splitCashInput && !splitTransferInput && payableAmount > 0) {
+                    const defaultCash = payableAmount >= 100 ? Math.floor(payableAmount * 0.8 / 10) * 10 : Math.floor(payableAmount / 2);
+                    setSplitCashInput(defaultCash.toString());
+                    setSplitTransferInput((payableAmount - defaultCash).toString());
+                  }
+                }}
+                className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
+                  paymentMethod === 'split'
+                    ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 shadow-xs font-bold'
+                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                }`}
+              >
+                <Coins className="w-4 h-4 text-indigo-600 shrink-0" />
+                <span className="mt-1 sm:mt-0">⚡ ผสม (สด+โอน)</span>
               </button>
             </div>
+
+            {/* Split Payment Interactive Card */}
+            {paymentMethod === 'split' && (
+              <div className="bg-indigo-50/60 border-2 border-indigo-200/80 p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center justify-between border-b border-indigo-100 pb-2">
+                  <span className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                    <Coins className="w-4 h-4 text-indigo-600" />
+                    <span>ระบุสัดส่วนเงินสด และเงินโอนในบิลเดียว</span>
+                  </span>
+                  <span className="text-[11px] font-extrabold text-indigo-700 bg-white px-2.5 py-0.5 rounded-full border border-indigo-200">
+                    ยอดรวมสุทธิ: {formatBaht(payableAmount)}
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  {/* Cash Portion */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-extrabold text-slate-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1">💵 เงินสดที่รับ (บาท):</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max={payableAmount}
+                        placeholder="0"
+                        value={splitCashInput}
+                        onChange={(e) => {
+                          const valStr = e.target.value;
+                          setSplitCashInput(valStr);
+                          const valNum = Math.max(0, parseFloat(valStr) || 0);
+                          setSplitTransferInput(Math.max(0, payableAmount - valNum).toString());
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        className="w-full pl-3 pr-8 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-600"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">฿</span>
+                    </div>
+                  </div>
+
+                  {/* Transfer Portion */}
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-extrabold text-slate-700 flex items-center justify-between">
+                      <span className="flex items-center gap-1">📱 เงินโอนสแกนจ่าย (บาท):</span>
+                    </label>
+                    <div className="relative">
+                      <input
+                        type="number"
+                        min="0"
+                        max={payableAmount}
+                        placeholder="0"
+                        value={splitTransferInput}
+                        onChange={(e) => {
+                          const valStr = e.target.value;
+                          setSplitTransferInput(valStr);
+                          const valNum = Math.max(0, parseFloat(valStr) || 0);
+                          setSplitCashInput(Math.max(0, payableAmount - valNum).toString());
+                        }}
+                        onFocus={(e) => e.target.select()}
+                        className="w-full pl-3 pr-8 py-2 bg-white border border-slate-300 rounded-xl text-sm font-mono font-bold text-slate-800 outline-none focus:ring-2 focus:ring-indigo-600"
+                      />
+                      <span className="absolute right-3 top-2 text-xs font-bold text-slate-400">฿</span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Preset Buttons for Split */}
+                <div className="flex items-center gap-1.5 flex-wrap pt-1">
+                  <span className="text-[10px] font-bold text-slate-500">ทางลัดแบ่งยอด:</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      const half = Math.round((payableAmount / 2) * 100) / 100;
+                      setSplitCashInput(half.toString());
+                      setSplitTransferInput((payableAmount - half).toString());
+                    }}
+                    className="px-2 py-1 bg-white hover:bg-indigo-100 text-indigo-800 rounded-lg text-[10px] font-bold border border-indigo-200 transition-all cursor-pointer"
+                  >
+                    50% / 50%
+                  </button>
+                  {[100, 200, 500].filter(amount => amount < payableAmount).map(amount => (
+                    <button
+                      key={amount}
+                      type="button"
+                      onClick={() => {
+                        setSplitCashInput(amount.toString());
+                        setSplitTransferInput(Math.max(0, payableAmount - amount).toString());
+                      }}
+                      className="px-2 py-1 bg-white hover:bg-indigo-100 text-indigo-800 rounded-lg text-[10px] font-bold border border-indigo-200 transition-all cursor-pointer"
+                    >
+                      เงินสด {amount}฿
+                    </button>
+                  ))}
+                </div>
+
+                {/* Live validation feedback tag */}
+                {(() => {
+                  const c = Math.max(0, parseFloat(splitCashInput) || 0);
+                  const t = Math.max(0, parseFloat(splitTransferInput) || 0);
+                  const sum = c + t;
+                  const isMatched = Math.abs(sum - payableAmount) <= 0.01;
+                  return (
+                    <div className={`p-2.5 rounded-xl border text-xs flex items-center justify-between font-extrabold ${
+                      isMatched ? 'bg-emerald-50 border-emerald-200 text-emerald-950' : 'bg-red-50 border-red-200 text-red-950 animate-pulse'
+                    }`}>
+                      <div className="flex items-center space-x-1.5">
+                        <span>💵 สด {formatBaht(c)}</span>
+                        <span>+</span>
+                        <span>📱 โอน {formatBaht(t)}</span>
+                        <span>=</span>
+                        <span className="underline decoration-2">💰 รวม {formatBaht(sum)}</span>
+                      </div>
+                      <div>
+                        {isMatched ? (
+                          <span className="text-[11px] bg-emerald-600 text-white px-2 py-0.5 rounded-md">🟢 ยอดรวมถูกต้อง</span>
+                        ) : (
+                          <span className="text-[11px] bg-red-600 text-white px-2 py-0.5 rounded-md">🔴 ยอดไม่ตรงกับ {formatBaht(payableAmount)}</span>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            )}
           </div>
 
           {/* 7. Date & Time adjustment */}
@@ -853,8 +1027,8 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
               <div className="text-right">
                 <span className="inline-flex items-center space-x-1.5 text-xs px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-full font-bold shadow-xs">
                   <span className="text-slate-600">ช่องทางชำระ:</span>
-                  <span className={paymentMethod === 'transfer' ? 'text-sky-600' : 'text-emerald-600'}>
-                    {paymentMethod === 'transfer' ? '📱 เงินโอน' : '💵 เงินสด'}
+                  <span className={paymentMethod === 'transfer' ? 'text-sky-600' : paymentMethod === 'cash' ? 'text-emerald-600' : 'text-indigo-700'}>
+                    {paymentMethod === 'transfer' ? '📱 เงินโอน' : paymentMethod === 'cash' ? '💵 เงินสด' : `⚡ ผสม (สด ${formatBaht(parseFloat(splitCashInput) || 0)} + โอน ${formatBaht(parseFloat(splitTransferInput) || 0)})`}
                   </span>
                 </span>
               </div>

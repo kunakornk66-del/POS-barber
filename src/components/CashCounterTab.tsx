@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import html2canvas from 'html2canvas';
-import { formatBaht } from '../utils';
+import { formatBaht, getSalePaymentBreakdown } from '../utils';
 import { SaleRecord, Expense, CashCounterState } from '../types';
 import { 
   Banknote, 
@@ -288,14 +288,13 @@ export default function CashCounterTab({
   const totalPieces = DENOMINATIONS.reduce((sum, d) => sum + (counts[d.id] || 0), 0);
 
   // 2. Math totals - System matching
-  // Find system sales paid in CASH
+  // Find system sales paid in CASH (including cash portion of split payments)
   const todayCashSales = (sales || [])
-    .filter(s => s.date === todayDateStr && s.paymentMethod === 'cash')
-    .reduce((sum, s) => sum + (s.customerPaid || 0), 0);
+    .filter(s => s.date === todayDateStr)
+    .reduce((sum, s) => sum + getSalePaymentBreakdown(s).cashAmount, 0);
 
   const allCashSales = (sales || [])
-    .filter(s => s.paymentMethod === 'cash')
-    .reduce((sum, s) => sum + (s.customerPaid || 0), 0);
+    .reduce((sum, s) => sum + getSalePaymentBreakdown(s).cashAmount, 0);
 
   // Expected revenues matches selected source
   const selectedRevenue = 
@@ -919,6 +918,7 @@ export default function CashCounterTab({
                         min="0"
                         value={count === 0 ? '' : count}
                         onChange={(e) => handleSetCount(d.id, e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         placeholder="0"
                         className="w-16 h-8 text-center bg-white border border-slate-200 rounded-lg text-xs font-mono font-extrabold outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
                       />
@@ -1002,6 +1002,7 @@ export default function CashCounterTab({
                         min="0"
                         value={count === 0 ? '' : count}
                         onChange={(e) => handleSetCount(d.id, e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         placeholder="0"
                         className="w-16 h-8 text-center bg-white border border-slate-200 rounded-lg text-xs font-mono font-extrabold outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
                       />
@@ -1116,6 +1117,7 @@ export default function CashCounterTab({
                         min="0"
                         value={openingFloat === 0 ? '' : openingFloat}
                         onChange={(e) => setOpeningFloat(Math.max(0, parseFloat(e.target.value) || 0))}
+                        onFocus={(e) => e.target.select()}
                         placeholder="0.00"
                         className="w-24 text-right pr-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-extrabold outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
                       />
@@ -1147,6 +1149,7 @@ export default function CashCounterTab({
                           min="0"
                           value={customExpectedSales === 0 ? '' : customExpectedSales}
                           onChange={(e) => setCustomExpectedSales(Math.max(0, parseFloat(e.target.value) || 0))}
+                          onFocus={(e) => e.target.select()}
                           placeholder="0.00"
                           className="w-28 text-right pr-2 py-1 bg-white border border-indigo-200 rounded-lg text-xs font-mono font-extrabold outline-none focus:ring-1 focus:ring-indigo-500"
                         />
@@ -1190,6 +1193,7 @@ export default function CashCounterTab({
                           min="0"
                           value={withdrawnAmount === 0 ? '' : withdrawnAmount}
                           onChange={(e) => setWithdrawnAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                          onFocus={(e) => e.target.select()}
                           placeholder="0.00"
                           className="w-24 text-right pr-2 py-1 bg-white border border-rose-200 rounded-lg text-xs font-mono font-extrabold text-rose-700 outline-none focus:ring-1 focus:ring-rose-500"
                         />

@@ -1680,6 +1680,7 @@ export default function PayslipsTab({
                         type="number"
                         value={slipHaircutCom}
                         onChange={(e) => handleNumberInput(e.target.value, setSlipHaircutCom)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder={selectedSlipBarberStats.haircutCom.toFixed(2)}
                       />
@@ -1694,6 +1695,7 @@ export default function PayslipsTab({
                         type="number"
                         value={slipChemicalCom}
                         onChange={(e) => handleNumberInput(e.target.value, setSlipChemicalCom)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder={selectedSlipBarberStats.chemicalCom.toFixed(2)}
                       />
@@ -1710,6 +1712,7 @@ export default function PayslipsTab({
                         type="number"
                         value={slipProductCom}
                         onChange={(e) => handleNumberInput(e.target.value, setSlipProductCom)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder={selectedSlipBarberStats.productCom.toFixed(2)}
                       />
@@ -1724,6 +1727,7 @@ export default function PayslipsTab({
                         type="number"
                         value={slipTipTotal}
                         onChange={(e) => handleNumberInput(e.target.value, setSlipTipTotal)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder={selectedSlipBarberStats.tipTotal.toFixed(2)}
                       />
@@ -1742,6 +1746,7 @@ export default function PayslipsTab({
                       type="number"
                       value={slipBaseSalary}
                       onChange={(e) => handleNumberInput(e.target.value, setSlipBaseSalary)}
+                      onFocus={(e) => e.target.select()}
                       className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                       placeholder="เช่น 15000"
                     />
@@ -1756,6 +1761,7 @@ export default function PayslipsTab({
                       type="number"
                       value={slipPositionAllowance}
                       onChange={(e) => handleNumberInput(e.target.value, setSlipPositionAllowance)}
+                      onFocus={(e) => e.target.select()}
                       className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                       placeholder="เช่น 2000"
                     />
@@ -1773,6 +1779,7 @@ export default function PayslipsTab({
                       type="number"
                       value={slipOvertime}
                       onChange={(e) => handleNumberInput(e.target.value, setSlipOvertime)}
+                      onFocus={(e) => e.target.select()}
                       className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                       placeholder="เช่น 500"
                     />
@@ -1787,6 +1794,7 @@ export default function PayslipsTab({
                       type="number"
                       value={slipDeductions}
                       onChange={(e) => handleNumberInput(e.target.value, setSlipDeductions)}
+                      onFocus={(e) => e.target.select()}
                       className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                       placeholder="เช่น 1000"
                     />
@@ -1804,6 +1812,7 @@ export default function PayslipsTab({
                       type="number"
                       value={slipSocialSecurity}
                       onChange={(e) => handleNumberInput(e.target.value, setSlipSocialSecurity)}
+                      onFocus={(e) => e.target.select()}
                       className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                       placeholder="เช่น 300"
                     />
@@ -2276,6 +2285,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipBaseSalary}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipBaseSalary)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />
@@ -2290,6 +2300,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipHaircutCom}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipHaircutCom)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />
@@ -2304,6 +2315,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipChemicalCom}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipChemicalCom)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />
@@ -2318,6 +2330,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipProductCom}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipProductCom)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />
@@ -2332,6 +2345,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipOvertime}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipOvertime)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />
@@ -2346,6 +2360,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipPositionAllowance}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipPositionAllowance)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />
@@ -2360,6 +2375,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipTipTotal}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipTipTotal)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />
@@ -2383,6 +2399,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipDeductions}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipDeductions)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />
@@ -2397,6 +2414,7 @@ export default function PayslipsTab({
                         type="number"
                         value={editSlipSocialSecurity}
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipSocialSecurity)}
+                        onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
                         placeholder="0"
                       />

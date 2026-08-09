@@ -1061,8 +1061,10 @@ export default function ConfigTab({
                   min="0"
                   max="100"
                   step="any"
-                  value={haircutPct}
+                  placeholder="0"
+                  value={haircutPct === 0 ? '' : haircutPct}
                   onChange={(e) => setHaircutPct(parseFloat(e.target.value) || 0)}
+                  onFocus={(e) => e.target.select()}
                   className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500"
                 />
                 <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
@@ -1082,8 +1084,10 @@ export default function ConfigTab({
                   max="100"
                   step="any"
                   disabled={!enableChemicalService}
-                  value={chemicalPct}
+                  placeholder="0"
+                  value={chemicalPct === 0 ? '' : chemicalPct}
                   onChange={(e) => setChemicalPct(parseFloat(e.target.value) || 0)}
+                  onFocus={(e) => e.target.select()}
                   className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-50"
                 />
                 <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
@@ -1103,8 +1107,10 @@ export default function ConfigTab({
                   max="100"
                   step="any"
                   disabled={!enableProductSales}
-                  value={productPct}
+                  placeholder="0"
+                  value={productPct === 0 ? '' : productPct}
                   onChange={(e) => setProductPct(parseFloat(e.target.value) || 0)}
+                  onFocus={(e) => e.target.select()}
                   className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-50"
                 />
                 <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
@@ -1184,8 +1190,10 @@ export default function ConfigTab({
                     max="100"
                     step="any"
                     disabled={!showPromoDiscount}
-                    value={promoDiscountPct}
+                    placeholder="0"
+                    value={promoDiscountPct === 0 ? '' : promoDiscountPct}
                     onChange={(e) => setPromoDiscountPct(parseFloat(e.target.value) || 0)}
+                    onFocus={(e) => e.target.select()}
                     className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 font-medium"
                   />
                   <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
@@ -1270,6 +1278,7 @@ export default function ConfigTab({
                 placeholder="ใส่ 0 หรือเว้นว่างหากไม่มี"
                 value={newBarberBaseSalary}
                 onChange={(e) => setNewBarberBaseSalary(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-sans transition-all font-medium shadow-xs"
               />
             </div>
@@ -1337,6 +1346,7 @@ export default function ConfigTab({
                           min="0"
                           value={editBaseSalary}
                           onChange={(e) => setEditBaseSalary(e.target.value)}
+                          onFocus={(e) => e.target.select()}
                           className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-sans focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium transition-all shadow-xs"
                           placeholder="ยังไม่มีฐานเงินเดือน"
                         />
@@ -1481,6 +1491,7 @@ export default function ConfigTab({
                 placeholder="ราคา (บาท)"
                 value={newProductPrice}
                 onChange={(e) => setNewProductPrice(e.target.value)}
+                onFocus={(e) => e.target.select()}
                 className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs font-mono"
               />
               <button
@@ -1522,6 +1533,7 @@ export default function ConfigTab({
                             required
                             value={editProductPrice}
                             onChange={(e) => setEditProductPrice(e.target.value)}
+                            onFocus={(e) => e.target.select()}
                             className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-mono focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-medium transition-all shadow-xs"
                           />
                         </div>
@@ -1663,6 +1675,7 @@ export default function ConfigTab({
               placeholder="ราคาปกติ (บาท)"
               value={newPromoOriginalPrice}
               onChange={(e) => setNewPromoOriginalPrice(e.target.value)}
+              onFocus={(e) => e.target.select()}
               className="md:col-span-2 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs font-mono"
             />
             <input
@@ -1672,6 +1685,7 @@ export default function ConfigTab({
               placeholder="ราคาลดเหลือ (บาท)"
               value={newPromoDiscountedPrice}
               onChange={(e) => setNewPromoDiscountedPrice(e.target.value)}
+              onFocus={(e) => e.target.select()}
               className="md:col-span-2 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs font-mono"
             />
             <button
@@ -1703,6 +1717,7 @@ export default function ConfigTab({
                         className="px-3 py-1 border border-slate-200 rounded-lg text-xs font-mono"
                         value={editPromoOriginalPrice}
                         onChange={(e) => setEditPromoOriginalPrice(e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         placeholder="ราคาปกติ"
                       />
                       <input
@@ -1710,6 +1725,7 @@ export default function ConfigTab({
                         className="px-3 py-1 border border-slate-200 rounded-lg text-xs font-mono"
                         value={editPromoDiscountedPrice}
                         onChange={(e) => setEditPromoDiscountedPrice(e.target.value)}
+                        onFocus={(e) => e.target.select()}
                         placeholder="ราคาพิเศษ"
                       />
                     </div>
@@ -1837,6 +1853,7 @@ export default function ConfigTab({
             placeholder="ระบุราคาบัตร บัตรกำนัล เช่น 20 , 50 , 100"
             value={newVoucherValue}
             onChange={(e) => setNewVoucherValue(e.target.value)}
+            onFocus={(e) => e.target.select()}
             className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs font-mono"
           />
           <button

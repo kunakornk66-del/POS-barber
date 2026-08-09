@@ -63,7 +63,9 @@ export interface SaleRecord {
   productPrice: number;
   productQty?: number; // จำนวนสินค้าที่ขาย
   tip: number;
-  paymentMethod: 'cash' | 'transfer'; // เงินสด , เงินโอน
+  paymentMethod: 'cash' | 'transfer' | 'split'; // เงินสด , เงินโอน , หรือ ผสม (เงินสด + เงินโอน)
+  cashAmount?: number; // จำนวนเงินสด (กรณีชำระแบบผสม หรือยอดเงินสด)
+  transferAmount?: number; // จำนวนเงินโอน (กรณีชำระแบบผสม หรือยอดเงินโอน)
   useDiscountPct10: boolean; // 10% discount
   useVoucherValue: number; // 0, 20, 50
   

@@ -45,6 +45,22 @@ export function formatThaiMonth(yearMonth: string): string {
   return `${months[monthIndex]} ${thYear}`;
 }
 
+// Calculate split payment cash vs transfer breakdown safely for any sale record
+export function getSalePaymentBreakdown(s: Partial<SaleRecord>): { cashAmount: number; transferAmount: number } {
+  if (!s) return { cashAmount: 0, transferAmount: 0 };
+  const totalPaid = s.customerPaid ?? 0;
+  if (s.paymentMethod === 'split') {
+    const cash = typeof s.cashAmount === 'number' && !isNaN(s.cashAmount) ? s.cashAmount : 0;
+    const transfer = typeof s.transferAmount === 'number' && !isNaN(s.transferAmount) ? s.transferAmount : Math.max(0, totalPaid - cash);
+    return { cashAmount: cash, transferAmount: transfer };
+  } else if (s.paymentMethod === 'cash') {
+    return { cashAmount: totalPaid, transferAmount: 0 };
+  } else {
+    // 'transfer' or default
+    return { cashAmount: 0, transferAmount: totalPaid };
+  }
+}
+
 // Generate MS Excel (XML Spreadsheet or CSV with BOM)
 export function downloadExcelReport(title: string, dataRows: string[][], headers: string[]): void {
   // Use UTF-8 with BOM (\uFEFF) so Excel opens Thai characters correctly
