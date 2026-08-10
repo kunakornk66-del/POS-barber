@@ -1,12 +1,14 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, CustomerSubscription } from './types';
+import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, CustomerSubscription, Member, MemberPackage } from './types';
 import { 
   INITIAL_BARBERS, 
   INITIAL_PRODUCTS, 
   INITIAL_CHEMICAL_PROMOS,
   DEFAULT_SHARE_CONFIG, 
   DEFAULT_SHOP_CONFIG, 
-  getSeededSales 
+  getSeededSales,
+  INITIAL_MEMBERS,
+  INITIAL_MEMBER_PACKAGES
 } from './data';
 import SalesTab from './components/SalesTab';
 import DashboardTab from './components/DashboardTab';
@@ -16,6 +18,7 @@ import PayslipsTab from './components/PayslipsTab';
 import UserGuideModal from './components/UserGuideModal';
 import SuperAdminTab from './components/SuperAdminTab';
 import AnnualResetModal from './components/AnnualResetModal';
+import MembersTab from './components/MembersTab';
 import { 
   Scissors, 
   LayoutDashboard, 
@@ -37,6 +40,7 @@ import {
   AlertTriangle,
   Trash2,
   ShieldCheck,
+  Crown,
   Lock,
   Unlock,
   ShieldAlert,
@@ -227,6 +231,8 @@ export default function App() {
   const [shopConfig, setShopConfig] = useState<ShopConfig>(DEFAULT_SHOP_CONFIG);
   const [vouchers, setVouchers] = useState<Voucher[]>([]);
   const [sales, setSales] = useState<SaleRecord[]>([]);
+  const [members, setMembers] = useState<Member[]>([]);
+  const [memberPackages, setMemberPackages] = useState<MemberPackage[]>([]);
 
   // Dynamically correct and sanitize any rounding issues or old-calculation discrepancies in sales records on-the-fly
   const correctedSales = useMemo(() => {
@@ -281,7 +287,7 @@ export default function App() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashCounter, setCashCounter] = useState<CashCounterState | null>(null);
-  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'config' | 'cash' | 'payslips' | 'superadmin'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'members' | 'config' | 'cash' | 'payslips' | 'superadmin'>('sales');
 
   const isSuperAdmin = useMemo(() => {
     if (!userEmail) return false;
@@ -364,7 +370,10 @@ export default function App() {
     if (shopConfig?.enablePayslips === false && activeTab === 'payslips') {
       setActiveTab('sales');
     }
-  }, [shopConfig?.enableCashCounter, shopConfig?.enablePayslips, activeTab]);
+    if (shareConfig?.enableMemberSystem === false && activeTab === 'members') {
+      setActiveTab('sales');
+    }
+  }, [shopConfig?.enableCashCounter, shopConfig?.enablePayslips, shareConfig?.enableMemberSystem, activeTab]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -683,6 +692,8 @@ export default function App() {
         const localPayslips = localStorage.getItem(`barber_pos_payslips${suffix}`) || localStorage.getItem(`barber_pos_payslips_${userEmail}`);
         const localExpenses = localStorage.getItem(`barber_pos_expenses${suffix}`) || localStorage.getItem(`barber_pos_expenses_${userEmail}`);
         const localCashCounter = localStorage.getItem(`barber_pos_cash_counter${suffix}`) || localStorage.getItem(`barber_pos_cash_counter_${userEmail}`);
+        const localMembers = localStorage.getItem(`barber_pos_members${suffix}`) || localStorage.getItem(`barber_pos_members_${userEmail}`);
+        const localMemberPackages = localStorage.getItem(`barber_pos_member_packages${suffix}`) || localStorage.getItem(`barber_pos_member_packages_${userEmail}`);
 
         if (localBarbers) setBarbers(JSON.parse(localBarbers));
         if (localProducts) setProducts(JSON.parse(localProducts));
@@ -703,6 +714,8 @@ export default function App() {
         if (localPayslips) setPayslips(JSON.parse(localPayslips));
         if (localExpenses) setExpenses(JSON.parse(localExpenses));
         if (localCashCounter) setCashCounter(JSON.parse(localCashCounter));
+        if (localMembers) setMembers(JSON.parse(localMembers));
+        if (localMemberPackages) setMemberPackages(JSON.parse(localMemberPackages));
 
         // If local cached data was loaded, unblock UI immediately so user never waits
         if (localShopConfig || localBarbers || localSales) {
@@ -817,6 +830,8 @@ export default function App() {
             setPayslips(salonData.payslips || []);
             setExpenses(salonData.expenses || []);
             setCashCounter(salonData.cashCounter || null);
+            setMembers(salonData.members || (isGuest ? INITIAL_MEMBERS : []));
+            setMemberPackages(salonData.memberPackages || (isGuest ? INITIAL_MEMBER_PACKAGES : []));
 
             // First Login Date tracking & initialization
             let loginDate = salonData.firstLoginDate || salonData.shopConfig?.firstLoginDate || localStorage.getItem(`barber_pos_first_login_date_${userEmail}`);
@@ -967,6 +982,16 @@ export default function App() {
     localStorage.setItem(`barber_pos_cash_counter_${userEmail}`, JSON.stringify(cashCounter));
   }, [cashCounter, userEmail, isLoading]);
 
+  useEffect(() => {
+    if (!userEmail || isLoading) return;
+    localStorage.setItem(`barber_pos_members_${userEmail}`, JSON.stringify(members));
+  }, [members, userEmail, isLoading]);
+
+  useEffect(() => {
+    if (!userEmail || isLoading) return;
+    localStorage.setItem(`barber_pos_member_packages_${userEmail}`, JSON.stringify(memberPackages));
+  }, [memberPackages, userEmail, isLoading]);
+
   // Evaluate 1-Year Annual Reset Cycle (365 days -> 30-day warning -> 395 days auto factory reset)
   useEffect(() => {
     if (!userEmail || !firstLoginDate) return;
@@ -1030,7 +1055,7 @@ export default function App() {
     const fullyQualifiedRecord: SaleRecord = {
       barberId: newOmitRecord.barberId || 'unknown',
       barberName: newOmitRecord.barberName || 'ช่างตัดผม',
-      customerName: newOmitRecord.customerName || 'ลูกค้าทั่วไป',
+      customerName: newOmitRecord.customerName?.trim() || newOmitRecord.memberName?.trim() || (newOmitRecord.memberCode ? `สมาชิก (${newOmitRecord.memberCode})` : 'ลูกค้าทั่วไป'),
       haircutPrice: Number(newOmitRecord.haircutPrice) || 0,
       chemicalPrice: Number(newOmitRecord.chemicalPrice) || 0,
       productPrice: Number(newOmitRecord.productPrice) || 0,
@@ -1058,6 +1083,37 @@ export default function App() {
 
     // Optimistic state updates
     setSales((prev) => [cleanRecord, ...prev]);
+
+    // Deduct member credit if memberId and memberCreditUsed > 0
+    if (cleanRecord.memberId && cleanRecord.memberCreditUsed && cleanRecord.memberCreditUsed > 0) {
+      setMembers(prevMembers => {
+        const updated = prevMembers.map(m => {
+          if (m.id === cleanRecord.memberId) {
+            const newBal = Math.max(0, (m.creditBalance || 0) - cleanRecord.memberCreditUsed!);
+            const usageLog = {
+              id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+              date: cleanRecord.timestamp || new Date().toISOString(),
+              type: 'usage' as const,
+              amount: cleanRecord.memberCreditUsed!,
+              description: `ชำระค่าบริการหน้าร้าน (บิล ${cleanRecord.id})`,
+              balanceAfter: newBal,
+              saleRecordId: cleanRecord.id
+            };
+            return {
+              ...m,
+              creditBalance: newBal,
+              usageHistory: [usageLog, ...(m.usageHistory || [])]
+            };
+          }
+          return m;
+        });
+        
+        // Persist updated members array to Firestore
+        const docRef = doc(db, "salons", userEmail);
+        setDoc(docRef, cleanUndefined({ members: updated, updatedAt: new Date().toISOString() }), { merge: true }).catch(() => {});
+        return updated;
+      });
+    }
 
     // If offline, increment pending sync counter
     if (!navigator.onLine) {
@@ -1382,6 +1438,129 @@ export default function App() {
       .catch((err) => {
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
+  };
+
+  const handleUpdateMembers = (updatedMembers: Member[]) => {
+    setMembers(updatedMembers);
+    if (!userEmail) return;
+    
+    const docRef = doc(db, "salons", userEmail);
+    const cleanedData = cleanUndefined({ members: updatedMembers, updatedAt: new Date().toISOString() });
+    setDoc(docRef, cleanedData, { merge: true })
+      .then(() => {
+        console.log("🟢 [Firebase] บันทึกข้อมูลสมาชิกสำเร็จ (Set members successfully)");
+      })
+      .catch((err) => {
+        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+      });
+  };
+
+  const handleUpdateMemberPackages = (updatedPackages: MemberPackage[]) => {
+    setMemberPackages(updatedPackages);
+    if (!userEmail) return;
+    
+    const docRef = doc(db, "salons", userEmail);
+    const cleanedData = cleanUndefined({ memberPackages: updatedPackages, updatedAt: new Date().toISOString() });
+    setDoc(docRef, cleanedData, { merge: true })
+      .then(() => {
+        console.log("🟢 [Firebase] บันทึกข้อมูลแพ็กเกจสมาชิกสำเร็จ (Set member packages successfully)");
+      })
+      .catch((err) => {
+        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+      });
+  };
+
+  const handleSellPackageToMember = (
+    memberId: string, 
+    pkg: MemberPackage, 
+    barberId?: string, 
+    paymentMethod: 'cash' | 'transfer' = 'transfer', 
+    notes?: string
+  ) => {
+    const now = new Date().toISOString();
+    let targetMemberName = '';
+    let targetMemberCode = '';
+
+    setMembers(prevMembers => {
+      const targetMember = prevMembers.find(m => m.id === memberId);
+      if (targetMember) {
+        targetMemberName = targetMember.name;
+        targetMemberCode = targetMember.memberCode;
+      }
+
+      const updatedMembers = prevMembers.map(m => {
+        if (m.id === memberId) {
+          const newBalance = (m.creditBalance || 0) + pkg.credit;
+          const newPurchaseLog = {
+            id: `pkg-pur-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            packageId: pkg.id,
+            packageName: pkg.name,
+            pricePaid: pkg.price,
+            creditReceived: pkg.credit,
+            purchaseDate: now,
+            barberId,
+            barberName: barbers.find(b => b.id === barberId)?.name,
+            paymentMethod,
+            notes
+          };
+          const newUsageLog = {
+            id: `log-${Date.now()}-${Math.floor(Math.random() * 1000)}`,
+            date: now,
+            type: 'topup' as const,
+            amount: pkg.credit,
+            description: `เติมแพ็กเกจ ${pkg.name} (จ่าย ${pkg.price} ได้เครดิต ${pkg.credit})`,
+            balanceAfter: newBalance
+          };
+          return {
+            ...m,
+            creditBalance: newBalance,
+            totalTopUpAmount: (m.totalTopUpAmount || 0) + pkg.price,
+            packagePurchases: [newPurchaseLog, ...(m.packagePurchases || [])],
+            usageHistory: [newUsageLog, ...(m.usageHistory || [])]
+          };
+        }
+        return m;
+      });
+
+      if (userEmail) {
+        const docRef = doc(db, "salons", userEmail);
+        const cleanedData = cleanUndefined({ members: updatedMembers, updatedAt: new Date().toISOString() });
+        setDoc(docRef, cleanedData, { merge: true }).catch(() => {});
+      }
+
+      return updatedMembers;
+    });
+
+    // Record sale record so package sale revenue is accounted for in daily POS revenue!
+    const targetBarber = barbers.find(b => b.id === barberId);
+    handleSaveSale({
+      barberId: barberId || 'shop',
+      barberName: targetBarber ? targetBarber.name : 'หน้าร้าน/เจ้าของ',
+      customerName: targetMemberName || 'ลูกค้าสมาชิก',
+      haircutPrice: 0,
+      chemicalPrice: 0,
+      productPrice: pkg.price,
+      productId: null,
+      productName: `แพ็กเกจสมาชิก: ${pkg.name}`,
+      tip: 0,
+      useDiscountPct10: false,
+      useVoucherValue: 0,
+      paymentMethod,
+      subtotal: pkg.price,
+      discountAmount: 0,
+      customerPaid: pkg.price,
+      cashAmount: paymentMethod === 'cash' ? pkg.price : 0,
+      transferAmount: paymentMethod === 'transfer' ? pkg.price : 0,
+      barberHaircutShare: 0,
+      barberChemicalShare: 0,
+      barberProductShare: 0,
+      barberTotalShare: 0,
+      shopTotalShare: pkg.price,
+      memberId: memberId,
+      memberName: targetMemberName || undefined,
+      memberCode: targetMemberCode || undefined,
+      notes: `ขายแพ็กเกจสมาชิก ${pkg.name}${notes ? ` (${notes})` : ''}`
+    });
   };
 
   const handleLoginSubmit = (e: React.FormEvent) => {
@@ -1851,6 +2030,7 @@ export default function App() {
               {[
                 { id: 'sales' as const, label: 'หน้าบันทึกการขาย', icon: <Scissors className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> },
                 { id: 'dashboard' as const, label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500" /> },
+                ...(shareConfig?.enableMemberSystem !== false ? [{ id: 'members' as const, label: 'ระบบสมาชิก Member', icon: <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> }] : []),
                 ...(shopConfig?.enableCashCounter !== false ? [{ id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 { id: 'config' as const, label: 'ตั้งค่า', icon: <Settings className="w-3.5 h-3.5 text-indigo-500" /> },
@@ -1932,7 +2112,10 @@ export default function App() {
               chemicalPromos={chemicalPromos}
               shareConfig={shareConfig}
               vouchers={vouchers}
+              members={members}
+              memberPackages={memberPackages}
               onSaveSale={handleSaveSale}
+              onSellPackageToMember={handleSellPackageToMember}
             />
           </div>
         )}
@@ -1951,6 +2134,19 @@ export default function App() {
               onDeleteSale={handleDeleteSale}
               onUpdateSalePaymentMethod={handleUpdateSalePaymentMethod}
               onUpdateSale={handleUpdateSale}
+            />
+          </div>
+        )}
+
+        {activeTab === 'members' && shareConfig?.enableMemberSystem !== false && (
+          <div className="tab-content-enter">
+            <MembersTab
+              members={members}
+              memberPackages={memberPackages}
+              barbers={barbers}
+              onUpdateMembers={handleUpdateMembers}
+              onUpdateMemberPackages={handleUpdateMemberPackages}
+              onSellPackageToMember={handleSellPackageToMember}
             />
           </div>
         )}

@@ -22,7 +22,8 @@ import {
   generateDailyHtmlReport,
   generateMonthlyHtmlReport,
   getBillingCycleRange,
-  getSalePaymentBreakdown
+  getSalePaymentBreakdown,
+  exportAsyncMonthlyPdfReport
 } from '../utils';
 import { 
   TrendingUp, 
@@ -68,7 +69,7 @@ interface DashboardTabProps {
   payslips?: Payslip[];
   onUpdatePayslips?: (payslips: Payslip[]) => void;
   onDeleteSale?: (saleId: string) => void;
-  onUpdateSalePaymentMethod?: (saleId: string, newMethod: 'cash' | 'transfer' | 'split') => void;
+  onUpdateSalePaymentMethod?: (saleId: string, newMethod: 'cash' | 'transfer' | 'split' | 'member_credit') => void;
   onUpdateSale?: (saleId: string, updates: Partial<SaleRecord>) => void;
   expenses?: Expense[];
   onUpdateExpenses?: (expenses: Expense[]) => void;
@@ -544,8 +545,8 @@ export default function DashboardTab({
     const shopRevenue = monthlySales.reduce((sum, s) => sum + s.shopTotalShare, 0);
     const totalDiscountsCount = monthlySales.filter(s => s.useDiscountPct10 || s.useVoucherValue > 0).length;
     
-    // Total income from customers without subtracting commissions (everything that customers paid)
-    const totalCustomerPaid = monthlySales.reduce((sum, s) => sum + (s?.customerPaid || 0), 0);
+    // Total income from customers (actual cash + transfer payments received)
+    const totalCustomerPaid = cashAmount + transferAmount;
 
     // Unique days in this month that had sales
     const activeDays = Array.from(new Set(monthlySales.map(s => s?.date || '')));
@@ -635,9 +636,10 @@ export default function DashboardTab({
       }
       const entry = dateMap.get(d)!;
       entry.totalBills += 1;
-      entry.totalAmount += (s.customerPaid || 0);
       
       const b = getSalePaymentBreakdown(s);
+      entry.totalAmount += (b.cashAmount + b.transferAmount);
+
       if (b.cashAmount > 0) {
         entry.cashAmount += b.cashAmount;
         entry.cashCount += 1;
@@ -1303,12 +1305,22 @@ export default function DashboardTab({
       downloadExcelReport(title, rows, headers);
     } 
     else if (format === 'word') {
-      const html = generateMonthlyHtmlReport(shopConfig.shopName, selectedMonth, monthlyBarberStats, monthlyOverallStats, monthlyExpenses, monthlyDailyBreakdown);
+      const billingRange = getBillingCycleRange(selectedMonth, shopConfig.billingCutoffDay || 1);
+      const html = generateMonthlyHtmlReport(shopConfig.shopName, selectedMonth, monthlyBarberStats, monthlyOverallStats, monthlyExpenses, monthlyDailyBreakdown, shopConfig, billingRange);
       downloadWordReport(title, html);
     } 
     else if (format === 'pdf') {
-      const htmlBody = generateMonthlyHtmlReport(shopConfig.shopName, selectedMonth, monthlyBarberStats, monthlyOverallStats, monthlyExpenses, monthlyDailyBreakdown);
-      downloadPlainReport(`รายงานรายเดือน ${formatThaiMonth(selectedMonth)}`, txt, 'pdf', htmlBody, shopConfig.shopName);
+      const billingRange = getBillingCycleRange(selectedMonth, shopConfig.billingCutoffDay || 1);
+      exportAsyncMonthlyPdfReport(
+        shopConfig.shopName,
+        selectedMonth,
+        monthlyBarberStats,
+        monthlyOverallStats,
+        monthlyExpenses,
+        monthlyDailyBreakdown,
+        shopConfig,
+        billingRange
+      );
     }
     else {
       downloadPlainReport(`รายงานรายเดือน ${formatThaiMonth(selectedMonth)}`, txt, 'png', undefined, shopConfig.shopName);
@@ -2884,11 +2896,21 @@ export default function DashboardTab({
                           {/* 3. Barber Name */}
                           <td className="p-3 text-left font-medium text-slate-700">
                             <div className="font-bold">ช่าง{sale.barberName}</div>
-                            {sale.customerName && (
-                              <div className="text-[10px] text-slate-500 font-semibold mt-1 flex items-center gap-1 bg-slate-100 rounded px-1.5 py-0.5 w-max">
-                                <span>👤 {sale.customerName}</span>
-                              </div>
-                            )}
+                            {(() => {
+                              const custName = sale.customerName || sale.memberName || (sale.memberCode ? `สมาชิก (${sale.memberCode})` : null);
+                              const isMemberSale = sale.paymentMethod === 'member_credit' || Boolean(sale.memberId || sale.memberCode || sale.memberCreditUsed);
+                              if (!custName) return null;
+                              return (
+                                <div className={`text-[10px] font-bold mt-1 flex items-center gap-1 rounded px-1.5 py-0.5 w-max border ${
+                                  isMemberSale 
+                                    ? 'bg-purple-50 text-purple-900 border-purple-200' 
+                                    : 'bg-slate-100 text-slate-700 border-slate-200'
+                                }`}>
+                                  <span>{isMemberSale ? '👑' : '👤'} {custName}</span>
+                                  {sale.memberCode && <span className="font-mono text-[9px] text-purple-600">({sale.memberCode})</span>}
+                                </div>
+                              );
+                            })()}
                             {sale.groupPaymentId && (
                               <div className="text-[10px] text-sky-700 font-bold mt-1 flex flex-col gap-0.5 bg-sky-50 border border-sky-100/60 rounded p-1.5 max-w-xs" title={`รหัสกลุ่มโอนร่วม: ${sale.groupPaymentId}`}>
                                 <span className="flex items-center gap-1 font-extrabold">
@@ -2908,6 +2930,7 @@ export default function DashboardTab({
                             {(() => {
                               const b = getSalePaymentBreakdown(sale);
                               const isSplit = sale.paymentMethod === 'split';
+                              const isMemberCredit = sale.paymentMethod === 'member_credit' || (sale.memberCreditUsed && sale.memberCreditUsed > 0 && !isSplit && !b.cashAmount && !b.transferAmount);
                               return (
                                 <button
                                   type="button"
@@ -2919,17 +2942,21 @@ export default function DashboardTab({
                                   className={`inline-flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-xl border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
                                     isSplit
                                       ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border-indigo-200'
+                                      : isMemberCredit
+                                      ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
                                       : sale.paymentMethod === 'transfer'
                                       ? 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200/80'
                                       : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200/80'
                                   }`}
-                                  title="คลิกเพื่อปรับแต่งช่องทางชำระเงิน (สด/โอน/ชำระแบบผสม)"
+                                  title="คลิกเพื่อปรับแต่งช่องทางชำระเงิน (สด/โอน/เครดิตสมาชิก/ชำระแบบผสม)"
                                 >
                                   {isSplit ? (
                                     <span className="flex items-center gap-1">
                                       <span>⚡ ผสม</span>
                                       <span className="text-[10px] font-mono text-indigo-700">(สด {formatBaht(b.cashAmount)} + โอน {formatBaht(b.transferAmount)})</span>
                                     </span>
+                                  ) : isMemberCredit ? (
+                                    <span>👑 หักเครดิตสมาชิก</span>
                                   ) : sale.paymentMethod === 'transfer' ? (
                                     <span>📱 โอนเงินผ่านแบงก์</span>
                                   ) : (

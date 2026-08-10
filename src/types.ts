@@ -47,6 +47,63 @@ export interface ShareConfig {
   showChemicalDiscountInPos?: boolean;
   enableChemicalService?: boolean; // toggle to enable/disable chemical service
   enableProductSales?: boolean; // toggle to enable/disable product sales
+  enableMemberSystem?: boolean; // toggle to enable/disable member system
+}
+
+export interface MemberPackage {
+  id: string;
+  name: string; // e.g. "Package VIP Diamond (20,000)"
+  price: number; // ราคาจ่ายจริง เช่น 18000
+  credit: number; // เครดิตที่ได้รับ เช่น 20000
+  bonusCredit: number; // credit - price เช่น 2000
+  description?: string;
+  badgeColor?: 'amber' | 'indigo' | 'emerald' | 'purple' | 'rose' | 'slate';
+  isActive: boolean;
+}
+
+export interface MemberPackagePurchase {
+  id: string;
+  packageId?: string;
+  packageName: string;
+  pricePaid: number;
+  creditAdded?: number;
+  creditReceived?: number;
+  timestamp?: string; // ISO String
+  purchaseDate?: string;
+  paymentMethod: 'cash' | 'transfer' | 'split';
+  barberId?: string;
+  barberName?: string;
+  notes?: string;
+}
+
+export interface MemberUsageLog {
+  id: string;
+  saleId?: string;
+  saleRecordId?: string;
+  amount: number; // จำนวนเครดิตที่หักใช้หรือเติม
+  type?: 'usage' | 'topup' | 'adjustment';
+  description?: string;
+  serviceSummary?: string; // e.g. "ตัดผม + ไดร์"
+  timestamp?: string; // ISO String
+  date?: string;
+  remainingCredit?: number; // เครดิตคงเหลือหลังหัก
+  balanceAfter?: number;
+}
+
+export interface Member {
+  id: string;
+  memberCode: string; // e.g. M-001 หรือ เบอร์โทร
+  name: string;
+  phone: string;
+  creditBalance: number; // ยอดเครดิตคงเหลือ
+  totalSpentCredit?: number; // ยอดเครดิตสะสมที่เคยใช้ไป
+  totalTopUpAmount?: number; // ยอดเงินสด/โอนที่เคยเติมจริง
+  notes?: string;
+  createdAt: string;
+  updatedAt: string;
+  packageHistory?: MemberPackagePurchase[];
+  packagePurchases?: MemberPackagePurchase[];
+  usageHistory?: MemberUsageLog[];
 }
 
 export interface SaleRecord {
@@ -63,9 +120,10 @@ export interface SaleRecord {
   productPrice: number;
   productQty?: number; // จำนวนสินค้าที่ขาย
   tip: number;
-  paymentMethod: 'cash' | 'transfer' | 'split'; // เงินสด , เงินโอน , หรือ ผสม (เงินสด + เงินโอน)
-  cashAmount?: number; // จำนวนเงินสด (กรณีชำระแบบผสม หรือยอดเงินสด)
-  transferAmount?: number; // จำนวนเงินโอน (กรณีชำระแบบผสม หรือยอดเงินโอน)
+  paymentMethod: 'cash' | 'transfer' | 'split' | 'member_credit'; // เงินสด, เงินโอน, ผสม, เครดิตสมาชิก
+  cashAmount?: number; // จำนวนเงินสด
+  transferAmount?: number; // จำนวนเงินโอน
+  memberCreditAmount?: number; // จำนวนเครดิตสมาชิกที่ใช้ชำระ
   useDiscountPct10: boolean; // 10% discount
   useVoucherValue: number; // 0, 20, 50
   
@@ -77,14 +135,23 @@ export interface SaleRecord {
   chemicalPromoName?: string | null;
   notes?: string;
   
+  // Member Integration
+  memberId?: string;
+  memberName?: string;
+  memberCode?: string;
+  memberCreditUsed?: number;
+
+  // Package selling transaction indicator
+  isPackagePurchase?: boolean;
+  packageId?: string;
+  packageName?: string;
+
   // Financial summaries
   subtotal: number; // Before discount/voucher
   discountAmount: number;
   customerPaid: number; // subtotal - discountAmount
   
   // Barber vs Shop calculation (after-hours/behind-doors)
-  // "ลดราคาแต่ช่างได้ส่วนแบ่งเท่าเดิมไม่นำมาหักค่าลดจากทางร้าน"
-  // So calculations are based on ORIGINAL haircutPrice & chemicalPrice & productPrice
   barberHaircutShare: number;
   barberChemicalShare: number;
   barberProductShare: number;

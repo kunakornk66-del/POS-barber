@@ -304,6 +304,7 @@ export default function ConfigTab({
   const [showChemicalDiscountInPos, setShowChemicalDiscountInPos] = useState<boolean>(shareConfig.showChemicalDiscountInPos !== false);
   const [enableChemicalService, setEnableChemicalService] = useState<boolean>(shareConfig.enableChemicalService !== false);
   const [enableProductSales, setEnableProductSales] = useState<boolean>(shareConfig.enableProductSales !== false);
+  const [enableMemberSystem, setEnableMemberSystem] = useState<boolean>(shareConfig.enableMemberSystem !== false);
   const [isShareSaved, setIsShareSaved] = useState<boolean>(false);
 
   // Synchronize local states when the fetched shareConfig props change
@@ -318,6 +319,7 @@ export default function ConfigTab({
     setShowChemicalDiscountInPos(shareConfig.showChemicalDiscountInPos !== false);
     setEnableChemicalService(shareConfig.enableChemicalService !== false);
     setEnableProductSales(shareConfig.enableProductSales !== false);
+    setEnableMemberSystem(shareConfig.enableMemberSystem !== false);
   }, [shareConfig]);
 
   const handleSaveShareConfig = (e: React.FormEvent) => {
@@ -343,7 +345,8 @@ export default function ConfigTab({
       defaultChemicalDiscountType: defaultChemDiscountType,
       showChemicalDiscountInPos: showChemicalDiscountInPos,
       enableChemicalService: enableChemicalService,
-      enableProductSales: enableProductSales
+      enableProductSales: enableProductSales,
+      enableMemberSystem: enableMemberSystem
     });
     setIsShareSaved(true);
     setTimeout(() => setIsShareSaved(false), 3000);
@@ -1122,24 +1125,24 @@ export default function ConfigTab({
 
           </div>
 
-          {/* Divider and Feature Toggles (Chemical & Products) */}
+          {/* Divider and Feature Toggles (Chemical, Products, Member System) */}
           <div className="border-t border-slate-100 pt-5 space-y-3">
             <h4 className="text-xs font-bold text-slate-700 flex items-center space-x-1">
               <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              <span>เปิด/ปิดการแสดงช่องในระบบคิดเงิน (ค่าเคมี & สินค้า)</span>
+              <span>เปิด/ปิดฟังก์ชั่นการทำงานของระบบ (ค่าเคมี, สินค้า, สมาชิก Member)</span>
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {/* Chemical Services Toggle */}
               <label className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
                 <div>
                   <span className="block text-xs font-semibold text-slate-700">เปิดใช้งาน "ช่องใส่ค่าเคมี"</span>
-                  <span className="block text-[10px] text-slate-500">แสดงการป้อนค่าเคมีและระบบจัดส่วนแบ่งเคมีในหน้าคิดเงิน</span>
+                  <span className="block text-[10px] text-slate-500">แสดงการป้อนค่าเคมีและส่วนแบ่งในหน้าคิดเงิน</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={enableChemicalService}
                   onChange={(e) => setEnableChemicalService(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer"
+                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer shrink-0 ml-2"
                 />
               </label>
 
@@ -1147,13 +1150,27 @@ export default function ConfigTab({
               <label className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
                 <div>
                   <span className="block text-xs font-semibold text-slate-700">เปิดใช้งาน "ช่องรายการสินค้า"</span>
-                  <span className="block text-[10px] text-slate-500">แสดงการเลือกสินค้าและระบบตัดสต็อก/ปันส่วนสินค้าในหน้าคิดเงิน</span>
+                  <span className="block text-[10px] text-slate-500">แสดงการเลือกสินค้าและสต็อกในหน้าคิดเงิน</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={enableProductSales}
                   onChange={(e) => setEnableProductSales(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer"
+                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer shrink-0 ml-2"
+                />
+              </label>
+
+              {/* Member System Toggle */}
+              <label className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
+                <div>
+                  <span className="block text-xs font-semibold text-slate-700">เปิดใช้งาน "ระบบสมาชิก Member"</span>
+                  <span className="block text-[10px] text-slate-500">แสดงแท็บสมาชิก แพ็กเกจ และหักเครดิตในหน้าคิดเงิน</span>
+                </div>
+                <input
+                  type="checkbox"
+                  checked={enableMemberSystem}
+                  onChange={(e) => setEnableMemberSystem(e.target.checked)}
+                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer shrink-0 ml-2"
                 />
               </label>
             </div>

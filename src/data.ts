@@ -1,4 +1,4 @@
-import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, ChemicalPromo } from './types';
+import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, ChemicalPromo, MemberPackage, Member } from './types';
 
 export const INITIAL_BARBERS: Barber[] = [
   { id: '1', name: 'เสือ', isWorking: true, realName: 'สมศักดิ์ พรหมรักษา', position: 'Branch Manager' },
@@ -19,6 +19,112 @@ export const INITIAL_CHEMICAL_PROMOS: ChemicalPromo[] = [
   { id: 'cp3', name: 'Upperm (อัพเปิร์ม)', originalPrice: 900, discountedPrice: 600, isActive: true }
 ];
 
+export const INITIAL_MEMBER_PACKAGES: MemberPackage[] = [
+  {
+    id: 'pkg-1',
+    name: 'Package Starter (1,000)',
+    price: 1000,
+    credit: 1100,
+    bonusCredit: 100,
+    description: 'จ่ายเพียง 1,000 บาท รับเครดิตตัดผมทันที 1,100 บาท (ฟรีโบนัส +100 บ.)',
+    badgeColor: 'emerald',
+    isActive: true
+  },
+  {
+    id: 'pkg-2',
+    name: 'Package Bronze (3,000)',
+    price: 3000,
+    credit: 3400,
+    bonusCredit: 400,
+    description: 'จ่ายเพียง 3,000 บาท รับเครดิตทันที 3,400 บาท (ประหยัด +400 บ.)',
+    badgeColor: 'amber',
+    isActive: true
+  },
+  {
+    id: 'pkg-3',
+    name: 'Package Silver (5,000)',
+    price: 5000,
+    credit: 5800,
+    bonusCredit: 800,
+    description: 'จ่ายเพียง 5,000 บาท รับเครดิตทันที 5,800 บาท (ประหยัด +800 บ.)',
+    badgeColor: 'indigo',
+    isActive: true
+  },
+  {
+    id: 'pkg-4',
+    name: 'Package Gold (10,000)',
+    price: 10000,
+    credit: 11800,
+    bonusCredit: 1800,
+    description: 'จ่ายเพียง 10,000 บาท รับเครดิตทันที 11,800 บาท (โบนัสพิเศษ +1,800 บ.)',
+    badgeColor: 'rose',
+    isActive: true
+  },
+  {
+    id: 'pkg-5',
+    name: 'Package VIP Diamond (18,000)',
+    price: 18000,
+    credit: 20000,
+    bonusCredit: 2000,
+    description: 'แพ็กเกจยอดฮิตสุดคุ้ม! จ่ายเพียง 18,000 บาท ได้รับเครดิตเต็ม 20,000 บาท (ประหยัดไปถึง 2,000 บาท)',
+    badgeColor: 'purple',
+    isActive: true
+  }
+];
+
+export const INITIAL_MEMBERS: Member[] = [
+  {
+    id: 'mem-1',
+    memberCode: 'M-001',
+    name: 'คุณกิตติศักดิ์ พรหมมินทร์',
+    phone: '081-234-5678',
+    creditBalance: 20000,
+    totalSpentCredit: 0,
+    totalTopUpAmount: 18000,
+    notes: 'ลูกค้า VIP สมัครแพ็กเกจ VIP Diamond 20,000',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    packageHistory: [
+      {
+        id: 'pkghist-1',
+        packageId: 'pkg-5',
+        packageName: 'Package VIP Diamond (18,000)',
+        pricePaid: 18000,
+        creditAdded: 20000,
+        timestamp: new Date().toISOString(),
+        paymentMethod: 'transfer',
+        barberName: 'เสือ'
+      }
+    ],
+    usageHistory: []
+  },
+  {
+    id: 'mem-2',
+    memberCode: 'M-002',
+    name: 'คุณพิชญ์พงศ์ เดชะ',
+    phone: '089-987-6543',
+    creditBalance: 3400,
+    totalSpentCredit: 0,
+    totalTopUpAmount: 3000,
+    notes: 'สมาชิก Bronze Package',
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    packageHistory: [
+      {
+        id: 'pkghist-2',
+        packageId: 'pkg-2',
+        packageName: 'Package Bronze (3,000)',
+        pricePaid: 3000,
+        creditAdded: 3400,
+        timestamp: new Date().toISOString(),
+        paymentMethod: 'cash',
+        barberName: 'แทน'
+      }
+    ],
+    usageHistory: []
+  }
+];
+
 export const DEFAULT_SHARE_CONFIG: ShareConfig = {
   haircutBarberPct: 50, // ช่าง 50% ร้าน 50%
   chemicalBarberPct: 40, // ช่าง 40% ร้าน 60%
@@ -27,6 +133,7 @@ export const DEFAULT_SHARE_CONFIG: ShareConfig = {
   promoDiscountPct: 10,
   enableChemicalService: true,
   enableProductSales: true,
+  enableMemberSystem: true,
 };
 
 export const DEFAULT_SHOP_CONFIG: ShopConfig = {
