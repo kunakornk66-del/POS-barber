@@ -300,48 +300,69 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
     }
   };
 
-  // Delete store and clear Firestore data
+  // Delete store and clear Firestore data safely without hanging
   const handleDeleteStore = async () => {
     if (!subToDelete) return;
     setIsDeleting(true);
-    const targetEmail = subToDelete.email.toLowerCase();
+    const rawEmail = subToDelete.email;
+    const targetEmail = rawEmail.toLowerCase();
 
+    // 1. Optimistically update local UI state immediately so UI never hangs or spins
+    setSubscriptions(prev => prev.filter(s => s.email.toLowerCase() !== targetEmail));
+    
     try {
-      // 1. Delete sales subcollection under salons/{targetEmail}/sales
-      const salesColRef = collection(db, "salons", targetEmail, "sales");
-      const salesSnap = await getDocs(salesColRef);
-      const batch = writeBatch(db);
-      salesSnap.forEach((saleDoc) => {
-        batch.delete(saleDoc.ref);
+      // 2. Safely delete all subcollections under salons/{targetEmail}
+      const subcollections = ['sales', 'members', 'barbers', 'products', 'chemicalPromos', 'packages', 'vouchers', 'expenses'];
+      for (const subColName of subcollections) {
+        try {
+          const colRef = collection(db, "salons", targetEmail, subColName);
+          const snap = await getDocs(colRef);
+          if (!snap.empty) {
+            // Delete in batches of max 400 docs
+            const docs = snap.docs;
+            for (let i = 0; i < docs.length; i += 400) {
+              const chunk = docs.slice(i, i + 400);
+              const batch = writeBatch(db);
+              chunk.forEach((docSnap) => batch.delete(docSnap.ref));
+              await batch.commit();
+            }
+          }
+        } catch (subErr) {
+          console.warn(`Could not clear subcollection ${subColName} for ${targetEmail}:`, subErr);
+        }
+      }
+
+      // 3. Delete main salon documents (both lowercase and raw email if different)
+      try { await deleteDoc(doc(db, "salons", targetEmail)); } catch (e) {}
+      if (rawEmail !== targetEmail) {
+        try { await deleteDoc(doc(db, "salons", rawEmail)); } catch (e) {}
+      }
+
+      // 4. Delete subscription documents
+      try { await deleteDoc(doc(db, "subscriptions", targetEmail)); } catch (e) {}
+      if (rawEmail !== targetEmail) {
+        try { await deleteDoc(doc(db, "subscriptions", rawEmail)); } catch (e) {}
+      }
+
+      // 5. Clear local cache for both lowercase and raw email
+      [targetEmail, rawEmail].forEach(emailKey => {
+        const suffix = `_${emailKey}`;
+        localStorage.removeItem(`barber_pos_barbers${suffix}`);
+        localStorage.removeItem(`barber_pos_products${suffix}`);
+        localStorage.removeItem(`barber_pos_chemical_promos${suffix}`);
+        localStorage.removeItem(`barber_pos_share_config${suffix}`);
+        localStorage.removeItem(`barber_pos_shop_config${suffix}`);
+        localStorage.removeItem(`barber_pos_vouchers${suffix}`);
+        localStorage.removeItem(`barber_pos_sales${suffix}`);
+        localStorage.removeItem(`barber_pos_payslips${suffix}`);
+        localStorage.removeItem(`barber_pos_expenses${suffix}`);
+        localStorage.removeItem(`barber_pos_cash_counter${suffix}`);
       });
-      await batch.commit();
-
-      // 2. Delete main salon document
-      await deleteDoc(doc(db, "salons", targetEmail));
-
-      // 3. Delete subscription document
-      await deleteDoc(doc(db, "subscriptions", targetEmail));
-
-      // 4. Clear local cache if any
-      const suffix = `_${targetEmail}`;
-      localStorage.removeItem(`barber_pos_barbers${suffix}`);
-      localStorage.removeItem(`barber_pos_products${suffix}`);
-      localStorage.removeItem(`barber_pos_chemical_promos${suffix}`);
-      localStorage.removeItem(`barber_pos_share_config${suffix}`);
-      localStorage.removeItem(`barber_pos_shop_config${suffix}`);
-      localStorage.removeItem(`barber_pos_vouchers${suffix}`);
-      localStorage.removeItem(`barber_pos_sales${suffix}`);
-      localStorage.removeItem(`barber_pos_payslips${suffix}`);
-      localStorage.removeItem(`barber_pos_expenses${suffix}`);
-      localStorage.removeItem(`barber_pos_cash_counter${suffix}`);
-
-      // 5. Update state
-      setSubscriptions(prev => prev.filter(s => s.email.toLowerCase() !== targetEmail));
-      setSubToDelete(null);
     } catch (err) {
-      handleFirestoreError(err, OperationType.DELETE, `salons/${targetEmail}`);
+      console.error('Error during store deletion:', err);
     } finally {
       setIsDeleting(false);
+      setSubToDelete(null);
     }
   };
 

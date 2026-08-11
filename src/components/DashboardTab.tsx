@@ -3985,150 +3985,152 @@ export default function DashboardTab({
             </div>
 
             {/* HISTORICAL PAYSLIPS SECTION */}
-            <div className="bg-white rounded-3xl p-6 border border-slate-100 space-y-4 shadow-sm" id="historical-payslips-archive">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-                <div className="space-y-0.5">
-                  <h3 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                    <History className="w-4 h-4 text-slate-500" />
-                    <span>แฟ้มข้อมูลประวัติใบแจ้งสลิปเงินเดือนสะสม (Historical Payslips Archive)</span>
-                  </h3>
-                  <p className="text-xs text-slate-500">
-                    ค้นหา ตรวจสอบ และสั่งพิมพ์ใบสำคัญย้อนหลังได้ตลอดเวลา ค้ำประกันความถูกต้องทางยอดบัญชี
-                  </p>
-                </div>
-
-                <div className="flex flex-wrap items-center gap-3">
-                  {/* Select month */}
-                  <div className="flex items-center space-x-1.5">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase">งวดเดือน:</span>
-                    <select
-                      id="hist-payslip-month-select"
-                      value={historySelectedMonth}
-                      onChange={(e) => setHistorySelectedMonth(e.target.value)}
-                      className="px-2.5 py-1.5 border border-slate-200 rounded-xl bg-slate-50/50 text-xs font-semibold focus:ring-1 focus:ring-slate-800 outline-none text-slate-700 min-w-[120px] cursor-pointer"
-                    >
-                      <option value="all">แสดงทุกงวดเดือน</option>
-                      {archivedMonths.map(m => (
-                        <option key={m} value={m}>{formatThaiMonth(m)}</option>
-                      ))}
-                    </select>
+            {shopConfig?.enablePayslips !== false && (
+              <div className="bg-white rounded-3xl p-6 border border-slate-100 space-y-4 shadow-sm" id="historical-payslips-archive">
+                <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+                  <div className="space-y-0.5">
+                    <h3 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
+                      <History className="w-4 h-4 text-slate-500" />
+                      <span>แฟ้มข้อมูลประวัติใบแจ้งสลิปเงินเดือนสะสม (Historical Payslips Archive)</span>
+                    </h3>
+                    <p className="text-xs text-slate-500">
+                      ค้นหา ตรวจสอบ และสั่งพิมพ์ใบสำคัญย้อนหลังได้ตลอดเวลา ค้ำประกันความถูกต้องทางยอดบัญชี
+                    </p>
                   </div>
 
-                  {/* Select barber */}
-                  <div className="flex items-center space-x-1.5">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase font-sans">ช่างประจํา:</span>
-                    <select
-                      id="hist-payslip-barber-select"
-                      value={historySelectedBarberId}
-                      onChange={(e) => setHistorySelectedBarberId(e.target.value)}
-                      className="px-2.5 py-1.5 border border-slate-200 rounded-xl bg-slate-50/50 text-xs font-semibold focus:ring-1 focus:ring-slate-800 outline-none text-slate-700 min-w-[120px] cursor-pointer"
-                    >
-                      <option value="all">เลือกช่างทุกคน</option>
-                      {archivedBarbers.map(b => (
-                        <option key={b.id} value={b.id}>ช่าง{b.name}</option>
-                      ))}
-                    </select>
+                  <div className="flex flex-wrap items-center gap-3">
+                    {/* Select month */}
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase">งวดเดือน:</span>
+                      <select
+                        id="hist-payslip-month-select"
+                        value={historySelectedMonth}
+                        onChange={(e) => setHistorySelectedMonth(e.target.value)}
+                        className="px-2.5 py-1.5 border border-slate-200 rounded-xl bg-slate-50/50 text-xs font-semibold focus:ring-1 focus:ring-slate-800 outline-none text-slate-700 min-w-[120px] cursor-pointer"
+                      >
+                        <option value="all">แสดงทุกงวดเดือน</option>
+                        {archivedMonths.map(m => (
+                          <option key={m} value={m}>{formatThaiMonth(m)}</option>
+                        ))}
+                      </select>
+                    </div>
+
+                    {/* Select barber */}
+                    <div className="flex items-center space-x-1.5">
+                      <span className="text-[10px] font-bold text-slate-500 uppercase font-sans">ช่างประจํา:</span>
+                      <select
+                        id="hist-payslip-barber-select"
+                        value={historySelectedBarberId}
+                        onChange={(e) => setHistorySelectedBarberId(e.target.value)}
+                        className="px-2.5 py-1.5 border border-slate-200 rounded-xl bg-slate-50/50 text-xs font-semibold focus:ring-1 focus:ring-slate-800 outline-none text-slate-700 min-w-[120px] cursor-pointer"
+                      >
+                        <option value="all">เลือกช่างทุกคน</option>
+                        {archivedBarbers.map(b => (
+                          <option key={b.id} value={b.id}>ช่าง{b.name}</option>
+                        ))}
+                      </select>
+                    </div>
                   </div>
                 </div>
-              </div>
 
-              {/* Slips table */}
-              {(() => {
-                const filtered = payslips.filter(s => {
-                  const matchMonth = historySelectedMonth === 'all' || s.month === historySelectedMonth;
-                  const matchBarber = historySelectedBarberId === 'all' || s.barberId === historySelectedBarberId;
-                  return matchMonth && matchBarber;
-                });
+                {/* Slips table */}
+                {(() => {
+                  const filtered = payslips.filter(s => {
+                    const matchMonth = historySelectedMonth === 'all' || s.month === historySelectedMonth;
+                    const matchBarber = historySelectedBarberId === 'all' || s.barberId === historySelectedBarberId;
+                    return matchMonth && matchBarber;
+                  });
 
-                if (filtered.length === 0) {
+                  if (filtered.length === 0) {
+                    return (
+                      <div className="text-center py-10 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-2">
+                        <div className="text-slate-400">📭 ยังไม่มีการบันทึกประวัติสลิปเงินเดือนช่างของช่วงเวลาที่เลือก</div>
+                        <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
+                          ผู้ดูแลระบบสามารถเลือกช่าง กรอกรายการคำนวณเงินประกัน ค่าเบิกล่วงหน้า และกดปุ่ม <b>"💾 บันทึกประวัติสลิปเงินเดือนลงระบบ"</b> ด้านบน เพื่อจัดเก็บประวัติสลิปไว้ในสถิติถาวร
+                        </p>
+                      </div>
+                    );
+                  }
+
                   return (
-                    <div className="text-center py-10 border border-dashed border-slate-200 rounded-2xl bg-slate-50/50 space-y-2">
-                      <div className="text-slate-400">📭 ยังไม่มีการบันทึกประวัติสลิปเงินเดือนช่างของช่วงเวลาที่เลือก</div>
-                      <p className="text-[11px] text-slate-500 max-w-md mx-auto leading-relaxed">
-                        ผู้ดูแลระบบสามารถเลือกช่าง กรอกรายการคำนวณเงินประกัน ค่าเบิกล่วงหน้า และกดปุ่ม <b>"💾 บันทึกประวัติสลิปเงินเดือนลงระบบ"</b> ด้านบน เพื่อจัดเก็บประวัติสลิปไว้ในสถิติถาวร
-                      </p>
+                    <div className="overflow-x-auto border border-slate-100 rounded-2xl bg-white">
+                      <table className="w-full text-left border-collapse">
+                        <thead>
+                          <tr className="bg-slate-50 text-slate-600 text-xs font-bold font-sans tracking-wide">
+                            <th className="p-4 pl-6">รอบงวดเวลา</th>
+                            <th className="p-4">ชื่อช่าง</th>
+                            <th className="p-4 text-right">รายได้ขั้นต่ำสะสม</th>
+                            <th className="p-4 text-right">ยอดหักจ่ายรวม</th>
+                            <th className="p-4 text-right text-indigo-700">ยอดเงินจ่ายสุทธิ / Net Pay</th>
+                            <th className="p-4 text-center pr-6">การกระทำ</th>
+                          </tr>
+                        </thead>
+                        <tbody className="text-xs divide-y divide-slate-100 font-mono text-slate-700">
+                          {filtered.map((s) => (
+                            <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
+                              <td className="p-4 pl-6 font-bold text-slate-600 font-sans">
+                                {formatThaiMonth(s.month)}
+                              </td>
+                              <td className="p-4 font-bold text-slate-800 font-sans">
+                                ช่าง{s.barberName}
+                              </td>
+                              <td className="p-4 text-right">
+                                {formatBaht(s.totalEarnings)}
+                              </td>
+                              <td className="p-4 text-right text-rose-500">
+                                -{formatBaht(s.totalDeductions)}
+                              </td>
+                              <td className="p-4 text-right font-extrabold text-emerald-600 bg-emerald-50/30">
+                                {formatBaht(s.netPaid)}
+                              </td>
+                              <td className="p-4 text-center pr-6 flex items-center justify-center space-x-2 font-sans">
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    printPayslipData({
+                                      barberId: s.barberId,
+                                      barberName: s.barberName,
+                                      realName: barbers.find(b => b.id === s.barberId)?.realName || s.barberName,
+                                      position: barbers.find(b => b.id === s.barberId)?.position || 'Hairdresser',
+                                      month: s.month,
+                                      baseSalary: s.baseSalary,
+                                      overtime: s.overtime,
+                                      positionAllowance: s.positionAllowance,
+                                      haircutCom: s.haircutCommission,
+                                      chemicalCom: s.chemicalCommission,
+                                      productCom: s.productCommission,
+                                      tipTotal: s.tips,
+                                      deductions: s.deductions,
+                                      soc: s.socialSecurity,
+                                      taxRate: s.taxRate,
+                                      note: s.note
+                                    });
+                                  }}
+                                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
+                                >
+                                  <Printer className="w-3.5 h-3.5" />
+                                  <span>พิมพ์ใบสำคัญย้อนหลัง</span>
+                                </button>
+                                
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeletePayslip(s.id)}
+                                  className="flex items-center space-x-1 px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium transition-all cursor-pointer"
+                                  title="ลบประวัติถาวร"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                </button>
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
                     </div>
                   );
-                }
+                })()}
 
-                return (
-                  <div className="overflow-x-auto border border-slate-100 rounded-2xl bg-white">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50 text-slate-600 text-xs font-bold font-sans tracking-wide">
-                          <th className="p-4 pl-6">รอบงวดเวลา</th>
-                          <th className="p-4">ชื่อช่าง</th>
-                          <th className="p-4 text-right">รายได้ขั้นต่ำสะสม</th>
-                          <th className="p-4 text-right">ยอดหักจ่ายรวม</th>
-                          <th className="p-4 text-right text-indigo-700">ยอดเงินจ่ายสุทธิ / Net Pay</th>
-                          <th className="p-4 text-center pr-6">การกระทำ</th>
-                        </tr>
-                      </thead>
-                      <tbody className="text-xs divide-y divide-slate-100 font-mono text-slate-700">
-                        {filtered.map((s) => (
-                          <tr key={s.id} className="hover:bg-slate-50/50 transition-colors">
-                            <td className="p-4 pl-6 font-bold text-slate-600 font-sans">
-                              {formatThaiMonth(s.month)}
-                            </td>
-                            <td className="p-4 font-bold text-slate-800 font-sans">
-                              ช่าง{s.barberName}
-                            </td>
-                            <td className="p-4 text-right">
-                              {formatBaht(s.totalEarnings)}
-                            </td>
-                            <td className="p-4 text-right text-rose-500">
-                              -{formatBaht(s.totalDeductions)}
-                            </td>
-                            <td className="p-4 text-right font-extrabold text-emerald-600 bg-emerald-50/30">
-                              {formatBaht(s.netPaid)}
-                            </td>
-                            <td className="p-4 text-center pr-6 flex items-center justify-center space-x-2 font-sans">
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  printPayslipData({
-                                    barberId: s.barberId,
-                                    barberName: s.barberName,
-                                    realName: barbers.find(b => b.id === s.barberId)?.realName || s.barberName,
-                                    position: barbers.find(b => b.id === s.barberId)?.position || 'Hairdresser',
-                                    month: s.month,
-                                    baseSalary: s.baseSalary,
-                                    overtime: s.overtime,
-                                    positionAllowance: s.positionAllowance,
-                                    haircutCom: s.haircutCommission,
-                                    chemicalCom: s.chemicalCommission,
-                                    productCom: s.productCommission,
-                                    tipTotal: s.tips,
-                                    deductions: s.deductions,
-                                    soc: s.socialSecurity,
-                                    taxRate: s.taxRate,
-                                    note: s.note
-                                  });
-                                }}
-                                className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg text-xs font-semibold transition-all cursor-pointer"
-                              >
-                                <Printer className="w-3.5 h-3.5" />
-                                <span>พิมพ์ใบสำคัญย้อนหลัง</span>
-                              </button>
-                              
-                              <button
-                                type="button"
-                                onClick={() => handleDeletePayslip(s.id)}
-                                className="flex items-center space-x-1 px-2 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-medium transition-all cursor-pointer"
-                                title="ลบประวัติถาวร"
-                              >
-                                <Trash2 className="w-3.5 h-3.5" />
-                              </button>
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-                );
-              })()}
-
-            </div>
+              </div>
+            )}
 
           </div>
         )}

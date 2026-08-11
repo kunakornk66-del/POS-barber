@@ -27,7 +27,9 @@ import {
   Image,
   Clock,
   Mail,
-  ShieldCheck
+  ShieldCheck,
+  Briefcase,
+  DollarSign
 } from 'lucide-react';
 
 interface ConfigTabProps {
@@ -951,39 +953,70 @@ export default function ConfigTab({
 
             {/* Additional Modules: Feature Toggles */}
             <div className="space-y-3 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-4 mt-2">
-              <span className="block text-xs font-semibold text-slate-700">เปิด/ปิด เมนูบนแถบใช้งานหลัก (Toggle Main Navigation Tabs):</span>
+              <span className="block text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                <Sparkles className="w-4 h-4 text-indigo-600" />
+                <span>เปิด/ปิด เมนูฟังก์ชันบนแถบใช้งานหลัก (Toggle Main System Modules)</span>
+              </span>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                 {/* Cash Counter Toggle */}
-                <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200 flex items-start space-x-3">
+                <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
+                  enableCashCounterInput 
+                    ? 'bg-indigo-50/40 border-indigo-200/80 shadow-2xs' 
+                    : 'bg-slate-50/50 border-slate-200 opacity-60 hover:opacity-100'
+                }`}>
                   <input
                     type="checkbox"
                     id="toggle-cash"
                     checked={enableCashCounterInput}
                     onChange={(e) => setEnableCashCounterInput(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer"
+                    className="w-5 h-5 text-indigo-600 rounded-md border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer shrink-0"
                   />
-                  <label htmlFor="toggle-cash" className="cursor-pointer">
-                    <span className="block text-xs font-extrabold text-slate-900">1. ระบบนับเงินสด</span>
-                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                      แสดงแถบเมนู "นับเงินสด" ตรวจนับธนบัตรและเหรียญในลิ้นชัก
+                  <label htmlFor="toggle-cash" className="cursor-pointer space-y-1 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
+                        <DollarSign className="w-4 h-4 text-indigo-600" />
+                        <span>1. ระบบนับเงินสด (Cash Counter)</span>
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        enableCashCounterInput ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {enableCashCounterInput ? '● เปิดใช้งาน' : '○ ปิดใช้งาน'}
+                      </span>
+                    </div>
+                    <span className="block text-[11px] text-slate-500 leading-relaxed">
+                      แสดงแถบเมนู "นับเงินสด" สำหรับตรวจนับธนบัตรและเหรียญในลิ้นชักประจำวัน
                     </span>
                   </label>
                 </div>
 
                 {/* Payslips Toggle */}
-                <div className="bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200 flex items-start space-x-3">
+                <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
+                  enablePayslipsInput 
+                    ? 'bg-indigo-50/40 border-indigo-200/80 shadow-2xs' 
+                    : 'bg-slate-50/50 border-slate-200 opacity-60 hover:opacity-100'
+                }`}>
                   <input
                     type="checkbox"
                     id="toggle-payslips"
                     checked={enablePayslipsInput}
                     onChange={(e) => setEnablePayslipsInput(e.target.checked)}
-                    className="w-4 h-4 text-indigo-600 rounded border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer"
+                    className="w-5 h-5 text-indigo-600 rounded-md border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer shrink-0"
                   />
-                  <label htmlFor="toggle-payslips" className="cursor-pointer">
-                    <span className="block text-xs font-extrabold text-slate-900">2. ระบบสลิปเงินเดือน</span>
-                    <span className="block text-[11px] text-slate-500 mt-0.5 leading-relaxed">
-                      แสดงแถบเมนู "สลิปเงินเดือน" คำนวณรายได้ช่างและออกสลิป
+                  <label htmlFor="toggle-payslips" className="cursor-pointer space-y-1 flex-1">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
+                        <Briefcase className="w-4 h-4 text-indigo-600" />
+                        <span>2. ระบบสลิปเงินเดือน (Payslips System)</span>
+                      </span>
+                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        enablePayslipsInput ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                      }`}>
+                        {enablePayslipsInput ? '● เปิดใช้งาน' : '○ ปิดใช้งาน'}
+                      </span>
+                    </div>
+                    <span className="block text-[11px] text-slate-500 leading-relaxed">
+                      แสดงแถบเมนู "สลิปเงินเดือน" และคำนวณเงินประกัน ค่าเบิก หักภาษี ออกสลิปช่าง (หากปิดไว้ แถบเมนูและรายงานสลิปจะซ่อนออกเพื่อความสะอาดตา)
                     </span>
                   </label>
                 </div>
