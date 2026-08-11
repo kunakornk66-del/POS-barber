@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Barber, Product, ShareConfig, SaleRecord, Voucher, ChemicalPromo, Member, MemberPackage } from '../types';
+import { Barber, Product, ShareConfig, SaleRecord, Voucher, ChemicalPromo, Member, MemberPackage, formatMemberDisplayName } from '../types';
 import { formatBaht } from '../utils';
 import { Check, ClipboardList, Scissors, Sparkles, ShoppingBag, Gift, Heart, CreditCard, Landmark, Percent, Calendar, Clock, Coins, Link as LinkIcon, Crown, User, X, Plus } from 'lucide-react';
 
@@ -326,7 +326,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
     const saleData = {
       barberId: selectedBarberId,
       barberName: selectedBarber ? selectedBarber.name : 'ไม่ระบุ',
-      customerName: customerNameInput.trim() || (selectedMember ? selectedMember.name : undefined),
+      customerName: customerNameInput.trim() || (selectedMember ? formatMemberDisplayName(selectedMember) : undefined),
       haircutPrice,
       chemicalPrice,
       productId: selectedProductId || null,
@@ -358,7 +358,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
       groupPaymentId: finalGroupPaymentId,
       groupPaymentCode: finalGroupPaymentCode,
       memberId: selectedMemberId || undefined,
-      memberName: selectedMember ? selectedMember.name : undefined,
+      memberName: selectedMember ? formatMemberDisplayName(selectedMember) : undefined,
       memberCode: selectedMember ? selectedMember.memberCode : undefined,
       memberCreditAmount: calculatedCreditUsed > 0 ? calculatedCreditUsed : undefined,
       memberCreditUsed: calculatedCreditUsed > 0 ? calculatedCreditUsed : undefined
@@ -540,7 +540,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                       if (id) {
                         const m = members.find(mem => mem.id === id);
                         if (m && !customerNameInput) {
-                          setCustomerNameInput(m.name);
+                          setCustomerNameInput(formatMemberDisplayName(m));
                         }
                       }
                     }}
@@ -549,7 +549,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                     <option value="">-- ไม่ใช่สมาชิก / ลูกค้าทั่วไป --</option>
                     {members.map((mem) => (
                       <option key={mem.id} value={mem.id}>
-                        👑 {mem.name} ({mem.memberCode}) - เครดิต: {formatBaht(mem.creditBalance)}
+                        👑 {formatMemberDisplayName(mem)} ({mem.memberCode}) - เครดิต: {formatBaht(mem.creditBalance)}
                       </option>
                     ))}
                   </select>
@@ -585,7 +585,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                   </div>
                   <div>
                     <div className="flex items-center space-x-2">
-                      <span className="font-extrabold text-base tracking-tight">{mem.name}</span>
+                      <span className="font-extrabold text-base tracking-tight">{formatMemberDisplayName(mem)}</span>
                       <span className="px-2 py-0.5 bg-black/20 text-amber-100 font-mono text-xs rounded-full">
                         {mem.memberCode}
                       </span>
@@ -953,7 +953,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
           {/* 6. Payment method */}
           <div className="space-y-3">
             <label className="block text-sm font-semibold text-slate-700">ช่องทางการชำระเงิน</label>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-2 sm:gap-3">
+            <div className={`grid gap-2 sm:gap-3 ${shareConfig?.enableMemberSystem !== false ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
               <button
                 type="button"
                 onClick={() => {
@@ -1006,28 +1006,30 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                 <span className="mt-1 sm:mt-0">⚡ ผสม (สด+โอน)</span>
               </button>
 
-              <button
-                type="button"
-                onClick={() => {
-                  setPaymentMethod('member_credit');
-                  setIsGroupPayment(false);
-                  if (!selectedMemberId && members.length > 0) {
-                    setSelectedMemberId(members[0].id);
-                  }
-                }}
-                className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
-                  paymentMethod === 'member_credit'
-                    ? 'border-amber-600 bg-amber-500 text-white shadow-md font-bold'
-                    : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
-                }`}
-              >
-                <Crown className="w-4 h-4 text-amber-300 fill-amber-300 shrink-0" />
-                <span className="mt-1 sm:mt-0">👑 หักเครดิตสมาชิก</span>
-              </button>
+              {shareConfig?.enableMemberSystem !== false && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setPaymentMethod('member_credit');
+                    setIsGroupPayment(false);
+                    if (!selectedMemberId && members.length > 0) {
+                      setSelectedMemberId(members[0].id);
+                    }
+                  }}
+                  className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
+                    paymentMethod === 'member_credit'
+                      ? 'border-amber-600 bg-amber-500 text-white shadow-md font-bold'
+                      : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
+                  }`}
+                >
+                  <Crown className="w-4 h-4 text-amber-300 fill-amber-300 shrink-0" />
+                  <span className="mt-1 sm:mt-0">👑 หักเครดิตสมาชิก</span>
+                </button>
+              )}
             </div>
 
             {/* Member Credit Payment Interactive Panel */}
-            {paymentMethod === 'member_credit' && (
+            {shareConfig?.enableMemberSystem !== false && paymentMethod === 'member_credit' && (
               <div className="bg-amber-50/80 border-2 border-amber-300 p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
                 <div className="flex items-center justify-between border-b border-amber-200/80 pb-2">
                   <span className="text-xs font-black text-amber-950 flex items-center gap-1.5">
@@ -1359,7 +1361,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                   <option value="">-- กรุณาเลือกลูกค้าสมาชิก --</option>
                   {members.map((m) => (
                     <option key={m.id} value={m.id}>
-                      👑 {m.name} ({m.memberCode}) - เครดิตคงเหลือ: {formatBaht(m.creditBalance)}
+                      👑 {formatMemberDisplayName(m)} ({m.memberCode}) - เครดิตคงเหลือ: {formatBaht(m.creditBalance)}
                     </option>
                   ))}
                 </select>
@@ -1458,7 +1460,8 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                     onSellPackageToMember(quickMemberId, pkg, quickBarberId, quickPaymentMethod, quickNotes);
                     alert(`✅ เติมแพ็กเกจ "${pkg.name}" ให้สมาชิกสำเร็จ!\nได้รับเครดิตเพิ่ม +${formatBaht(pkg.credit)} บาท`);
                     setSelectedMemberId(quickMemberId);
-                    setCustomerNameInput(members.find(m => m.id === quickMemberId)?.name || '');
+                    const targetMem = members.find(m => m.id === quickMemberId);
+                    setCustomerNameInput(formatMemberDisplayName(targetMem) || '');
                   }
                   setShowQuickSellModal(false);
                 }}

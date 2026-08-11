@@ -94,6 +94,9 @@ export interface Member {
   id: string;
   memberCode: string; // e.g. M-001 หรือ เบอร์โทร
   name: string;
+  firstName?: string;
+  lastName?: string;
+  nickname?: string;
   phone: string;
   creditBalance: number; // ยอดเครดิตคงเหลือ
   totalSpentCredit?: number; // ยอดเครดิตสะสมที่เคยใช้ไป
@@ -104,6 +107,16 @@ export interface Member {
   packageHistory?: MemberPackagePurchase[];
   packagePurchases?: MemberPackagePurchase[];
   usageHistory?: MemberUsageLog[];
+}
+
+export function formatMemberDisplayName(m?: { name?: string; firstName?: string; lastName?: string; nickname?: string } | null): string {
+  if (!m) return '';
+  const fullName = [m.firstName, m.lastName].filter(Boolean).join(' ').trim();
+  const nick = m.nickname ? ` (${m.nickname})` : '';
+  if (fullName) {
+    return `${fullName}${nick}`;
+  }
+  return m.name || '';
 }
 
 export interface SaleRecord {

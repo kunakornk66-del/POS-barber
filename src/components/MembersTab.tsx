@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { Member, MemberPackage, Barber } from '../types';
+import { Member, MemberPackage, Barber, formatMemberDisplayName } from '../types';
 import { formatBaht, formatThaiDate } from '../utils';
 import { 
   Users, 
@@ -58,9 +58,27 @@ export default function MembersTab({
   const [showPackageModal, setShowPackageModal] = useState(false);
   const [editingPackage, setEditingPackage] = useState<MemberPackage | null>(null);
   const [deletePackageConfirm, setDeletePackageConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deleteMemberConfirm, setDeleteMemberConfirm] = useState<{ id: string; name: string } | null>(null);
+  const [deletePkgHistoryConfirm, setDeletePkgHistoryConfirm] = useState<{
+    targetMember: Member;
+    idxToDelete: number;
+    packageName: string;
+    creditToSub: number;
+    priceToSub: number;
+  } | null>(null);
+  const [deleteUsageHistoryConfirm, setDeleteUsageHistoryConfirm] = useState<{
+    targetMember: Member;
+    idxToDelete: number;
+    title: string;
+    amount: number;
+    isTopUp: boolean;
+  } | null>(null);
 
   // New Member form state
   const [newMemberName, setNewMemberName] = useState('');
+  const [newMemberFirstName, setNewMemberFirstName] = useState('');
+  const [newMemberLastName, setNewMemberLastName] = useState('');
+  const [newMemberNickname, setNewMemberNickname] = useState('');
   const [newMemberPhone, setNewMemberPhone] = useState('');
   const [newMemberCode, setNewMemberCode] = useState('');
   const [newMemberNotes, setNewMemberNotes] = useState('');
@@ -76,6 +94,9 @@ export default function MembersTab({
 
   // Edit Member form state
   const [editMemberName, setEditMemberName] = useState('');
+  const [editMemberFirstName, setEditMemberFirstName] = useState('');
+  const [editMemberLastName, setEditMemberLastName] = useState('');
+  const [editMemberNickname, setEditMemberNickname] = useState('');
   const [editMemberPhone, setEditMemberPhone] = useState('');
   const [editMemberCode, setEditMemberCode] = useState('');
   const [editMemberCredit, setEditMemberCredit] = useState<number | ''>('');
@@ -107,8 +128,13 @@ export default function MembersTab({
   const filteredMembers = members.filter(m => {
     const q = searchQuery.toLowerCase().trim();
     if (!q) return true;
+    const displayName = formatMemberDisplayName(m).toLowerCase();
     return (
+      displayName.includes(q) ||
       (m.name && m.name.toLowerCase().includes(q)) ||
+      (m.firstName && m.firstName.toLowerCase().includes(q)) ||
+      (m.lastName && m.lastName.toLowerCase().includes(q)) ||
+      (m.nickname && m.nickname.toLowerCase().includes(q)) ||
       (m.phone && m.phone.includes(q)) ||
       (m.memberCode && m.memberCode.toLowerCase().includes(q))
     );
@@ -123,6 +149,9 @@ export default function MembersTab({
   // Open add member modal with clean inputs
   const handleOpenAddMemberModal = () => {
     setNewMemberName('');
+    setNewMemberFirstName('');
+    setNewMemberLastName('');
+    setNewMemberNickname('');
     setNewMemberPhone('');
     setNewMemberCode(generateMemberCode());
     setNewMemberNotes('');
@@ -135,7 +164,12 @@ export default function MembersTab({
   // Submit Add New Member
   const handleSaveNewMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newMemberName.trim()) {
+    const firstName = newMemberFirstName.trim();
+    const lastName = newMemberLastName.trim();
+    const nickname = newMemberNickname.trim();
+    const formattedName = formatMemberDisplayName({ firstName, lastName, nickname }) || newMemberName.trim();
+
+    if (!formattedName && !newMemberFirstName.trim() && !newMemberName.trim()) {
       alert('กรุณากรอกชื่อสมาชิก');
       return;
     }
@@ -147,38 +181,19 @@ export default function MembersTab({
     const newMem: Member = {
       id: memberId,
       memberCode: cleanCode,
-      name: newMemberName.trim(),
+      name: formattedName,
+      firstName: firstName || undefined,
+      lastName: lastName || undefined,
+      nickname: nickname || undefined,
       phone: newMemberPhone.trim(),
-      creditBalance: selectedPkg ? selectedPkg.credit : 0,
+      creditBalance: 0,
       totalSpentCredit: 0,
-      totalTopUpAmount: selectedPkg ? selectedPkg.price : 0,
+      totalTopUpAmount: 0,
       notes: newMemberNotes.trim() || undefined,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      packagePurchases: selectedPkg ? [
-        {
-          id: `pkg-pur-${Date.now()}`,
-          packageId: selectedPkg.id,
-          packageName: selectedPkg.name,
-          pricePaid: selectedPkg.price,
-          creditReceived: selectedPkg.credit,
-          purchaseDate: new Date().toISOString(),
-          barberId: initialBarberId || undefined,
-          barberName: barbers.find(b => b.id === initialBarberId)?.name,
-          paymentMethod: initialPaymentMethod,
-          notes: `สมัครสมาชิกใหม่พร้อมซื้อ ${selectedPkg.name}`
-        }
-      ] : [],
-      usageHistory: selectedPkg ? [
-        {
-          id: `log-${Date.now()}`,
-          date: new Date().toISOString(),
-          type: 'topup',
-          amount: selectedPkg.credit,
-          description: `เติมแพ็กเกจ ${selectedPkg.name} (จ่าย ${selectedPkg.price} ได้เครดิต ${selectedPkg.credit})`,
-          balanceAfter: selectedPkg.credit
-        }
-      ] : []
+      packagePurchases: [],
+      usageHistory: []
     };
 
     const updatedList = [newMem, ...members];
@@ -233,16 +248,27 @@ export default function MembersTab({
 
   // Delete Member
   const handleDeleteMember = (id: string, name: string) => {
-    if (confirm(`คุณแน่ใจหรือไม่ว่าต้องการลบสมาชิก "${name}" ?`)) {
-      const updated = members.filter(m => m.id !== id);
-      onUpdateMembers(updated);
+    setDeleteMemberConfirm({ id, name });
+  };
+
+  const confirmDeleteMember = () => {
+    if (!deleteMemberConfirm) return;
+    const updated = members.filter(m => m.id !== deleteMemberConfirm.id);
+    onUpdateMembers(updated);
+    if (selectedMemberForHistory?.id === deleteMemberConfirm.id) {
+      setSelectedMemberForHistory(null);
+      setShowHistoryModal(false);
     }
+    setDeleteMemberConfirm(null);
   };
 
   // Open Edit Member Modal
   const handleOpenEditMember = (mem: Member) => {
     setSelectedMemberForEdit(mem);
     setEditMemberName(mem.name);
+    setEditMemberFirstName(mem.firstName || '');
+    setEditMemberLastName(mem.lastName || '');
+    setEditMemberNickname(mem.nickname || '');
     setEditMemberPhone(mem.phone || '');
     setEditMemberCode(mem.memberCode);
     setEditMemberCredit(mem.creditBalance || 0);
@@ -253,13 +279,26 @@ export default function MembersTab({
   // Submit Edit Member
   const handleSaveEditMember = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedMemberForEdit || !editMemberName.trim()) return;
+    if (!selectedMemberForEdit) return;
+
+    const firstName = editMemberFirstName.trim();
+    const lastName = editMemberLastName.trim();
+    const nickname = editMemberNickname.trim();
+    const formattedName = formatMemberDisplayName({ firstName, lastName, nickname }) || editMemberName.trim();
+
+    if (!formattedName) {
+      alert('กรุณากรอกชื่อสมาชิก');
+      return;
+    }
 
     const updated = members.map(m => {
       if (m.id === selectedMemberForEdit.id) {
         return {
           ...m,
-          name: editMemberName.trim(),
+          name: formattedName,
+          firstName: firstName || undefined,
+          lastName: lastName || undefined,
+          nickname: nickname || undefined,
           phone: editMemberPhone.trim(),
           memberCode: editMemberCode.trim() || m.memberCode,
           creditBalance: typeof editMemberCredit === 'number' ? editMemberCredit : m.creditBalance,
@@ -284,10 +323,20 @@ export default function MembersTab({
     const creditToSub = item.creditReceived ?? item.creditAdded ?? 0;
     const priceToSub = item.pricePaid ?? 0;
 
-    if (!confirm(`คุณต้องการลบประวัติการสมัครแพ็กเกจ "${item.packageName}" ออกใช่หรือไม่?\n\n* เครดิตคงเหลือของสมาชิกจะถูกปรับลดลง -${formatBaht(creditToSub)} Cr. และยอดเติมเงินสะสมจะถูกปรับลด -${formatBaht(priceToSub)} บาท`)) {
-      return;
-    }
+    setDeletePkgHistoryConfirm({
+      targetMember,
+      idxToDelete,
+      packageName: item.packageName || 'แพ็กเกจ',
+      creditToSub,
+      priceToSub
+    });
+  };
 
+  const confirmDeletePackagePurchaseItem = () => {
+    if (!deletePkgHistoryConfirm) return;
+    const { targetMember, idxToDelete, creditToSub, priceToSub } = deletePkgHistoryConfirm;
+
+    const pkgList = [...(targetMember.packagePurchases || targetMember.packageHistory || [])];
     const newPkgList = pkgList.filter((_, idx) => idx !== idxToDelete);
     const newCreditBalance = Math.max(0, (targetMember.creditBalance || 0) - creditToSub);
     const newTotalTopUp = Math.max(0, (targetMember.totalTopUpAmount || 0) - priceToSub);
@@ -304,6 +353,7 @@ export default function MembersTab({
     const updatedMembers = members.map(m => m.id === targetMember.id ? updatedMember : m);
     onUpdateMembers(updatedMembers);
     setSelectedMemberForHistory(updatedMember);
+    setDeletePkgHistoryConfirm(null);
   };
 
   // Start Editing Package Purchase
@@ -363,15 +413,22 @@ export default function MembersTab({
     const item = uList[idxToDelete];
     const isTopUp = item.type === 'topup';
     const amount = item.amount || 0;
+    const title = item.serviceSummary || item.description || 'รายการใช้เครดิต';
 
-    const actionText = isTopUp 
-      ? `รายการเติมเครดิต +${formatBaht(amount)} Cr. (จะปรับลดเครดิตคงเหลือลง)`
-      : `รายการตัดเครดิต -${formatBaht(amount)} Cr. (จะคืนเครดิต +${formatBaht(amount)} Cr. กลับเข้าบัญชีสมาชิก)`;
+    setDeleteUsageHistoryConfirm({
+      targetMember,
+      idxToDelete,
+      title,
+      amount,
+      isTopUp
+    });
+  };
 
-    if (!confirm(`คุณต้องการลบประวัติการใช้เครดิตรายการนี้ใช่หรือไม่?\n\n* ${actionText}`)) {
-      return;
-    }
+  const confirmDeleteUsageLogItem = () => {
+    if (!deleteUsageHistoryConfirm) return;
+    const { targetMember, idxToDelete, amount, isTopUp } = deleteUsageHistoryConfirm;
 
+    const uList = [...(targetMember.usageHistory || [])];
     const newUList = uList.filter((_, idx) => idx !== idxToDelete);
     let newCreditBalance = targetMember.creditBalance || 0;
     let newTotalSpent = targetMember.totalSpentCredit || 0;
@@ -394,6 +451,7 @@ export default function MembersTab({
     const updatedMembers = members.map(m => m.id === targetMember.id ? updatedMember : m);
     onUpdateMembers(updatedMembers);
     setSelectedMemberForHistory(updatedMember);
+    setDeleteUsageHistoryConfirm(null);
   };
 
   // Start Editing Usage Item
@@ -702,7 +760,7 @@ export default function MembersTab({
                     <div className="flex items-start justify-between">
                       <div className="flex items-center space-x-3">
                         <div className="w-11 h-11 rounded-2xl bg-gradient-to-br from-indigo-500 to-purple-600 text-white flex items-center justify-center font-extrabold text-sm shadow-md">
-                          {mem.name.charAt(0)}
+                          {(mem.nickname || mem.firstName || mem.name || 'M').charAt(0)}
                         </div>
                         <div>
                           <div className="flex items-center space-x-1.5">
@@ -710,7 +768,7 @@ export default function MembersTab({
                               {mem.memberCode}
                             </span>
                           </div>
-                          <h4 className="text-sm font-black text-slate-900 mt-1 line-clamp-1">{mem.name}</h4>
+                          <h4 className="text-sm font-black text-slate-900 mt-1 line-clamp-1">{formatMemberDisplayName(mem)}</h4>
                         </div>
                       </div>
 
@@ -723,7 +781,7 @@ export default function MembersTab({
                           <Edit3 className="w-3.5 h-3.5" />
                         </button>
                         <button
-                          onClick={() => handleDeleteMember(mem.id, mem.name)}
+                          onClick={() => handleDeleteMember(mem.id, formatMemberDisplayName(mem))}
                           className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
                           title="ลบสมาชิก"
                         >
@@ -732,10 +790,37 @@ export default function MembersTab({
                       </div>
                     </div>
 
-                    {/* Contact Phone */}
-                    <div className="flex items-center space-x-2 text-xs text-slate-600">
-                      <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
-                      <span>{mem.phone || 'ไม่ระบุเบอร์โทร'}</span>
+                    {/* Contact Phone & Package */}
+                    <div className="space-y-1.5 text-xs text-slate-600">
+                      <div className="flex items-center space-x-2">
+                        <Phone className="w-3.5 h-3.5 text-slate-400 shrink-0" />
+                        <span>{mem.phone || 'ไม่ระบุเบอร์โทร'}</span>
+                      </div>
+
+                      {/* Current Active Package */}
+                      {(() => {
+                        const pkgList = mem.packagePurchases || mem.packageHistory || [];
+                        const latestPkg = pkgList[0];
+                        const hasCredit = (mem.creditBalance || 0) > 0;
+
+                        return (
+                          <div className="flex items-center space-x-2 bg-slate-50 p-2 rounded-xl border border-slate-100">
+                            <PackageCheck className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                            <span className="text-slate-500 font-semibold text-[11px] shrink-0">แพ็กเกจ:</span>
+                            {latestPkg ? (
+                              <span className={`font-extrabold px-2 py-0.5 rounded-md text-[11px] truncate ${
+                                hasCredit 
+                                  ? 'bg-indigo-100/90 text-indigo-900 border border-indigo-200/80 shadow-2xs' 
+                                  : 'bg-slate-200/80 text-slate-600 border border-slate-300'
+                              }`}>
+                                {latestPkg.packageName} {!hasCredit && '(เครดิตหมด)'}
+                              </span>
+                            ) : (
+                              <span className="text-slate-400 font-normal italic text-[11px]">ยังไม่มีแพ็กเกจ</span>
+                            )}
+                          </div>
+                        );
+                      })()}
                     </div>
 
                     {/* Credit Balance Card */}
@@ -916,39 +1001,70 @@ export default function MembersTab({
             </div>
 
             <form onSubmit={handleSaveNewMember} className="p-6 overflow-y-auto space-y-4 text-xs font-sans">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">ชื่อ-นามสกุล สมาชิก <span className="text-rose-500">*</span></label>
-                <input
-                  type="text"
-                  required
-                  placeholder="เช่น คุณกิตติศักดิ์ พรหมมินทร์"
-                  value={newMemberName}
-                  onChange={(e) => setNewMemberName(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ชื่อจริง <span className="text-rose-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="กรุณากรอกชื่อ"
+                    value={newMemberFirstName}
+                    onChange={(e) => setNewMemberFirstName(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">นามสกุล</label>
+                  <input
+                    type="text"
+                    placeholder="กรอกนามสกุล"
+                    value={newMemberLastName}
+                    onChange={(e) => setNewMemberLastName(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
+                  <label className="block font-bold text-slate-700 mb-1">ชื่อเล่น</label>
+                  <input
+                    type="text"
+                    placeholder="กรอกชื่อเล่น"
+                    value={newMemberNickname}
+                    onChange={(e) => setNewMemberNickname(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+                <div>
                   <label className="block font-bold text-slate-700 mb-1">เบอร์โทรศัพท์</label>
                   <input
                     type="text"
-                    placeholder="เช่น 081-234-5678"
+                    placeholder="กรอกเบอร์โทรศัพท์"
                     value={newMemberPhone}
                     onChange={(e) => setNewMemberPhone(e.target.value)}
                     className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
+              </div>
 
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">รหัสสมาชิก</label>
-                  <input
-                    type="text"
-                    value={newMemberCode}
-                    onChange={(e) => setNewMemberCode(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-indigo-600 focus:outline-none"
-                  />
+              {(newMemberFirstName || newMemberNickname || newMemberLastName) && (
+                <div className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-950 text-xs font-semibold flex items-center justify-between">
+                  <span className="text-amber-700 font-bold">ชื่อที่จะแสดงในระบบ:</span>
+                  <span className="font-extrabold text-amber-900 font-sans">
+                    {formatMemberDisplayName({ firstName: newMemberFirstName, lastName: newMemberLastName, nickname: newMemberNickname })}
+                  </span>
                 </div>
+              )}
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">รหัสสมาชิก</label>
+                <input
+                  type="text"
+                  value={newMemberCode}
+                  onChange={(e) => setNewMemberCode(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-indigo-600 focus:outline-none"
+                />
               </div>
 
               {/* Initial Package TopUp Option */}
@@ -1060,7 +1176,7 @@ export default function MembersTab({
                   <span className="text-[10px] font-mono font-bold bg-slate-200 px-1.5 py-0.5 rounded text-slate-700">
                     {selectedMemberForTopUp.memberCode}
                   </span>
-                  <h4 className="text-sm font-black text-slate-900 mt-1">{selectedMemberForTopUp.name}</h4>
+                  <h4 className="text-sm font-black text-slate-900 mt-1">{formatMemberDisplayName(selectedMemberForTopUp)}</h4>
                   <p className="text-slate-500 text-[11px]">{selectedMemberForTopUp.phone}</p>
                 </div>
                 <div className="text-right">
@@ -1178,7 +1294,7 @@ export default function MembersTab({
                   <History className="w-5 h-5" />
                 </div>
                 <div>
-                  <h3 className="text-base font-extrabold font-sans">ประวัติของ {selectedMemberForHistory.name}</h3>
+                  <h3 className="text-base font-extrabold font-sans">ประวัติของ {formatMemberDisplayName(selectedMemberForHistory)}</h3>
                   <p className="text-[10px] text-slate-400 font-mono">CODE: {selectedMemberForHistory.memberCode}</p>
                 </div>
               </div>
@@ -1455,36 +1571,68 @@ export default function MembersTab({
             </div>
 
             <form onSubmit={handleSaveEditMember} className="p-6 space-y-4 text-xs font-sans">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">ชื่อ-นามสกุล สมาชิก</label>
-                <input
-                  type="text"
-                  required
-                  value={editMemberName}
-                  onChange={(e) => setEditMemberName(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
-                />
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">ชื่อจริง <span className="text-rose-500">*</span></label>
+                  <input
+                    type="text"
+                    required
+                    placeholder="กรุณากรอกชื่อ"
+                    value={editMemberFirstName}
+                    onChange={(e) => setEditMemberFirstName(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
+                <div>
+                  <label className="block font-bold text-slate-700 mb-1">นามสกุล</label>
+                  <input
+                    type="text"
+                    placeholder="กรอกนามสกุล"
+                    value={editMemberLastName}
+                    onChange={(e) => setEditMemberLastName(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">เบอร์โทรศัพท์</label>
+                  <label className="block font-bold text-slate-700 mb-1">ชื่อเล่น</label>
                   <input
                     type="text"
-                    value={editMemberPhone}
-                    onChange={(e) => setEditMemberPhone(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
+                    placeholder="กรอกชื่อเล่น"
+                    value={editMemberNickname}
+                    onChange={(e) => setEditMemberNickname(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
                 <div>
-                  <label className="block font-bold text-slate-700 mb-1">รหัสสมาชิก</label>
+                  <label className="block font-bold text-slate-700 mb-1">เบอร์โทรศัพท์</label>
                   <input
                     type="text"
-                    value={editMemberCode}
-                    onChange={(e) => setEditMemberCode(e.target.value)}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-indigo-600"
+                    placeholder="กรอกเบอร์โทรศัพท์"
+                    value={editMemberPhone}
+                    onChange={(e) => setEditMemberPhone(e.target.value)}
+                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:outline-none focus:ring-2 focus:ring-indigo-500/20"
                   />
                 </div>
+              </div>
+
+              <div className="p-2.5 bg-amber-50/80 border border-amber-200 rounded-xl text-amber-950 text-xs font-semibold flex items-center justify-between">
+                <span className="text-amber-700 font-bold">ชื่อที่จะแสดงในระบบ:</span>
+                <span className="font-extrabold text-amber-900 font-sans">
+                  {formatMemberDisplayName({ firstName: editMemberFirstName, lastName: editMemberLastName, nickname: editMemberNickname }) || editMemberName}
+                </span>
+              </div>
+
+              <div>
+                <label className="block font-bold text-slate-700 mb-1">รหัสสมาชิก</label>
+                <input
+                  type="text"
+                  value={editMemberCode}
+                  onChange={(e) => setEditMemberCode(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-indigo-600"
+                />
               </div>
 
               <div>
@@ -1671,6 +1819,134 @@ export default function MembersTab({
                   className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md transition-all cursor-pointer"
                 >
                   ยืนยันลบแพ็กเกจ
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 7: DELETE MEMBER CONFIRM POPUP */}
+      {deleteMemberConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+            <div className="bg-rose-600 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Trash2 className="w-5 h-5 text-white" />
+                <h3 className="text-base font-extrabold font-sans">ยืนยันการลบลูกค้าสมาชิก</h3>
+              </div>
+              <button onClick={() => setDeleteMemberConfirm(null)} className="text-white/80 hover:text-white p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-slate-800 text-sm font-sans">
+              <p className="font-semibold leading-relaxed">
+                คุณแน่ใจหรือไม่ว่าต้องการลบสมาชิก <span className="font-black text-rose-600">"{deleteMemberConfirm.name}"</span> ออกจากระบบ?
+              </p>
+              <p className="text-xs text-rose-600 bg-rose-50 p-3 rounded-xl border border-rose-200 font-medium">
+                ⚠️ ข้อมูลสมาชิก เครดิตคงเหลือ และประวัติย้อนหลังทั้งหมดของสมาชิกท่านนี้จะถูกลบทันที
+              </p>
+              <div className="pt-2 flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteMemberConfirm(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteMember}
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md transition-all cursor-pointer"
+                >
+                  ยืนยันลบสมาชิก
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 8: DELETE PACKAGE PURCHASE HISTORY ITEM CONFIRM POPUP */}
+      {deletePkgHistoryConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+            <div className="bg-rose-600 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Trash2 className="w-5 h-5 text-white" />
+                <h3 className="text-base font-extrabold font-sans">ยืนยันลบประวัติการเติมแพ็กเกจ</h3>
+              </div>
+              <button onClick={() => setDeletePkgHistoryConfirm(null)} className="text-white/80 hover:text-white p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-slate-800 text-sm font-sans">
+              <p className="font-semibold leading-relaxed">
+                คุณต้องการลบประวัติการสมัครแพ็กเกจ <span className="font-black text-rose-600">"{deletePkgHistoryConfirm.packageName}"</span> ของ {formatMemberDisplayName(deletePkgHistoryConfirm.targetMember)} ออกใช่หรือไม่?
+              </p>
+              <div className="text-xs text-amber-900 bg-amber-50/80 p-3.5 rounded-xl border border-amber-200 space-y-1 font-semibold">
+                <p>• เครดิตคงเหลือของสมาชิกจะถูกปรับลดลง: <span className="font-mono font-bold text-rose-600">-{formatBaht(deletePkgHistoryConfirm.creditToSub)} Cr.</span></p>
+                <p>• ยอดเติมเงินสะสมจะถูกปรับลดลง: <span className="font-mono font-bold text-rose-600">-{formatBaht(deletePkgHistoryConfirm.priceToSub)} บาท</span></p>
+              </div>
+              <div className="pt-2 flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setDeletePkgHistoryConfirm(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeletePackagePurchaseItem}
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md transition-all cursor-pointer"
+                >
+                  ยืนยันลบประวัตินี้
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 9: DELETE CREDIT USAGE HISTORY ITEM CONFIRM POPUP */}
+      {deleteUsageHistoryConfirm && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
+            <div className="bg-rose-600 text-white p-5 flex items-center justify-between">
+              <div className="flex items-center space-x-2">
+                <Trash2 className="w-5 h-5 text-white" />
+                <h3 className="text-base font-extrabold font-sans">ยืนยันลบประวัติการใช้เครดิต</h3>
+              </div>
+              <button onClick={() => setDeleteUsageHistoryConfirm(null)} className="text-white/80 hover:text-white p-1 cursor-pointer">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <div className="p-6 space-y-4 text-slate-800 text-sm font-sans">
+              <p className="font-semibold leading-relaxed">
+                คุณต้องการลบประวัติรายการ <span className="font-black text-rose-600">"{deleteUsageHistoryConfirm.title}"</span> ของ {formatMemberDisplayName(deleteUsageHistoryConfirm.targetMember)} ออกใช่หรือไม่?
+              </p>
+              <div className="text-xs text-indigo-900 bg-indigo-50/80 p-3.5 rounded-xl border border-indigo-200 space-y-1 font-semibold">
+                {deleteUsageHistoryConfirm.isTopUp ? (
+                  <p>• รายการเติมเครดิต +{formatBaht(deleteUsageHistoryConfirm.amount)} Cr. (ระบบจะทำการปรับลดเครดิตคงเหลือลง)</p>
+                ) : (
+                  <p>• รายการตัดเครดิต -{formatBaht(deleteUsageHistoryConfirm.amount)} Cr. (ระบบจะทำการคืนเครดิต <span className="font-mono font-bold text-emerald-600">+{formatBaht(deleteUsageHistoryConfirm.amount)} Cr.</span> กลับเข้ากระเป๋าของสมาชิก)</p>
+                )}
+              </div>
+              <div className="pt-2 flex space-x-2">
+                <button
+                  type="button"
+                  onClick={() => setDeleteUsageHistoryConfirm(null)}
+                  className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition-all cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={confirmDeleteUsageLogItem}
+                  className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl font-bold shadow-md transition-all cursor-pointer"
+                >
+                  ยืนยันลบประวัตินี้
                 </button>
               </div>
             </div>
