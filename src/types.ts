@@ -183,6 +183,7 @@ export interface ShopConfig {
   logoUrl?: string;      // URL/Base64 รูปโลโก้ร้าน
   billingCutoffDay?: number; // วันตัดยอดของแต่ละเดือน (ค่าเริ่มต้นคือ 1 หมายถึงเริ่มนับวันที่ 1 ของทุกเดือน)
   primaryColor?: string;  // สีหลักของแบรนด์ เช่น #6366f1
+  theme?: string;        // ธีมของโปรแกรม เช่น 'indigo' | 'vintage' | 'emerald' | 'rose' | 'dark' | 'cyber' | 'ocean' | 'custom'
   enableCashCounter?: boolean; // เปิดใช้งานระบบนับเงินสด
   enablePayslips?: boolean; // เปิดใช้งานระบบสลิปเงินเดือน
 }

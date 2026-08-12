@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, CustomerSubscription, Member, MemberPackage } from './types';
+import { getThemePreset } from './themes';
 import { 
   INITIAL_BARBERS, 
   INITIAL_PRODUCTS, 
@@ -19,6 +20,7 @@ import UserGuideModal from './components/UserGuideModal';
 import SuperAdminTab from './components/SuperAdminTab';
 import AnnualResetModal from './components/AnnualResetModal';
 import MembersTab from './components/MembersTab';
+import { ExpensesTab } from './components/ExpensesTab';
 import { 
   Scissors, 
   LayoutDashboard, 
@@ -47,7 +49,8 @@ import {
   Clock,
   CheckCircle2,
   Eye,
-  EyeOff
+  EyeOff,
+  ArrowDownCircle
 } from 'lucide-react';
 import { 
   db, 
@@ -287,7 +290,7 @@ export default function App() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashCounter, setCashCounter] = useState<CashCounterState | null>(null);
-  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'members' | 'config' | 'cash' | 'payslips' | 'superadmin'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'expenses' | 'members' | 'config' | 'cash' | 'payslips' | 'superadmin'>('sales');
 
   const isSuperAdmin = useMemo(() => {
     if (!userEmail) return false;
@@ -1599,7 +1602,7 @@ export default function App() {
         <div className="w-full max-w-sm bg-white rounded-3xl border border-slate-200/80 p-8 shadow-xl shadow-slate-200/50 space-y-8 animate-slide-up transition-all">
           
           {/* Minimalist Header */}
-          <div className="text-center space-y-4">
+          <div className="text-center space-y-3">
             <div className="w-12 h-12 bg-slate-900 rounded-2xl flex items-center justify-center text-amber-400 shadow-md mx-auto transform transition-transform hover:scale-105">
               <Scissors className="w-6 h-6" />
             </div>
@@ -1607,6 +1610,17 @@ export default function App() {
               <h1 className="text-2xl font-black text-slate-900 tracking-tight">Barber POS</h1>
               <p className="text-xs text-slate-500 font-medium">กรุณากรอกบัญชีอีเมลร้านค้าเพื่อเข้าใช้งาน</p>
             </div>
+          </div>
+
+          {/* Cloud Sync Reassurance Banner */}
+          <div className="bg-indigo-50/70 border border-indigo-100 rounded-2xl p-3.5 text-[11px] text-indigo-900 space-y-1">
+            <div className="flex items-center space-x-1.5 font-bold text-indigo-950">
+              <Wifi className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+              <span>เข้าใช้งานได้จากทุกอุปกรณ์ (Multi-Device Cloud)</span>
+            </div>
+            <p className="text-indigo-800/80 leading-relaxed font-sans text-[10.5px]">
+              ไม่ว่าจะเข้าจากเครื่องไหน สมาร์ตโฟน แท็บเล็ต หรือคอมพิวเตอร์ เพียงกรอกอีเมลร้านเดิม ก็จะเข้าถึงข้อมูลและยอดขายเดียวกันได้ทันทีแบบ Real-time!
+            </p>
           </div>
 
           {/* Clean Input Form */}
@@ -1901,78 +1915,90 @@ export default function App() {
         </div>
       )}
       
-      {/* Dynamic Brand Color Overrides */}
-      {shopConfig?.primaryColor && (
-        <style dangerouslySetInnerHTML={{ __html: `
-          :root {
-            --color-indigo-50: ${generateShade(shopConfig.primaryColor, 97)};
-            --color-indigo-100: ${generateShade(shopConfig.primaryColor, 92)};
-            --color-indigo-200: ${generateShade(shopConfig.primaryColor, 84)};
-            --color-indigo-300: ${generateShade(shopConfig.primaryColor, 72)};
-            --color-indigo-400: ${generateShade(shopConfig.primaryColor, 60)};
-            --color-indigo-500: ${generateShade(shopConfig.primaryColor, 50)};
-            --color-indigo-600: ${shopConfig.primaryColor};
-            --color-indigo-700: ${generateShade(shopConfig.primaryColor, 38)};
-            --color-indigo-800: ${generateShade(shopConfig.primaryColor, 28)};
-            --color-indigo-900: ${generateShade(shopConfig.primaryColor, 18)};
-            --color-indigo-950: ${generateShade(shopConfig.primaryColor, 10)};
+      {/* Dynamic Brand Color & Theme Overrides */}
+      {(() => {
+        const themePreset = getThemePreset(shopConfig?.theme);
+        const activeColor = shopConfig?.primaryColor || themePreset.primaryColor;
+        const bodyBg = themePreset.bodyBg;
+        
+        return (
+          <style dangerouslySetInnerHTML={{ __html: `
+            :root {
+              --color-indigo-50: ${generateShade(activeColor, 97)};
+              --color-indigo-100: ${generateShade(activeColor, 92)};
+              --color-indigo-200: ${generateShade(activeColor, 84)};
+              --color-indigo-300: ${generateShade(activeColor, 72)};
+              --color-indigo-400: ${generateShade(activeColor, 60)};
+              --color-indigo-500: ${generateShade(activeColor, 50)};
+              --color-indigo-600: ${activeColor};
+              --color-indigo-700: ${generateShade(activeColor, 38)};
+              --color-indigo-800: ${generateShade(activeColor, 28)};
+              --color-indigo-900: ${generateShade(activeColor, 18)};
+              --color-indigo-950: ${generateShade(activeColor, 10)};
+              
+              --brand-primary: ${activeColor};
+              --brand-hover: ${generateShade(activeColor, 38)};
+            }
+
+            body, #root {
+              background-color: ${bodyBg} !important;
+            }
             
-            --brand-primary: ${shopConfig.primaryColor};
-            --brand-hover: ${generateShade(shopConfig.primaryColor, 38)};
-          }
-          
-          /* Custom selections */
-          ::selection {
-            background-color: ${shopConfig.primaryColor} !important;
-            color: #ffffff !important;
-          }
-          
-          /* Custom overrides for input focus states */
-          input:focus, select:focus, textarea:focus {
-            border-color: ${shopConfig.primaryColor} !important;
-            --tw-ring-color: ${shopConfig.primaryColor} !important;
-            box-shadow: 0 0 0 2px ${generateShade(shopConfig.primaryColor, 90)}, 0 0 0 4px ${generateShade(shopConfig.primaryColor, 95)} !important;
-          }
-
-          /* Beautiful custom modern scrollbars */
-          ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-          }
-          ::-webkit-scrollbar-track {
-            background: #f1f5f9;
-            border-radius: 999px;
-          }
-          ::-webkit-scrollbar-thumb {
-            background: ${generateShade(shopConfig.primaryColor, 75)};
-            border-radius: 999px;
-          }
-          ::-webkit-scrollbar-thumb:hover {
-            background: ${shopConfig.primaryColor};
-          }
-
-          /* General modern tab element transitions */
-          button, nav button, input, select, .card {
-            transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-          }
-
-          /* Gentle app entry fade-in animation */
-          .tab-content-enter {
-            animation: tabFadeIn 0.35s ease-out forwards;
-          }
-
-          @keyframes tabFadeIn {
-            from {
-              opacity: 0;
-              transform: translateY(8px);
+            /* Custom selections */
+            ::selection {
+              background-color: ${activeColor} !important;
+              color: #ffffff !important;
             }
-            to {
-              opacity: 1;
-              transform: translateY(0);
+            
+            /* Custom overrides for input focus states */
+            input:focus, select:focus, textarea:focus {
+              border-color: ${activeColor} !important;
+              --tw-ring-color: ${activeColor} !important;
+              box-shadow: 0 0 0 2px ${generateShade(activeColor, 90)}, 0 0 0 4px ${generateShade(activeColor, 95)} !important;
             }
-          }
-        `}} />
-      )}
+
+            /* Beautiful custom modern scrollbars */
+            ::-webkit-scrollbar {
+              width: 8px;
+              height: 8px;
+            }
+            ::-webkit-scrollbar-track {
+              background: #f1f5f9;
+              border-radius: 999px;
+            }
+            ::-webkit-scrollbar-thumb {
+              background: ${generateShade(activeColor, 75)};
+              border-radius: 999px;
+            }
+            ::-webkit-scrollbar-thumb:hover {
+              background: ${activeColor};
+            }
+
+            /* General modern tab element transitions */
+            button, nav button, input, select, .card {
+              transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+            }
+
+            /* Gentle app entry fade-in animation */
+            .tab-content-enter {
+              animation: tabFadeIn 0.35s ease-out forwards;
+            }
+
+            @keyframes tabFadeIn {
+              from {
+                opacity: 0;
+                transform: translateY(8px);
+              }
+              to {
+                opacity: 1;
+                transform: translateY(0);
+              }
+            }
+
+            ${themePreset.cssExtra || ''}
+          ` }} />
+        );
+      })()}
       
       {/* 1. Global Navigation Bar */}
       <header className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-xs">
@@ -2030,6 +2056,7 @@ export default function App() {
               {[
                 { id: 'sales' as const, label: 'หน้าบันทึกการขาย', icon: <Scissors className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> },
                 { id: 'dashboard' as const, label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500" /> },
+                { id: 'expenses' as const, label: 'ควบคุมรายจ่าย/เบิกเงิน', icon: <ArrowDownCircle className="w-3.5 h-3.5 text-rose-500" /> },
                 ...(shareConfig?.enableMemberSystem !== false ? [{ id: 'members' as const, label: 'ระบบสมาชิก Member', icon: <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> }] : []),
                 ...(shopConfig?.enableCashCounter !== false ? [{ id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
@@ -2134,6 +2161,17 @@ export default function App() {
               onDeleteSale={handleDeleteSale}
               onUpdateSalePaymentMethod={handleUpdateSalePaymentMethod}
               onUpdateSale={handleUpdateSale}
+            />
+          </div>
+        )}
+
+        {activeTab === 'expenses' && (
+          <div className="tab-content-enter">
+            <ExpensesTab
+              userEmail={userEmail}
+              expenses={expenses}
+              sales={correctedSales}
+              onUpdateExpenses={handleUpdateExpenses}
             />
           </div>
         )}

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Barber, Product, ShareConfig, ShopConfig, Voucher, ChemicalPromo } from '../types';
 import { formatBaht, formatThaiDate } from '../utils';
+import { THEME_PRESETS, getThemePreset } from '../themes';
 import { 
   Users, 
   Settings, 
@@ -29,7 +30,8 @@ import {
   Mail,
   ShieldCheck,
   Briefcase,
-  DollarSign
+  DollarSign,
+  Palette
 } from 'lucide-react';
 
 interface ConfigTabProps {
@@ -431,6 +433,7 @@ export default function ConfigTab({
   const [shopLogoUrl, setShopLogoUrl] = useState<string>(shopConfig.logoUrl || '');
   const [billingCutoffDayInput, setBillingCutoffDayInput] = useState<number>(shopConfig.billingCutoffDay || 1);
   const [primaryColorInput, setPrimaryColorInput] = useState<string>(shopConfig.primaryColor || '#6366f1');
+  const [themeInput, setThemeInput] = useState<string>(shopConfig.theme || 'indigo');
   const [enableCashCounterInput, setEnableCashCounterInput] = useState<boolean>(shopConfig.enableCashCounter !== false);
   const [enablePayslipsInput, setEnablePayslipsInput] = useState<boolean>(shopConfig.enablePayslips !== false);
   const [isShopSaved, setIsShopSaved] = useState<boolean>(false);
@@ -441,6 +444,7 @@ export default function ConfigTab({
     setShopLogoUrl(shopConfig.logoUrl || '');
     setBillingCutoffDayInput(shopConfig.billingCutoffDay || 1);
     setPrimaryColorInput(shopConfig.primaryColor || '#6366f1');
+    setThemeInput(shopConfig.theme || 'indigo');
     setEnableCashCounterInput(shopConfig.enableCashCounter !== false);
     setEnablePayslipsInput(shopConfig.enablePayslips !== false);
   }, [shopConfig]);
@@ -515,6 +519,7 @@ export default function ConfigTab({
       logoUrl: shopLogoUrl,
       billingCutoffDay: billingCutoffDayInput,
       primaryColor: primaryColorInput,
+      theme: themeInput,
       enableCashCounter: enableCashCounterInput,
       enablePayslips: enablePayslipsInput
     });
@@ -865,16 +870,87 @@ export default function ConfigTab({
               </div>
             </div>
 
-            {/* Primary Brand Color Selection */}
-            <div className="space-y-1.5 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-4 mt-2">
-              <span className="block text-xs font-semibold text-slate-700">สีหลักของแบรนด์ร้านค้า (Primary Brand Color):</span>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4 bg-slate-50/50 p-3.5 rounded-2xl border border-slate-200">
-                <div className="flex items-center space-x-3 bg-white p-2 rounded-xl border border-slate-200 w-full sm:w-auto">
-                  <div className="relative w-8 h-8 rounded-lg overflow-hidden border border-slate-300 shadow-sm shrink-0">
+            {/* Shop Theme & Color Atmosphere Selection */}
+            <div className="space-y-3 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-5 mt-2">
+              <div className="flex items-center justify-between">
+                <span className="block text-xs font-bold text-slate-800 flex items-center space-x-2">
+                  <Palette className="w-4 h-4 text-indigo-600" />
+                  <span>ชุดธีมและบรรยากาศโปรแกรม (App Theme & Color Gallery)</span>
+                </span>
+                <span className="text-[11px] font-semibold text-slate-400">
+                  เลือกจากธีมสำเร็จรูป หรือ ปรับแต่งสีอิสระ
+                </span>
+              </div>
+
+              {/* Theme Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                {THEME_PRESETS.map((preset) => {
+                  const isSelected = themeInput === preset.id;
+                  return (
+                    <button
+                      key={preset.id}
+                      type="button"
+                      onClick={() => {
+                        setThemeInput(preset.id);
+                        setPrimaryColorInput(preset.primaryColor);
+                      }}
+                      className={`p-3.5 rounded-2xl border text-left transition-all relative cursor-pointer overflow-hidden flex flex-col justify-between space-y-3 ${
+                        isSelected 
+                          ? 'bg-white border-slate-900 shadow-md ring-2 ring-slate-900/10 scale-[1.01]' 
+                          : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 hover:shadow-2xs'
+                      }`}
+                    >
+                      <div className="space-y-1.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
+                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
+                            <span>{preset.name}</span>
+                          </span>
+                          {isSelected && (
+                            <span className="bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
+                              <Check className="w-2.5 h-2.5" />
+                              <span>เลือกใช้งาน</span>
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[10.5px] text-slate-500 leading-snug line-clamp-2">
+                          {preset.description}
+                        </p>
+                      </div>
+
+                      {/* Color Palette Preview Swatches */}
+                      <div className="flex items-center space-x-1.5 pt-1 border-t border-slate-100">
+                        {preset.previewColors.map((col, idx) => (
+                          <span 
+                            key={idx} 
+                            className="w-5 h-5 rounded-full border border-black/10 shadow-2xs transition-transform hover:scale-110" 
+                            style={{ backgroundColor: col }}
+                            title={col}
+                          />
+                        ))}
+                      </div>
+                    </button>
+                  );
+                })}
+              </div>
+
+              {/* Custom Hex Accent Color Fine-Tuning */}
+              <div className="bg-slate-50/60 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-2">
+                <div className="space-y-0.5">
+                  <span className="block text-xs font-bold text-slate-800">ปรับแต่งรหัสสีเฉพาะแบรนด์ (Custom Hex Code Color):</span>
+                  <p className="text-[11px] text-slate-500">
+                    สามารถปรับโทนสีไฮไลท์หลักของระบบให้ตรงตาม CI แบรนด์ของคุณได้อย่างสมบูรณ์แบบ
+                  </p>
+                </div>
+
+                <div className="flex items-center space-x-3 bg-white p-1.5 px-2.5 rounded-xl border border-slate-200 shrink-0">
+                  <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-slate-300 shadow-2xs shrink-0">
                     <input
                       type="color"
                       value={primaryColorInput}
-                      onChange={(e) => setPrimaryColorInput(e.target.value)}
+                      onChange={(e) => {
+                        setPrimaryColorInput(e.target.value);
+                      }}
                       className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0 bg-transparent"
                       id="brand-color-picker"
                     />
@@ -889,44 +965,11 @@ export default function ConfigTab({
                       }
                     }}
                     placeholder="#6366f1"
-                    className="w-24 px-2 py-1 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500"
+                    className="w-20 px-2 py-1 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500"
                     maxLength={7}
                   />
                 </div>
-                
-                {/* Standard presets for quick selection */}
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">โทนสียอดนิยม:</span>
-                  {[
-                    { hex: '#6366f1', name: 'Indigo' },
-                    { hex: '#10b981', name: 'Emerald' },
-                    { hex: '#3b82f6', name: 'Blue' },
-                    { hex: '#ec4899', name: 'Pink' },
-                    { hex: '#f59e0b', name: 'Amber' },
-                    { hex: '#0f172a', name: 'Slate' },
-                    { hex: '#dc2626', name: 'Red' },
-                    { hex: '#8b5cf6', name: 'Purple' },
-                  ].map((preset) => (
-                    <button
-                      key={preset.hex}
-                      type="button"
-                      onClick={() => setPrimaryColorInput(preset.hex)}
-                      className={`h-7 px-2.5 rounded-full border text-[10px] font-bold transition-all flex items-center space-x-1 cursor-pointer hover:scale-105 ${
-                        primaryColorInput.toLowerCase() === preset.hex.toLowerCase()
-                          ? 'border-slate-800 bg-slate-900 text-white shadow-sm'
-                          : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300'
-                      }`}
-                      title={preset.name}
-                    >
-                      <span className="w-2.5 h-2.5 rounded-full border border-white/20" style={{ backgroundColor: preset.hex }} />
-                      <span>{preset.name}</span>
-                    </button>
-                  ))}
-                </div>
               </div>
-              <p className="text-[10px] text-slate-400 leading-relaxed pl-1">
-                * เลือกสีที่ตรงกับเอกลักษณ์ของร้านคุณ ปุ่มเมนู ยอดขาย แถบเมนู ไฮไลท์การทำธุรกรรม คิวจอง และองค์ประกอบทั้งหมดจะถูกปรับเปลี่ยนไปตามชุดสีนี้แบบไดนามิกเรียลไทม์
-              </p>
             </div>
 
             {/* Billing Cycle Cutoff Day Input */}
