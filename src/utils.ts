@@ -47,31 +47,58 @@ export function formatThaiMonth(yearMonth: string): string {
 }
 
 // Calculate split payment cash vs transfer breakdown safely for any sale record
-export function getSalePaymentBreakdown(s: Partial<SaleRecord>): { cashAmount: number; transferAmount: number; memberCreditAmount: number } {
+export function getSalePaymentBreakdown(s: Partial<SaleRecord>, excludeTip: boolean = false): { cashAmount: number; transferAmount: number; memberCreditAmount: number } {
   if (!s) return { cashAmount: 0, transferAmount: 0, memberCreditAmount: 0 };
   const totalPaid = s.customerPaid ?? 0;
   const memberCredit = s.memberCreditUsed || s.memberCreditAmount || 0;
 
+  let cashAmount = 0;
+  let transferAmount = 0;
+  let memberCreditAmount = memberCredit;
+
   if (s.paymentMethod === 'member_credit') {
-    const cash = typeof s.cashAmount === 'number' && !isNaN(s.cashAmount) ? s.cashAmount : 0;
-    const transfer = typeof s.transferAmount === 'number' && !isNaN(s.transferAmount) ? s.transferAmount : 0;
-    const credit = memberCredit || Math.max(0, totalPaid - cash - transfer);
-    return { cashAmount: cash, transferAmount: transfer, memberCreditAmount: credit };
+    cashAmount = typeof s.cashAmount === 'number' && !isNaN(s.cashAmount) ? s.cashAmount : 0;
+    transferAmount = typeof s.transferAmount === 'number' && !isNaN(s.transferAmount) ? s.transferAmount : 0;
+    memberCreditAmount = memberCredit || Math.max(0, totalPaid - cashAmount - transferAmount);
   } else if (s.paymentMethod === 'split') {
-    const cash = typeof s.cashAmount === 'number' && !isNaN(s.cashAmount) ? s.cashAmount : 0;
-    const transfer = typeof s.transferAmount === 'number' && !isNaN(s.transferAmount) ? s.transferAmount : Math.max(0, totalPaid - cash - memberCredit);
-    return { cashAmount: cash, transferAmount: transfer, memberCreditAmount: memberCredit };
+    cashAmount = typeof s.cashAmount === 'number' && !isNaN(s.cashAmount) ? s.cashAmount : 0;
+    transferAmount = typeof s.transferAmount === 'number' && !isNaN(s.transferAmount) ? s.transferAmount : Math.max(0, totalPaid - cashAmount - memberCredit);
   } else if (s.paymentMethod === 'cash') {
-    return { cashAmount: totalPaid, transferAmount: 0, memberCreditAmount: memberCredit };
+    cashAmount = totalPaid;
+    transferAmount = 0;
   } else if (s.paymentMethod === 'transfer') {
-    return { cashAmount: 0, transferAmount: totalPaid, memberCreditAmount: memberCredit };
+    cashAmount = 0;
+    transferAmount = totalPaid;
   } else {
     // Fallback: if memberCreditUsed is set and no cash/transfer specified, don't invent transfer
     if (memberCredit > 0 && !s.cashAmount && !s.transferAmount) {
-      return { cashAmount: 0, transferAmount: 0, memberCreditAmount: memberCredit };
+      cashAmount = 0;
+      transferAmount = 0;
+    } else {
+      cashAmount = 0;
+      transferAmount = totalPaid;
     }
-    return { cashAmount: 0, transferAmount: totalPaid, memberCreditAmount: memberCredit };
   }
+
+  if (excludeTip && s.tip && s.tip > 0) {
+    let remainingTip = s.tip;
+    if (s.paymentMethod === 'cash') {
+      cashAmount = Math.max(0, cashAmount - remainingTip);
+    } else if (s.paymentMethod === 'transfer') {
+      transferAmount = Math.max(0, transferAmount - remainingTip);
+    } else {
+      // split, member_credit, or fallback
+      if (transferAmount >= remainingTip) {
+        transferAmount -= remainingTip;
+      } else {
+        remainingTip -= transferAmount;
+        transferAmount = 0;
+        cashAmount = Math.max(0, cashAmount - remainingTip);
+      }
+    }
+  }
+
+  return { cashAmount, transferAmount, memberCreditAmount };
 }
 
 // Generate MS Excel (XML Spreadsheet or CSV with BOM)

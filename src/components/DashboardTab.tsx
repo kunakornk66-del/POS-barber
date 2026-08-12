@@ -378,7 +378,7 @@ export default function DashboardTab({
     let transferCount = 0;
 
     dailySales.forEach(s => {
-      const b = getSalePaymentBreakdown(s);
+      const b = getSalePaymentBreakdown(s, true);
       cashAmount += b.cashAmount;
       transferAmount += b.transferAmount;
 
@@ -521,7 +521,7 @@ export default function DashboardTab({
     let transferCount = 0;
 
     monthlySales.forEach(s => {
-      const b = getSalePaymentBreakdown(s);
+      const b = getSalePaymentBreakdown(s, true);
       cashAmount += b.cashAmount;
       transferAmount += b.transferAmount;
 
@@ -637,7 +637,7 @@ export default function DashboardTab({
       const entry = dateMap.get(d)!;
       entry.totalBills += 1;
       
-      const b = getSalePaymentBreakdown(s);
+      const b = getSalePaymentBreakdown(s, true);
       entry.totalAmount += (b.cashAmount + b.transferAmount);
 
       if (b.cashAmount > 0) {
@@ -789,7 +789,8 @@ export default function DashboardTab({
       if (parts.length === 3) {
         const dayNum = parseInt(parts[2], 10);
         if (dailyMap[dayNum]) {
-          dailyMap[dayNum].revenue += (s.customerPaid || 0);
+          const tipVal = typeof s.tip === 'number' && !isNaN(s.tip) ? s.tip : 0;
+          dailyMap[dayNum].revenue += Math.max(0, (s.customerPaid || 0) - tipVal);
           if ((s.haircutPrice || 0) > 0) {
             dailyMap[dayNum].customers += 1;
           }
@@ -884,7 +885,8 @@ export default function DashboardTab({
       if (s.date && s.date.length >= 7) {
         const mKey = s.date.substring(0, 7);
         if (dataMap[mKey]) {
-          dataMap[mKey].customerPaid += s.customerPaid || 0;
+          const tipVal = typeof s.tip === 'number' && !isNaN(s.tip) ? s.tip : 0;
+          dataMap[mKey].customerPaid += Math.max(0, (s.customerPaid || 0) - tipVal);
           dataMap[mKey].shopRevenue += s.shopTotalShare || 0;
         }
       }
@@ -3475,7 +3477,7 @@ export default function DashboardTab({
                     <span>สรุปยอดเงินสด / ยอดเงินโอน แยกรายวันสะสม (ตั้งแต่วันที่ 1 ถึงปัจจุบัน)</span>
                   </h3>
                   <p className="text-xs text-slate-500">
-                    ตรวจสอบยอดเงินสด เงินโอน รายรับรวม และรายจ่ายย้อนหลังของทุกวันในเดือน {formatThaiMonth(selectedMonth)} เพื่อคำนวณและกระทบยอดบัญชี
+                    ตรวจสอบยอดเงินสด เงินโอน รายรับรวม (ไม่รวมยอดทิปช่าง) และรายจ่ายย้อนหลังของทุกวันในเดือน {formatThaiMonth(selectedMonth)} เพื่อคำนวณและกระทบยอดบัญชี
                   </p>
                 </div>
 
