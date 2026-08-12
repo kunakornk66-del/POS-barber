@@ -16,11 +16,31 @@ import {
   Lock,
   Unlock,
   Plus,
-  Trash2
+  Trash2,
+  HardDrive,
+  Database,
+  PieChart,
+  BarChart3,
+  Server,
+  Layers,
+  Info
 } from 'lucide-react';
 import { db, handleFirestoreError, OperationType } from '../firebase';
-import { collection, doc, getDocs, setDoc, updateDoc, onSnapshot, deleteDoc, writeBatch } from 'firebase/firestore';
+import { collection, doc, getDoc, getDocs, setDoc, updateDoc, onSnapshot, deleteDoc, writeBatch } from 'firebase/firestore';
 import { CustomerSubscription } from '../types';
+
+export interface StorageUsageInfo {
+  usedBytes: number;
+  mainDocBytes: number;
+  salesDocBytes: number;
+  salesCount: number;
+  barbersCount: number;
+  membersCount: number;
+  productsCount: number;
+  expensesCount: number;
+  maxQuotaMB: number;
+  lastCalculatedAt: string;
+}
 
 interface SuperAdminTabProps {
   currentAdminEmail: string;
@@ -49,6 +69,92 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
   // Delete store modal state
   const [subToDelete, setSubToDelete] = useState<CustomerSubscription | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+
+  // Cloud Storage Tracking State
+  const [usageMap, setUsageMap] = useState<Record<string, StorageUsageInfo>>({});
+  const [calculatingEmails, setCalculatingEmails] = useState<Record<string, boolean>>({});
+  const [isCalculatingAll, setIsCalculatingAll] = useState(false);
+  const [selectedStorageDetail, setSelectedStorageDetail] = useState<{
+    email: string;
+    shopName: string;
+    usage: StorageUsageInfo;
+  } | null>(null);
+
+  // Storage calculation helpers
+  const formatBytes = (bytes: number, decimals = 1): string => {
+    if (!bytes || bytes === 0) return '0 B';
+    const k = 1024;
+    const dm = decimals < 0 ? 0 : decimals;
+    const sizes = ['B', 'KB', 'MB', 'GB'];
+    const i = Math.floor(Math.log(bytes) / Math.log(k));
+    return parseFloat((bytes / Math.pow(k, i)).toFixed(dm)) + ' ' + sizes[i];
+  };
+
+  const calculateStorageForStore = async (email: string) => {
+    const targetEmail = email.toLowerCase();
+    setCalculatingEmails(prev => ({ ...prev, [targetEmail]: true }));
+    try {
+      const salonDocRef = doc(db, "salons", targetEmail);
+      const mainSnap = await getDoc(salonDocRef);
+
+      let mainDocBytes = 0;
+      let barbersCount = 0;
+      let membersCount = 0;
+      let productsCount = 0;
+      let expensesCount = 0;
+
+      if (mainSnap.exists()) {
+        const data = mainSnap.data();
+        mainDocBytes = new Blob([JSON.stringify(data)]).size;
+        barbersCount = Array.isArray(data.barbers) ? data.barbers.length : 0;
+        membersCount = Array.isArray(data.members) ? data.members.length : 0;
+        productsCount = Array.isArray(data.products) ? data.products.length : 0;
+        expensesCount = Array.isArray(data.expenses) ? data.expenses.length : 0;
+      }
+
+      // Subcollection sales
+      const salesColRef = collection(db, "salons", targetEmail, "sales");
+      const salesSnap = await getDocs(salesColRef);
+      let salesDocBytes = 0;
+      const salesCount = salesSnap.size;
+
+      salesSnap.forEach((docSnap) => {
+        const saleData = docSnap.data();
+        salesDocBytes += new Blob([JSON.stringify(saleData)]).size;
+      });
+
+      const totalUsedBytes = mainDocBytes + salesDocBytes;
+
+      const info: StorageUsageInfo = {
+        usedBytes: totalUsedBytes,
+        mainDocBytes,
+        salesDocBytes,
+        salesCount,
+        barbersCount,
+        membersCount,
+        productsCount,
+        expensesCount,
+        maxQuotaMB: 100, // 100 MB limit per store
+        lastCalculatedAt: new Date().toISOString()
+      };
+
+      setUsageMap(prev => ({ ...prev, [targetEmail]: info }));
+      return info;
+    } catch (err) {
+      console.warn("Error calculating storage usage for store", targetEmail, err);
+      return null;
+    } finally {
+      setCalculatingEmails(prev => ({ ...prev, [targetEmail]: false }));
+    }
+  };
+
+  const calculateAllStoresStorage = async () => {
+    setIsCalculatingAll(true);
+    for (const sub of subscriptions) {
+      await calculateStorageForStore(sub.email);
+    }
+    setIsCalculatingAll(false);
+  };
 
   // Load subscriptions in real-time
   useEffect(() => {
@@ -446,7 +552,16 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
             </p>
           </div>
 
-          <div className="flex items-center space-x-3">
+          <div className="flex flex-wrap items-center gap-2">
+            <button
+              onClick={calculateAllStoresStorage}
+              disabled={isCalculatingAll}
+              className="px-3.5 py-2.5 bg-indigo-600/80 hover:bg-indigo-600 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 border border-indigo-400/30 cursor-pointer shadow-sm disabled:opacity-50"
+              title="คำนวณการใช้พื้นที่ Cloud Firestore ของทุกบัญชีร้านค้า"
+            >
+              <HardDrive className={`w-4 h-4 text-amber-300 ${isCalculatingAll ? 'animate-bounce' : ''}`} />
+              <span>{isCalculatingAll ? 'กำลังคำนวณพื้นที่...' : 'คำนวณพื้นที่ Cloud'}</span>
+            </button>
             <button
               onClick={handleRefresh}
               className={`px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-200 rounded-xl text-xs font-bold transition-all flex items-center space-x-2 border border-slate-700 cursor-pointer ${isRefreshing ? 'opacity-50' : ''}`}
@@ -466,7 +581,7 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
       </div>
 
       {/* Overview Stat Cards */}
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 md:grid-cols-6 gap-3 sm:gap-4">
         <div className="bg-white rounded-2xl p-4 border border-slate-200/80 shadow-xs">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold text-slate-500">ร้านค้าทั้งหมด</span>
@@ -517,6 +632,21 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
           </div>
           <div className="mt-2">
             <span className="text-2xl font-black text-rose-600">{suspendedCount}</span>
+          </div>
+        </div>
+
+        <div className="bg-slate-900 text-white rounded-2xl p-4 border border-slate-800 shadow-xs">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold text-indigo-300 uppercase tracking-wider">พื้นที่ Cloud รวม</span>
+            <Database className="w-4 h-4 text-amber-400" />
+          </div>
+          <div className="mt-1 space-y-0.5">
+            <div className="text-xl font-black text-amber-300 font-mono">
+              {formatBytes(Object.values(usageMap).reduce((sum, u) => sum + u.usedBytes, 0))}
+            </div>
+            <p className="text-[10px] text-slate-400 font-sans">
+              โควตาฟรีรวม 1,000 MB (1 GB)
+            </p>
           </div>
         </div>
       </div>
@@ -610,6 +740,7 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
               <thead>
                 <tr className="bg-slate-50 border-b border-slate-200/80 text-[11px] font-bold text-slate-500 uppercase tracking-wider">
                   <th className="py-3.5 px-4 sm:px-6">สถานะ / บัญชีร้านค้า</th>
+                  <th className="py-3.5 px-4">พื้นที่ Cloud & โควตา</th>
                   <th className="py-3.5 px-4">วันเริ่ม - วันหมดอายุ</th>
                   <th className="py-3.5 px-4">สิทธิ์การใช้งาน</th>
                   <th className="py-3.5 px-4 text-right">การจัดการสิทธิ์</th>
@@ -662,6 +793,74 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
                             )}
                           </div>
                         </div>
+                      </td>
+
+                      {/* Cloud Storage Usage Cell */}
+                      <td className="py-4 px-4">
+                        {(() => {
+                          const targetEmail = sub.email.toLowerCase();
+                          const usage = usageMap[targetEmail];
+                          const isCalculating = calculatingEmails[targetEmail];
+
+                          if (isCalculating) {
+                            return (
+                              <div className="flex items-center space-x-1.5 text-[11px] text-slate-400">
+                                <RefreshCw className="w-3.5 h-3.5 animate-spin text-indigo-500" />
+                                <span>กำลังคำนวณ...</span>
+                              </div>
+                            );
+                          }
+
+                          if (!usage) {
+                            return (
+                              <button
+                                onClick={() => calculateStorageForStore(sub.email)}
+                                className="px-2.5 py-1 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-lg text-[11px] font-semibold transition-all cursor-pointer flex items-center space-x-1 border border-slate-200"
+                                title="คลิกเพื่อคำนวณการใช้พื้นที่ Cloud Firestore"
+                              >
+                                <HardDrive className="w-3 h-3 text-slate-500" />
+                                <span>คำนวณพื้นที่</span>
+                              </button>
+                            );
+                          }
+
+                          // Calculated Usage Info
+                          const maxBytes = (usage.maxQuotaMB || 100) * 1024 * 1024;
+                          const percent = Math.min(100, Math.max(0.01, (usage.usedBytes / maxBytes) * 100));
+                          let barColor = "bg-emerald-500";
+                          if (percent > 80) barColor = "bg-rose-500";
+                          else if (percent > 50) barColor = "bg-amber-500";
+
+                          return (
+                            <div className="space-y-1.5 max-w-[180px]">
+                              <div className="flex items-center justify-between text-[11px] font-mono">
+                                <span className="font-bold text-slate-800">{formatBytes(usage.usedBytes)}</span>
+                                <span className="text-[10px] text-slate-400">/ {usage.maxQuotaMB} MB</span>
+                              </div>
+
+                              {/* Progress Bar */}
+                              <div className="w-full bg-slate-100 h-1.5 rounded-full overflow-hidden border border-slate-200/60">
+                                <div 
+                                  className={`h-full ${barColor} transition-all duration-500 rounded-full`} 
+                                  style={{ width: `${Math.max(2, percent)}%` }}
+                                ></div>
+                              </div>
+
+                              {/* Breakdown snippet and Inspector Trigger */}
+                              <div className="flex items-center justify-between text-[10px] text-slate-500 font-sans pt-0.5">
+                                <span className="font-mono text-slate-600">({percent.toFixed(2)}%)</span>
+                                <button
+                                  onClick={() => setSelectedStorageDetail({ email: sub.email, shopName: sub.shopName || 'ร้านบาร์เบอร์ POS', usage })}
+                                  className="text-indigo-600 hover:text-indigo-800 font-bold hover:underline cursor-pointer flex items-center space-x-0.5"
+                                  title="คลิกเพื่อดูสถิติและโควตาพื้นที่เชิงลึก"
+                                >
+                                  <span>รายละเอียด</span>
+                                  <ChevronRight className="w-3 h-3" />
+                                </button>
+                              </div>
+                            </div>
+                          );
+                        })()}
                       </td>
 
                       {/* Package Dates */}
@@ -1010,6 +1209,151 @@ export default function SuperAdminTab({ currentAdminEmail }: SuperAdminTabProps)
                     <span>ยืนยันลบข้อมูลถาวร</span>
                   </>
                 )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal: Cloud Storage Usage Inspector */}
+      {selectedStorageDetail && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center p-4 z-50 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full p-6 shadow-2xl space-y-6 border border-slate-100 animate-slide-up font-sans">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center space-x-3">
+                <div className="w-10 h-10 bg-indigo-100 rounded-2xl flex items-center justify-center text-indigo-600 flex-shrink-0">
+                  <Database className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-extrabold text-slate-900 text-base">การใช้พื้นที่ Cloud & โควตาจัดเก็บ</h3>
+                  <p className="text-xs text-slate-500 font-medium">{selectedStorageDetail.shopName} ({selectedStorageDetail.email})</p>
+                </div>
+              </div>
+              <button 
+                onClick={() => setSelectedStorageDetail(null)}
+                className="text-slate-400 hover:text-slate-600 p-1 cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {(() => {
+              const u = selectedStorageDetail.usage;
+              const maxBytes = (u.maxQuotaMB || 100) * 1024 * 1024;
+              const percent = Math.min(100, Math.max(0.01, (u.usedBytes / maxBytes) * 100));
+              let statusBadge = { bg: "bg-emerald-100 text-emerald-800 border-emerald-200", label: "🟢 ปลอดภัยสูง" };
+              if (percent > 80) statusBadge = { bg: "bg-rose-100 text-rose-800 border-rose-200", label: "🔴 ใกล้เต็มโควตา" };
+              else if (percent > 50) statusBadge = { bg: "bg-amber-100 text-amber-800 border-amber-200", label: "🟡 ใช้งานปานกลาง" };
+
+              return (
+                <div className="space-y-5">
+                  {/* Gauge Card */}
+                  <div className="bg-slate-900 text-white rounded-2xl p-5 border border-slate-800 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-bold text-slate-400 uppercase tracking-wider">พื้นที่จัดเก็บสะสมบน Cloud</span>
+                      <span className={`text-[11px] font-bold px-2.5 py-0.5 rounded-full border ${statusBadge.bg}`}>
+                        {statusBadge.label}
+                      </span>
+                    </div>
+
+                    <div className="flex items-baseline justify-between">
+                      <div className="text-2xl font-black text-amber-300 font-mono">
+                        {formatBytes(u.usedBytes)} <span className="text-xs text-slate-400 font-sans font-normal">/ {u.maxQuotaMB} MB</span>
+                      </div>
+                      <span className="text-sm font-black text-indigo-300 font-mono">
+                        {percent.toFixed(2)}%
+                      </span>
+                    </div>
+
+                    {/* Big Bar */}
+                    <div className="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700/60">
+                      <div 
+                        className="h-full bg-gradient-to-r from-emerald-400 via-amber-400 to-indigo-400 rounded-full transition-all duration-500"
+                        style={{ width: `${Math.max(2, percent)}%` }}
+                      ></div>
+                    </div>
+
+                    <div className="flex items-center justify-between text-[11px] text-slate-400 pt-1">
+                      <span>คงเหลือใช้งานได้อีก: <strong className="text-white font-mono">{formatBytes(maxBytes - u.usedBytes)}</strong></span>
+                      <span>อัปเดตล่าสุด: {new Date(u.lastCalculatedAt).toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })} น.</span>
+                    </div>
+                  </div>
+
+                  {/* Breakdown Grid */}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                        <span>🧾 บิลยอดขาย</span>
+                        <BarChart3 className="w-3.5 h-3.5 text-indigo-500" />
+                      </div>
+                      <div className="text-sm font-extrabold text-slate-900 font-mono">
+                        {u.salesCount.toLocaleString()} บิล
+                      </div>
+                      <p className="text-[10px] text-slate-500">ขนาด {formatBytes(u.salesDocBytes)}</p>
+                    </div>
+
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                        <span>⚙️ ข้อมูลหลักร้านค้า</span>
+                        <Layers className="w-3.5 h-3.5 text-amber-500" />
+                      </div>
+                      <div className="text-sm font-extrabold text-slate-900 font-mono">
+                        {formatBytes(u.mainDocBytes)}
+                      </div>
+                      <p className="text-[10px] text-slate-500">ช่าง {u.barbersCount} คน | สินค้า {u.productsCount} รายการ</p>
+                    </div>
+
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                        <span>👥 ฐานข้อมูลสมาชิก</span>
+                        <UserPlus className="w-3.5 h-3.5 text-emerald-500" />
+                      </div>
+                      <div className="text-sm font-extrabold text-slate-900 font-mono">
+                        {u.membersCount.toLocaleString()} คน
+                      </div>
+                      <p className="text-[10px] text-slate-500">พร้อมระบบบันทึกแต้มสะสม</p>
+                    </div>
+
+                    <div className="bg-slate-50 p-3.5 rounded-2xl border border-slate-200 space-y-1">
+                      <div className="flex items-center justify-between text-xs font-bold text-slate-800">
+                        <span>💸 รายจ่าย & สลิป</span>
+                        <PieChart className="w-3.5 h-3.5 text-rose-500" />
+                      </div>
+                      <div className="text-sm font-extrabold text-slate-900 font-mono">
+                        {u.expensesCount.toLocaleString()} รายการ
+                      </div>
+                      <p className="text-[10px] text-slate-500">บันทึกเบิกเงินและรายจ่ายประจำ</p>
+                    </div>
+                  </div>
+
+                  {/* Quota Policy Note */}
+                  <div className="bg-indigo-50/70 p-3.5 rounded-2xl border border-indigo-100 flex items-start space-x-2 text-xs text-indigo-900">
+                    <Info className="w-4 h-4 text-indigo-600 flex-shrink-0 mt-0.5" />
+                    <div className="space-y-0.5 text-[11px] leading-relaxed">
+                      <span className="font-bold">โควตาความจุ Firestore ต่อร้านค้า:</span>
+                      <p className="text-indigo-700">จัดสรรพื้นที่ตั้งต้นให้อย่างจุใจที่ <strong>100 MB ต่อร้าน</strong> (รองรับข้อมูลการขายได้มากกว่า 100,000 บิล สามารถใช้งานได้ต่อเนื่องหลายปีโดยไม่ต้องกังวลเรื่องพื้นที่เต็ม)</p>
+                    </div>
+                  </div>
+                </div>
+              );
+            })()}
+
+            <div className="flex items-center justify-between pt-2 border-t border-slate-100">
+              <button
+                type="button"
+                onClick={() => calculateStorageForStore(selectedStorageDetail.email)}
+                disabled={calculatingEmails[selectedStorageDetail.email.toLowerCase()]}
+                className="px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold cursor-pointer transition-all flex items-center space-x-1.5"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 text-indigo-600 ${calculatingEmails[selectedStorageDetail.email.toLowerCase()] ? 'animate-spin' : ''}`} />
+                <span>คำนวณใหม่</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSelectedStorageDetail(null)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold cursor-pointer transition-all shadow-md"
+              >
+                ปิดหน้าต่าง
               </button>
             </div>
           </div>
