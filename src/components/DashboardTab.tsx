@@ -25,6 +25,7 @@ import {
   getSalePaymentBreakdown,
   exportAsyncMonthlyPdfReport
 } from '../utils';
+import { DailySalesChart } from './DailySalesChart';
 import { 
   TrendingUp, 
   Users, 
@@ -3252,7 +3253,16 @@ export default function DashboardTab({
             </div>
 
             {/* NEW SECTION: DAILY PAYMENT METHOD BREAKDOWN TABLE (CASH VS TRANSFER) */}
-            <div id="daily-breakdown-section" className="space-y-4 pt-4 border-t border-slate-100">
+            <div id="daily-breakdown-section" className="space-y-6 pt-4 border-t border-slate-100">
+              {/* Daily Sales & Revenue Recharts Chart (Single instance) */}
+              <DailySalesChart
+                monthlyDailyBreakdown={monthlyDailyBreakdown}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                selectedMonth={selectedMonth}
+                shopConfig={shopConfig}
+              />
+
               <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pt-2">
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-800 flex items-center space-x-2">
