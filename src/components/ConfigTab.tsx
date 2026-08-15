@@ -1,7 +1,14 @@
 import React, { useState } from 'react';
-import { Barber, Product, ShareConfig, ShopConfig, Voucher, ChemicalPromo } from '../types';
+import { Barber, Product, ShareConfig, ShopConfig, Voucher, ChemicalPromo, SaleRecord } from '../types';
 import { formatBaht, formatThaiDate } from '../utils';
-import { THEME_PRESETS, getThemePreset } from '../themes';
+import { 
+  THEME_PRESETS, 
+  getThemePreset, 
+  generateShade, 
+  getShadePalette, 
+  QUICK_BRAND_COLORS, 
+  BrandColorOption 
+} from '../themes';
 import { 
   Users, 
   Settings, 
@@ -21,6 +28,8 @@ import {
   Unlock,
   KeyRound,
   AlertCircle,
+  AlertTriangle,
+  Zap,
   ChevronUp,
   ChevronDown,
   Sparkles,
@@ -31,11 +40,17 @@ import {
   ShieldCheck,
   Briefcase,
   DollarSign,
-  Palette
+  Palette,
+  Pipette,
+  Copy,
+  Eye,
+  RefreshCw,
+  Sliders
 } from 'lucide-react';
 
 interface ConfigTabProps {
   userEmail?: string | null;
+  sales?: SaleRecord[];
   barbers: Barber[];
   products: Product[];
   chemicalPromos: ChemicalPromo[];
@@ -53,11 +68,13 @@ interface ConfigTabProps {
   onUpdateShopConfig: (config: ShopConfig) => void;
   onUpdateVouchers: (vouchers: Voucher[]) => void;
   onClearSales: () => void;
+  onClearSalesOlderThanOneYear?: () => Promise<number>;
   onFullReset: () => void;
 }
 
 export default function ConfigTab({
   userEmail,
+  sales = [],
   barbers,
   products,
   chemicalPromos,
@@ -75,6 +92,7 @@ export default function ConfigTab({
   onUpdateShopConfig,
   onUpdateVouchers,
   onClearSales,
+  onClearSalesOlderThanOneYear,
   onFullReset,
 }: ConfigTabProps) {
   
@@ -175,6 +193,8 @@ export default function ConfigTab({
 
   // Confirmation popup states for safe deletion & systems resets
   const [showClearSalesConfirm, setShowClearSalesConfirm] = useState<boolean>(false);
+  const [showClearOldSalesConfirm, setShowClearOldSalesConfirm] = useState<boolean>(false);
+  const [isClearingOldSales, setIsClearingOldSales] = useState<boolean>(false);
   const [showFullResetConfirm, setShowFullResetConfirm] = useState<boolean>(false);
 
   // Re-ordering and sorting rank list assistants
@@ -437,6 +457,8 @@ export default function ConfigTab({
   const [enableCashCounterInput, setEnableCashCounterInput] = useState<boolean>(shopConfig.enableCashCounter !== false);
   const [enablePayslipsInput, setEnablePayslipsInput] = useState<boolean>(shopConfig.enablePayslips !== false);
   const [isShopSaved, setIsShopSaved] = useState<boolean>(false);
+  const [copiedHex, setCopiedHex] = useState<boolean>(false);
+  const [activePreviewShade, setActivePreviewShade] = useState<number | null>(null);
 
   // Synchronize local states when the fetched shopConfig props change
   React.useEffect(() => {
@@ -870,104 +892,288 @@ export default function ConfigTab({
               </div>
             </div>
 
-            {/* Shop Theme & Color Atmosphere Selection */}
-            <div className="space-y-3 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-5 mt-2">
-              <div className="flex items-center justify-between">
-                <span className="block text-xs font-bold text-slate-800 flex items-center space-x-2">
-                  <Palette className="w-4 h-4 text-indigo-600" />
-                  <span>ชุดธีมและบรรยากาศโปรแกรม (App Theme & Color Gallery)</span>
-                </span>
-                <span className="text-[11px] font-semibold text-slate-400">
-                  เลือกจากธีมสำเร็จรูป หรือ ปรับแต่งสีอิสระ
-                </span>
-              </div>
-
-              {/* Theme Cards Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-                {THEME_PRESETS.map((preset) => {
-                  const isSelected = themeInput === preset.id;
-                  return (
-                    <button
-                      key={preset.id}
-                      type="button"
-                      onClick={() => {
-                        setThemeInput(preset.id);
-                        setPrimaryColorInput(preset.primaryColor);
-                      }}
-                      className={`p-3.5 rounded-2xl border text-left transition-all relative cursor-pointer overflow-hidden flex flex-col justify-between space-y-3 ${
-                        isSelected 
-                          ? 'bg-white border-slate-900 shadow-md ring-2 ring-slate-900/10 scale-[1.01]' 
-                          : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 hover:shadow-2xs'
-                      }`}
-                    >
-                      <div className="space-y-1.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
-                            <span>{preset.name}</span>
-                          </span>
-                          {isSelected && (
-                            <span className="bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
-                              <Check className="w-2.5 h-2.5" />
-                              <span>เลือกใช้งาน</span>
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[10.5px] text-slate-500 leading-snug line-clamp-2">
-                          {preset.description}
-                        </p>
-                      </div>
-
-                      {/* Color Palette Preview Swatches */}
-                      <div className="flex items-center space-x-1.5 pt-1 border-t border-slate-100">
-                        {preset.previewColors.map((col, idx) => (
-                          <span 
-                            key={idx} 
-                            className="w-5 h-5 rounded-full border border-black/10 shadow-2xs transition-transform hover:scale-110" 
-                            style={{ backgroundColor: col }}
-                            title={col}
-                          />
-                        ))}
-                      </div>
-                    </button>
-                  );
-                })}
-              </div>
-
-              {/* Custom Hex Accent Color Fine-Tuning */}
-              <div className="bg-slate-50/60 p-3.5 rounded-2xl border border-slate-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 mt-2">
+            {/* Shop Theme & Primary Color Selection with generateShade */}
+            <div className="space-y-4 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-5 mt-2">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
                 <div className="space-y-0.5">
-                  <span className="block text-xs font-bold text-slate-800">ปรับแต่งรหัสสีเฉพาะแบรนด์ (Custom Hex Code Color):</span>
-                  <p className="text-[11px] text-slate-500">
-                    สามารถปรับโทนสีไฮไลท์หลักของระบบให้ตรงตาม CI แบรนด์ของคุณได้อย่างสมบูรณ์แบบ
+                  <span className="block text-sm font-black text-slate-900 flex items-center space-x-2">
+                    <Palette className="w-4 h-4 text-indigo-600" />
+                    <span>สีหลักประจำร้าน (Primary Brand Color) & ปรับแต่งโทนสี UI อัตโนมัติ</span>
+                  </span>
+                  <p className="text-xs text-slate-500">
+                    เลือกสีหลักของร้าน จากนั้นฟังก์ชัน <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-indigo-600 font-bold text-[11px]">generateShade()</code> จะคำนวณและปรับโทนสีพื้นหลัง ปุ่ม ป้ายกำกับ เส้นขอบ และการ์ดทั้งแอปให้สอดคล้องกันทันที
                   </p>
                 </div>
+                <div className="flex items-center space-x-2 shrink-0">
+                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-mono flex items-center space-x-1.5 border border-slate-200">
+                    <span className="w-2.5 h-2.5 rounded-full border border-black/10 shadow-2xs" style={{ backgroundColor: primaryColorInput }} />
+                    <span>{primaryColorInput.toUpperCase()}</span>
+                  </span>
+                </div>
+              </div>
 
-                <div className="flex items-center space-x-3 bg-white p-1.5 px-2.5 rounded-xl border border-slate-200 shrink-0">
-                  <div className="relative w-7 h-7 rounded-lg overflow-hidden border border-slate-300 shadow-2xs shrink-0">
-                    <input
-                      type="color"
-                      value={primaryColorInput}
-                      onChange={(e) => {
-                        setPrimaryColorInput(e.target.value);
-                      }}
-                      className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0 bg-transparent"
-                      id="brand-color-picker"
-                    />
+              {/* Color Picker Controls & Quick Palette */}
+              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/90 space-y-4">
+                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                  
+                  {/* Visual Color Picker & Hex Input */}
+                  <div className="flex items-center space-x-3 w-full sm:w-auto">
+                    <div className="relative w-12 h-12 rounded-2xl overflow-hidden border-2 border-white shadow-md ring-2 ring-slate-200 hover:ring-indigo-500 transition-all shrink-0 cursor-pointer group">
+                      <div 
+                        className="w-full h-full flex items-center justify-center text-white"
+                        style={{ backgroundColor: primaryColorInput }}
+                      >
+                        <Pipette className="w-4 h-4 drop-shadow-md opacity-80 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                      <input
+                        type="color"
+                        value={primaryColorInput.length === 7 ? primaryColorInput : '#6366f1'}
+                        onChange={(e) => {
+                          setPrimaryColorInput(e.target.value);
+                          setThemeInput('custom');
+                        }}
+                        className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0 opacity-0"
+                        id="primary-brand-color-picker"
+                        title="คลิกเพื่อเลือกสีจาก Color Picker"
+                      />
+                    </div>
+
+                    <div className="space-y-1">
+                      <label className="text-[11px] font-bold text-slate-600 block">
+                        รหัสสี Hex (พิมพ์รหัสสีได้อิสระ):
+                      </label>
+                      <div className="flex items-center space-x-1.5">
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={primaryColorInput}
+                            onChange={(e) => {
+                              const val = e.target.value;
+                              if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                                setPrimaryColorInput(val);
+                                setThemeInput('custom');
+                              }
+                            }}
+                            placeholder="#6366f1"
+                            className="w-28 pl-3 pr-2 py-1.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
+                            maxLength={7}
+                          />
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            if (navigator.clipboard) {
+                              navigator.clipboard.writeText(primaryColorInput);
+                              setCopiedHex(true);
+                              setTimeout(() => setCopiedHex(false), 2000);
+                            }
+                          }}
+                          className="px-2.5 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-xl hover:bg-slate-50 text-slate-700 flex items-center space-x-1 shadow-2xs cursor-pointer"
+                          title="คัดลอกรหัสสี"
+                        >
+                          {copiedHex ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                          <span className="text-[11px]">{copiedHex ? 'คัดลอกแล้ว' : 'คัดลอก'}</span>
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <input
-                    type="text"
-                    value={primaryColorInput}
-                    onChange={(e) => {
-                      const val = e.target.value;
-                      if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
-                        setPrimaryColorInput(val);
-                      }
+
+                  {/* Quick Preset Swatches Chips */}
+                  <div className="w-full lg:w-auto flex-1">
+                    <span className="text-[11px] font-bold text-slate-600 block mb-1.5">
+                      หรือเลือกโทนสียอดนิยมสำหรับร้านบาร์เบอร์/ซาลอน:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {QUICK_BRAND_COLORS.map((col) => {
+                        const isMatch = primaryColorInput.toLowerCase() === col.hex.toLowerCase();
+                        return (
+                          <button
+                            key={col.hex}
+                            type="button"
+                            onClick={() => {
+                              setPrimaryColorInput(col.hex);
+                              setThemeInput('custom');
+                            }}
+                            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center space-x-1.5 transition-all cursor-pointer border ${
+                              isMatch
+                                ? 'bg-white border-slate-900 text-slate-900 shadow-xs ring-2 ring-slate-900/10 scale-105'
+                                : 'bg-white/80 border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300 hover:scale-102'
+                            }`}
+                          >
+                            <span 
+                              className="w-3 h-3 rounded-full border border-black/10 shrink-0 shadow-2xs" 
+                              style={{ backgroundColor: col.hex }} 
+                            />
+                            <span>{col.name}</span>
+                          </button>
+                        );
+                      })}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. Dynamic generateShade() Lightness Spectrum Bar */}
+                <div className="space-y-2 pt-3 border-t border-slate-200/70">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      <span>เฉดสีที่ถูกสร้างขึ้นอัตโนมัติด้วยฟังก์ชัน generateShade (50 - 950 Palette):</span>
+                    </span>
+                    <span className="text-[10.5px] text-slate-400 font-sans">
+                      คำนวณ HSL Lightness สำหรับพื้นหลัง ปุ่ม และการ์ด
+                    </span>
+                  </div>
+
+                  <div className="grid grid-cols-11 gap-1 sm:gap-1.5 rounded-xl overflow-hidden p-1.5 bg-white border border-slate-200 shadow-2xs">
+                    {getShadePalette(primaryColorInput).map((step) => {
+                      const isBase = step.shade === 600;
+                      return (
+                        <div 
+                          key={step.shade}
+                          className="group relative flex flex-col items-center cursor-default"
+                          title={`${step.label}: ${step.color}`}
+                        >
+                          <div 
+                            className={`w-full h-9 sm:h-11 rounded-lg transition-transform group-hover:scale-110 shadow-2xs flex items-center justify-center ${
+                              isBase ? 'ring-2 ring-slate-900 ring-offset-1 z-10' : ''
+                            }`}
+                            style={{ backgroundColor: step.color }}
+                          >
+                            {isBase && <Check className="w-3 h-3 text-white drop-shadow-md" />}
+                          </div>
+                          <span className={`text-[10px] mt-1 font-mono font-bold ${
+                            isBase ? 'text-slate-900 font-extrabold underline' : 'text-slate-500'
+                          }`}>
+                            {step.shade}
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                {/* 3. Real-time Live UI Preview Card */}
+                <div className="space-y-2 pt-3 border-t border-slate-200/70">
+                  <span className="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
+                    <Eye className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>ตัวอย่างหน้าตา UI จริงเมื่อใช้สีนี้ (Live Component Preview):</span>
+                  </span>
+
+                  <div 
+                    className="p-4 rounded-2xl border transition-all"
+                    style={{ 
+                      backgroundColor: generateShade(primaryColorInput, 98),
+                      borderColor: generateShade(primaryColorInput, 85)
                     }}
-                    placeholder="#6366f1"
-                    className="w-20 px-2 py-1 text-xs font-mono font-bold bg-slate-50 border border-slate-200 rounded-lg focus:outline-none focus:bg-white focus:ring-1 focus:ring-indigo-500"
-                    maxLength={7}
-                  />
+                  >
+                    <div className="flex flex-wrap items-center gap-3">
+                      {/* Sample Primary Button */}
+                      <button
+                        type="button"
+                        className="px-4 py-2 rounded-xl text-white text-xs font-bold shadow-sm transition-all hover:opacity-90 flex items-center space-x-1.5 cursor-default"
+                        style={{ backgroundColor: primaryColorInput }}
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>ปุ่มหลัก (Primary Button)</span>
+                      </button>
+
+                      {/* Sample Ghost Button / Light Tag */}
+                      <div
+                        className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1"
+                        style={{
+                          backgroundColor: generateShade(primaryColorInput, 94),
+                          color: generateShade(primaryColorInput, 30),
+                          borderColor: generateShade(primaryColorInput, 80)
+                        }}
+                      >
+                        <Check className="w-3 h-3" />
+                        <span>ป้ายกำกับ (Soft Badge - 100)</span>
+                      </div>
+
+                      {/* Sample Active Tab Pill */}
+                      <div
+                        className="px-3 py-1.5 rounded-full text-white text-xs font-bold shadow-2xs"
+                        style={{ backgroundColor: generateShade(primaryColorInput, 42) }}
+                      >
+                        แท็บที่เลือกใช้งาน
+                      </div>
+
+                      {/* Sample Subtle Input Border */}
+                      <div
+                        className="px-3 py-1.5 rounded-xl text-xs bg-white border font-mono font-semibold"
+                        style={{ 
+                          borderColor: generateShade(primaryColorInput, 60),
+                          color: generateShade(primaryColorInput, 25)
+                        }}
+                      >
+                        ช่องกรอกข้อมูล (Focus Ring)
+                      </div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              {/* Theme Presets Gallery */}
+              <div className="space-y-3 pt-4 border-t border-slate-100">
+                <div className="flex items-center justify-between">
+                  <span className="block text-xs font-bold text-slate-800 flex items-center space-x-2">
+                    <Sliders className="w-4 h-4 text-slate-600" />
+                    <span>หรือเลือกจากชุดธีมและบรรยากาศสำเร็จรูป (Theme Presets Gallery):</span>
+                  </span>
+                  <span className="text-[11px] font-semibold text-slate-400">
+                    เลือกสไตล์ภาพรวม (สว่าง / วินเทจ / มืดลักชัวรี)
+                  </span>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+                  {THEME_PRESETS.map((preset) => {
+                    const isSelected = themeInput === preset.id;
+                    return (
+                      <button
+                        key={preset.id}
+                        type="button"
+                        onClick={() => {
+                          setThemeInput(preset.id);
+                          setPrimaryColorInput(preset.primaryColor);
+                        }}
+                        className={`p-3.5 rounded-2xl border text-left transition-all relative cursor-pointer overflow-hidden flex flex-col justify-between space-y-3 ${
+                          isSelected 
+                            ? 'bg-white border-slate-900 shadow-md ring-2 ring-slate-900/10 scale-[1.01]' 
+                            : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 hover:shadow-2xs'
+                        }`}
+                      >
+                        <div className="space-y-1.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
+                              <span>{preset.name}</span>
+                            </span>
+                            {isSelected && (
+                              <span className="bg-slate-900 text-white text-[9px] font-bold px-2 py-0.5 rounded-full flex items-center space-x-1">
+                                <Check className="w-2.5 h-2.5" />
+                                <span>เลือกใช้งาน</span>
+                              </span>
+                            )}
+                          </div>
+                          <p className="text-[10.5px] text-slate-500 leading-snug line-clamp-2">
+                            {preset.description}
+                          </p>
+                        </div>
+
+                        {/* Color Palette Preview Swatches */}
+                        <div className="flex items-center space-x-1.5 pt-1 border-t border-slate-100">
+                          {preset.previewColors.map((col, idx) => (
+                            <span 
+                              key={idx} 
+                              className="w-5 h-5 rounded-full border border-black/10 shadow-2xs transition-transform hover:scale-110" 
+                              style={{ backgroundColor: col }}
+                              title={col}
+                            />
+                          ))}
+                        </div>
+                      </button>
+                    );
+                  })}
                 </div>
               </div>
             </div>
@@ -2041,6 +2247,133 @@ export default function ConfigTab({
             ℹ️ **กติการะบบอัตโนมัติ**: เมื่อใช้งานครบ 1 ปี (365 วัน) ระบบจะแสดงป๊อปอัปแจ้งเตือนทุกวันเป็นเวลา 1 เดือน (30 วัน) เพื่อให้ท่านดาวน์โหลดไฟล์ Report ย้อนหลังเก็บไว้ หลังจากนั้นระบบจะทำการ **Factory Reset อัตโนมัติ** เพื่อล้างข้อมูลและเริ่มต้นปีการทำงานใหม่
           </p>
         </div>
+
+        {/* 1-Year Old Sales Cleanup Card (Performance & Firestore Optimization) */}
+        {(() => {
+          const oneYearAgoDate = new Date();
+          oneYearAgoDate.setFullYear(oneYearAgoDate.getFullYear() - 1);
+          const cutoffDateIso = oneYearAgoDate.toISOString().split('T')[0];
+
+          const oldSalesList = (sales || []).filter((s) => {
+            const sDate = s.date || (s.timestamp ? s.timestamp.split('T')[0] : '');
+            return sDate && sDate < cutoffDateIso;
+          });
+          const oldSalesCount = oldSalesList.length;
+
+          return (
+            <div className="p-4 border border-amber-200/90 bg-gradient-to-br from-amber-50/50 via-orange-50/30 to-amber-50/20 rounded-2xl space-y-3 shadow-2xs">
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div className="space-y-1">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="p-1.5 bg-amber-100 text-amber-700 rounded-lg">
+                      <Zap className="w-4 h-4" />
+                    </span>
+                    <span className="text-xs font-black text-amber-950 font-sans">
+                      ล้างข้อมูลบิลขายที่เก่ากว่า 1 ปี (เร่งความเร็ว & ประหยัดพื้นที่ Firestore)
+                    </span>
+                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
+                      ⚡ เพิ่มประสิทธิภาพ
+                    </span>
+                  </div>
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-sans">
+                    ลบเฉพาะประวัติบิลขายที่บันทึกไว้ก่อนวันที่ <strong>{formatThaiDate(cutoffDateIso)}</strong> (เกิน 365 วัน) เพื่อลดขนาดข้อมูลที่ต้องโหลดในหน้า Dashboard และประหยัดโควตา Cloud Firestore โดยยังคงเก็บประวัติบิลย้อนหลัง 1 ปีล่าสุด รวมถึงรายชื่อช่าง, รายการสินค้า, และข้อมูลสมาชิกไว้ครบถ้วนสมบูรณ์
+                  </p>
+                </div>
+
+                {/* Counter Badge */}
+                <div className="shrink-0 flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-amber-200 shadow-2xs self-start sm:self-center">
+                  <span className="text-[10px] text-slate-500 font-bold">บิลที่เกิน 1 ปี:</span>
+                  <span className={`text-xs font-black font-mono px-2 py-0.5 rounded-md ${
+                    oldSalesCount > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {oldSalesCount} รายการ
+                  </span>
+                </div>
+              </div>
+
+              {showClearOldSalesConfirm ? (
+                <div className="p-3.5 bg-amber-50/90 border border-amber-300 rounded-xl space-y-3 animate-fadeIn">
+                  <span className="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
+                    <span>ยืนยันการลบประวัติบิลขายที่เก่ากว่า 1 ปี (ก่อน {formatThaiDate(cutoffDateIso)})?</span>
+                  </span>
+                  <p className="text-[11px] text-amber-800 leading-relaxed font-sans">
+                    ระบบจะทำการลบบิลขายจำนวน <strong>{oldSalesCount} รายการ</strong> ออกจากฐานข้อมูลคลาวด์ Firestore อย่างถาวร ข้อมูลบิลขาย 1 ปีล่าสุด ({salesCount - oldSalesCount} รายการ) จะยังคงอยู่ครบถ้วน
+                  </p>
+                  <div className="flex gap-2">
+                    <button
+                      type="button"
+                      disabled={isClearingOldSales}
+                      onClick={() => setShowClearOldSalesConfirm(false)}
+                      className="flex-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isClearingOldSales}
+                      onClick={async () => {
+                        if (!onClearSalesOlderThanOneYear) return;
+                        setIsClearingOldSales(true);
+                        try {
+                          const count = await onClearSalesOlderThanOneYear();
+                          setShowClearOldSalesConfirm(false);
+                          setAlertDialog({
+                            isOpen: true,
+                            title: 'ล้างข้อมูลบิลเก่าสำเร็จ',
+                            message: `ล้างข้อมูลบิลขายที่เก่ากว่า 1 ปี สำเร็จเรียบร้อยแล้ว จำนวน ${count} รายการ! ช่วยเพิ่มประสิทธิภาพการโหลดหน้าจอและประหยัดพื้นที่จัดเก็บ Firestore เรียบร้อยครับ`
+                          });
+                        } catch (err: any) {
+                          setAlertDialog({
+                            isOpen: true,
+                            title: 'เกิดข้อผิดพลาด',
+                            message: err?.message || 'ไม่สามารถล้างข้อมูลบิลเก่าได้ กรุณาลองใหม่อีกครั้ง'
+                          });
+                        } finally {
+                          setIsClearingOldSales(false);
+                        }
+                      }}
+                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
+                    >
+                      {isClearingOldSales ? (
+                        <>
+                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
+                          <span>กำลังล้างข้อมูล...</span>
+                        </>
+                      ) : (
+                        <>
+                          <Zap className="w-3.5 h-3.5" />
+                          <span>ยืนยันล้างบิลเก่า {oldSalesCount} รายการ</span>
+                        </>
+                      )}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
+                  {oldSalesCount > 0 ? (
+                    <button
+                      type="button"
+                      onClick={() => setShowClearOldSalesConfirm(true)}
+                      className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-amber-600/20 flex items-center justify-center space-x-2 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
+                    >
+                      <Zap className="w-4 h-4" />
+                      <span>ล้างข้อมูลบิลขายที่เก่ากว่า 1 ปี ({oldSalesCount} รายการ)</span>
+                    </button>
+                  ) : (
+                    <div className="w-full sm:w-auto px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 border border-slate-200/60">
+                      <Check className="w-4 h-4 text-emerald-600" />
+                      <span>ข้อมูลทุกบิลเป็นปัจจุบัน (ยังไม่มีบิลที่บันทึกไว้เกิน 1 ปี)</span>
+                    </div>
+                  )}
+                  <span className="text-[10px] text-slate-500 italic">
+                    * วันที่ตัดรอบ 1 ปี: บิลที่บันทึกก่อน {formatThaiDate(cutoffDateIso)}
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })()}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
           {/* Option 1: Clear Sales Data only */}

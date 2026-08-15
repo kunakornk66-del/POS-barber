@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, CustomerSubscription, Member, MemberPackage } from './types';
-import { getThemePreset } from './themes';
+import { getThemePreset, generateShade, hexToHsl } from './themes';
 import { 
   INITIAL_BARBERS, 
   INITIAL_PRODUCTS, 
@@ -110,49 +110,6 @@ function cleanUndefined<T>(obj: T): T {
     return cleaned;
   }
   return obj;
-}
-
-// Helper functions for dynamic brand color generation
-function hexToHsl(hex: string) {
-  hex = hex.replace(/^#/, '');
-  if (hex.length === 3) {
-    hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
-  }
-  const r = parseInt(hex.substring(0, 2), 16) / 255;
-  const g = parseInt(hex.substring(2, 4), 16) / 255;
-  const b = parseInt(hex.substring(4, 6), 16) / 255;
-
-  const max = Math.max(r, g, b);
-  const min = Math.min(r, g, b);
-  let h = 0;
-  let s = 0;
-  const l = (max + min) / 2;
-
-  if (max !== min) {
-    const d = max - min;
-    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-    switch (max) {
-      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-      case g: h = (b - r) / d + 2; break;
-      case b: h = (r - g) / d + 4; break;
-    }
-    h /= 6;
-  }
-
-  return {
-    h: Math.round(h * 360),
-    s: Math.round(s * 100),
-    l: Math.round(l * 100)
-  };
-}
-
-function generateShade(baseHex: string, targetLightness: number): string {
-  try {
-    const { h, s } = hexToHsl(baseHex);
-    return `hsl(${h}, ${s}%, ${targetLightness}%)`;
-  } catch (e) {
-    return baseHex;
-  }
 }
 
 const SUPER_ADMIN_EMAILS = [
@@ -1160,6 +1117,48 @@ export default function App() {
       .catch((err) => {
         handleFirestoreError(err, OperationType.DELETE, `salons/${userEmail}/sales`);
       });
+  };
+
+  const handleClearSalesOlderThanOneYear = async (): Promise<number> => {
+    if (!userEmail) return 0;
+    
+    // Calculate cutoff date (exactly 1 year / 365 days ago)
+    const oneYearAgo = new Date();
+    oneYearAgo.setFullYear(oneYearAgo.getFullYear() - 1);
+    const cutoffDateStr = oneYearAgo.toISOString().split('T')[0]; // YYYY-MM-DD
+    
+    const oldSales = sales.filter((s) => {
+      const sDate = s.date || (s.timestamp ? s.timestamp.split('T')[0] : '');
+      return sDate && sDate < cutoffDateStr;
+    });
+
+    if (oldSales.length === 0) {
+      return 0;
+    }
+
+    const oldSaleIds = new Set(oldSales.map((s) => s.id));
+
+    // Update in-memory state immediately for instant UI feedback
+    setSales((prev) => prev.filter((s) => !oldSaleIds.has(s.id)));
+
+    // Perform Firestore batch delete in chunks of 450 (Firestore limit is 500 per batch)
+    try {
+      const BATCH_SIZE = 450;
+      for (let i = 0; i < oldSales.length; i += BATCH_SIZE) {
+        const chunk = oldSales.slice(i, i + BATCH_SIZE);
+        const batch = writeBatch(db);
+        chunk.forEach((sale) => {
+          const sRef = doc(db, "salons", userEmail, "sales", sale.id);
+          batch.delete(sRef);
+        });
+        await batch.commit();
+      }
+      console.log(`🟢 [Firebase] ล้างข้อมูลบิลขายเก่ากว่า 1 ปีสำเร็จ (${oldSales.length} รายการ)`);
+      return oldSales.length;
+    } catch (err: any) {
+      handleFirestoreError(err, OperationType.DELETE, `salons/${userEmail}/sales`);
+      throw err;
+    }
   };
 
   const handleDeleteSale = (saleId: string) => {
@@ -2193,6 +2192,7 @@ export default function App() {
           <div className="tab-content-enter">
             <ConfigTab
               userEmail={userEmail}
+              sales={correctedSales}
               barbers={barbers}
               products={products}
               chemicalPromos={chemicalPromos}
@@ -2210,6 +2210,7 @@ export default function App() {
               onUpdateShopConfig={handleUpdateShopConfig}
               onUpdateVouchers={handleUpdateVouchers}
               onClearSales={handleClearSales}
+              onClearSalesOlderThanOneYear={handleClearSalesOlderThanOneYear}
               onFullReset={handleFullReset}
             />
           </div>

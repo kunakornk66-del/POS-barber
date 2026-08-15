@@ -25,6 +25,7 @@ import {
   getSalePaymentBreakdown,
   exportAsyncMonthlyPdfReport
 } from '../utils';
+import { DailySalesChart } from './DailySalesChart';
 import { 
   TrendingUp, 
   Users, 
@@ -2344,504 +2345,273 @@ export default function DashboardTab({
       </div>
 
       {/* ========================================================== */}
-      {/* SECTION 1: DAILY REPORT & ACCOUNTANT QUICKVIEW */}
+      {/* SECTION 1: DAILY REPORT & SUMMARY */}
       {/* ========================================================== */}
       {(dashboardViewMode === 'daily' || dashboardViewMode === 'all') && (
-        <>
-          {/* QUICK ACCOUNTANT SUMMARY (BENTO GRID WIDGET) */}
-          <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 rounded-3xl p-6 text-white shadow-xl border border-slate-700/50 space-y-5 animate-fade-in">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="p-1.5 bg-amber-500/20 text-amber-400 rounded-xl border border-amber-500/30">
-                <Calculator className="w-5 h-5" />
-              </span>
-              <h2 className="text-lg font-black tracking-tight font-sans text-white">แผงสรุปยอดด่วนรายวันสำหรับนักบัญชี</h2>
-            </div>
-            <p className="text-xs text-slate-300 font-sans">
-              ข้อมูลสรุปตัวเลขสำคัญประจำวันที่ <span className="font-bold text-amber-300 font-mono underline decoration-dotted">{formatThaiDate(selectedDate)}</span> แสดงผลทันทีโดยไม่ต้องเปิดรายงานเต็ม
-            </p>
-          </div>
+        <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-5 sm:p-7 space-y-6">
           
-          <div className="flex items-center space-x-2 self-start md:self-center shrink-0">
-            <button
-              onClick={() => setIsCloseSalesModalOpen(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-amber-500 hover:bg-amber-400 active:bg-amber-600 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md cursor-pointer mr-2 border border-amber-400/30"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>ปิดยอดขายประจำวัน</span>
-            </button>
-            <span className="text-[10px] font-mono text-slate-400 uppercase tracking-widest bg-slate-800 px-2.5 py-1 rounded-lg border border-slate-700">Accountant QuickView</span>
-            {selectedDate === getLocalDateString() && (
-              <span className="px-2 py-0.5 bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 rounded-full text-[10px] font-bold animate-pulse">วันนี้ (Live)</span>
-            )}
-          </div>
-        </div>
-
-        {dailySales.length === 0 ? (
-          <div className="p-6 text-center bg-slate-800/40 rounded-2xl border border-dashed border-slate-700/60 flex flex-col items-center justify-center space-y-2">
-            <Coins className="w-8 h-8 text-slate-500 animate-bounce" />
-            <p className="text-xs text-slate-300 font-sans font-medium">ไม่มีรายการรับเงินในวันที่ {formatThaiDate(selectedDate)}</p>
-            <p className="text-[10px] text-slate-500 font-sans">ตรวจสอบการป้อนข้อมูลขายในระบบหรือเลือกวันอื่นเพื่อสรุปตัวเลข</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
-            
-            {/* Metric 1: ยอดรับรวม (Gross Sales) */}
-            <div className="bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 p-4 rounded-2xl space-y-2 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-bold">1. ยอดรับเงินรวม</span>
-                <span className="p-1 bg-indigo-500/20 text-indigo-400 rounded-lg"><TrendingUp className="w-3.5 h-3.5" /></span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="text-base font-black text-white font-mono tracking-tight">
-                  {formatBaht(dailyPaymentStats.cashAmount + dailyPaymentStats.transferAmount)}
-                </div>
-                <div className="text-[10px] text-indigo-300 font-sans">
-                  รับจากลูกค้าจริงทั้งหมด
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 2: ยอดเงินสดเข้าเก๊ะ */}
-            <div className="bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 p-4 rounded-2xl space-y-2 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-bold">2. ยอดเงินสด (เก๊ะ)</span>
-                <span className="p-1 bg-emerald-500/20 text-emerald-400 rounded-lg"><Coins className="w-3.5 h-3.5" /></span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="text-base font-black text-emerald-400 font-mono tracking-tight">
-                  {formatBaht(dailyPaymentStats.cashAmount)}
-                </div>
-                <div className="text-[10px] text-slate-400 font-sans">
-                  จำนวน {dailyPaymentStats.cashCount} บิลสด
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 3: ยอดเงินโอนเข้าแบงก์ */}
-            <div className="bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 p-4 rounded-2xl space-y-2 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-bold">3. ยอดเงินโอน (ธนาคาร)</span>
-                <span className="p-1 bg-sky-500/20 text-sky-400 rounded-lg"><DollarSign className="w-3.5 h-3.5" /></span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="text-base font-black text-sky-400 font-mono tracking-tight">
-                  {formatBaht(dailyPaymentStats.transferAmount)}
-                </div>
-                <div className="text-[10px] text-slate-400 font-sans">
-                  จำนวน {dailyPaymentStats.transferCount} ธุรกรรมโอน
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 4: ยอดรายจ่าย/เบิกหน้าร้าน */}
-            <div className="bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 p-4 rounded-2xl space-y-2 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-bold">4. รายจ่าย/เบิกหน้าร้าน</span>
-                <span className="p-1 bg-rose-500/20 text-rose-400 rounded-lg"><ArrowDownCircle className="w-3.5 h-3.5" /></span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="text-base font-black text-rose-400 font-mono tracking-tight">
-                  {formatBaht(totalDailyExpensesAmount)}
-                </div>
-                <div className="text-[10px] text-slate-400 font-sans">
-                  จำนวน {dailyExpenses.length} รายการจ่าย
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 5: ส่วนแบ่งร้านค้าสุทธิ */}
-            <div className="bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 p-4 rounded-2xl space-y-2 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-bold">5. รายได้เข้าร้านสุทธิ</span>
-                <span className="p-1 bg-amber-500/20 text-amber-400 rounded-lg"><TrendingUp className="w-3.5 h-3.5" /></span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="text-base font-black text-amber-300 font-mono tracking-tight">
-                  {formatBaht(dailySales.reduce((sum, s) => sum + (s.shopTotalShare || 0), 0))}
-                </div>
-                <div className="text-[10px] text-slate-400 font-sans">
-                  หักค่าส่วนแบ่งช่างแล้ว
-                </div>
-              </div>
-            </div>
-
-            {/* Metric 6: เงินสดสุทธินำส่งร้าน */}
-            <div className="bg-slate-800/60 hover:bg-slate-800 border border-slate-700/50 p-4 rounded-2xl space-y-2 transition-all">
-              <div className="flex items-center justify-between">
-                <span className="text-[11px] text-slate-400 font-bold">6. เงินสดหน้าร้านนำส่ง</span>
-                <span className="p-1 bg-violet-500/20 text-violet-400 rounded-lg"><Coins className="w-3.5 h-3.5" /></span>
-              </div>
-              <div className="space-y-0.5">
-                <div className="text-base font-black text-violet-300 font-mono tracking-tight">
-                  {formatBaht(dailyPaymentStats.cashAmount - totalDailyExpensesAmount)}
-                </div>
-                <div className="text-[10px] text-slate-400 font-sans">
-                  เงินสดหลังหักค่าใช้จ่าย
-                </div>
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {dailySales.length > 0 && (
-          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pt-3 border-t border-slate-800 text-[11px] text-slate-400 gap-2">
-            <div className="flex flex-wrap gap-x-4 gap-y-1">
-              <span>👥 จำนวนบิลขายรวม: <strong className="text-white font-mono">{dailySales.length}</strong> ใบเสร็จ</span>
-              <span>💇‍♂️ ตัดผมทั้งหมด: <strong className="text-white font-mono">{dailySales.filter(s => s.haircutPrice > 0).length}</strong> หัว</span>
-              <span>🏷️ ยอดส่วนแบ่งช่างสะสมรวม: <strong className="text-white font-mono">{formatBahtWithDecimals(dailyBarberStats.reduce((sum, b) => sum + b.grandTotal, 0))}</strong></span>
-            </div>
-            <div className="text-slate-500 italic font-sans text-[10px]">
-              * อัปเดตข้อมูลแบบเรียลไทม์จากระบบ POS
-            </div>
-          </div>
-        )}
-      </div>
-
-      {/* ========================================================== */}
-      {/* SECTION 1: DAILY REPORT */}
-      {/* ========================================================== */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-6">
-        
-        {/* Header containing dropdown to filter daily report */}
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-5">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <span className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg">
-                <Calendar className="w-5 h-5" />
-              </span>
-              <h2 className="text-xl font-extrabold text-slate-800">1. ยอดขายและบัญชีรายวัน</h2>
-            </div>
-            <p className="text-xs text-slate-500">
-              แจกแจงผลงานช่าง ช่องทางการเงิน และออกสรุปข้อมูลสรุปการเงินในรายวัน
-            </p>
-          </div>
-
-          <div className="flex flex-wrap items-center gap-2">
-            <button
-              onClick={() => setIsCloseSalesModalOpen(true)}
-              className="flex items-center space-x-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-500 active:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm cursor-pointer border border-indigo-500/10"
-            >
-              <Lock className="w-3.5 h-3.5" />
-              <span>ปิดยอดขายประจำวัน</span>
-            </button>
-
-            <span className="text-sm font-semibold text-slate-600">เลือกวันที่ตรวจสอบ:</span>
-            <select
-              value={selectedDate}
-              onChange={(e) => setSelectedDate(e.target.value)}
-              className="px-3 py-1.5 border border-slate-200 rounded-xl outline-none bg-white text-sm font-mono focus:ring-1 focus:ring-slate-800 focus:border-slate-800"
-            >
-              {availableDates.map(d => (
-                <option key={d} value={d}>
-                  {formatThaiDate(d)} {d === getLocalDateString() ? '(วันนี้)' : ''}
-                </option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        {/* CUMULATIVE MONTH-TO-DATE QUICK STATS BANNER (Day 1 to Selected Date) */}
-        <div className="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white rounded-2xl p-4 border border-indigo-900/50 shadow-md space-y-3">
-          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 border-b border-indigo-800/40 pb-2.5">
-            <div className="flex items-center space-x-2">
-              <span className="p-1.5 bg-indigo-500/20 text-indigo-300 rounded-lg">
-                <Calendar className="w-4 h-4" />
-              </span>
-              <span className="text-xs font-bold text-slate-200">
-                สรุปยอดสะสมตั้งแต่วันที่ 1 ถึง {formatThaiDate(selectedDate)}
-              </span>
-              <span className="text-[10px] bg-indigo-500/30 text-indigo-200 px-2.5 py-0.5 rounded-full font-mono font-bold">
-                สะสม {monthToDateSummary.dayCount} วัน
-              </span>
-            </div>
-            <button
-              onClick={() => {
-                const el = document.getElementById('daily-breakdown-section');
-                if (el) el.scrollIntoView({ behavior: 'smooth' });
-              }}
-              className="text-[11px] text-indigo-300 hover:text-white font-bold underline cursor-pointer flex items-center space-x-1"
-            >
-              <span>ดูตารางสรุปรายวันสะสมทั้งหมด (วันที่ 1 - ปัจจุบัน)</span>
-              <Search className="w-3 h-3" />
-            </button>
-          </div>
-
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 text-xs font-mono">
-            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 space-y-0.5">
-              <span className="text-[10px] text-emerald-400 font-sans block">💵 เงินสดสะสม</span>
-              <span className="text-sm font-bold text-emerald-300">{formatBaht(monthToDateSummary.cashTotal)}</span>
-            </div>
-
-            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 space-y-0.5">
-              <span className="text-[10px] text-sky-400 font-sans block">📱 เงินโอนสะสม</span>
-              <span className="text-sm font-bold text-sky-300">{formatBaht(monthToDateSummary.transferTotal)}</span>
-            </div>
-
-            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 space-y-0.5">
-              <span className="text-[10px] text-slate-300 font-sans block">💰 รายรับรวมสะสม</span>
-              <span className="text-sm font-bold text-white">{formatBaht(monthToDateSummary.salesTotal)}</span>
-            </div>
-
-            <div className="bg-white/5 p-2.5 rounded-xl border border-white/5 space-y-0.5">
-              <span className="text-[10px] text-indigo-300 font-sans block">🏦 เงินสดคงเหลือสะสม</span>
-              <span className="text-sm font-bold text-indigo-200">{formatBaht(monthToDateSummary.netCashTotal)}</span>
-            </div>
-          </div>
-        </div>
-
-        {/* Display daily status banner */}
-        {dailySales.length === 0 ? (
-          <div className="p-10 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
-            <Calculator className="w-10 h-10 text-slate-400 mx-auto mb-3" />
-            <p className="text-sm text-slate-600 font-semibold">ไม่พบข้อมูลยอดบันทึกขายในวันที่ {formatThaiDate(selectedDate)}</p>
-            <p className="text-xs text-slate-400 mt-1">กรุณากลับไปที่แท็บหน้าแรกเพื่อทำการกรอกบันทึกบริการลูกค้า</p>
-          </div>
-        ) : (
-          <div className="space-y-6">
-            
-            {/* ยอดขายแบบแยกย่อย (Breakdown) รายวัน */}
-            <div className="bg-slate-50 border border-slate-200/60 p-5 rounded-2xl space-y-4">
-              <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+          {/* Header containing Date Picker & Actions */}
+          <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 border-b border-slate-100 pb-5">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2.5">
+                <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl border border-indigo-100/60 shadow-2xs">
+                  <Calendar className="w-5 h-5" />
+                </span>
                 <div>
-                  <h4 className="text-sm font-extrabold text-slate-800 flex items-center space-x-2">
-                    <span className="p-1 bg-indigo-500/10 text-indigo-600 rounded">
-                      <Calculator className="w-4 h-4" />
-                    </span>
-                    <span>📊 สัดส่วนรายได้แยกประเภท (ยอดขายรายวัน)</span>
-                  </h4>
-                  <p className="text-[11px] text-slate-500">ยอดรวมสัดส่วนรายได้แยกตามบริการและสินค้าของวันที่ {formatThaiDate(selectedDate)}</p>
-                </div>
-                <div className="text-xs font-bold text-slate-600 bg-white border border-slate-100 px-3 py-1 rounded-xl shadow-xs">
-                  ยอดรวมสัดส่วนรายได้: <span className="font-mono text-indigo-600 font-black">{formatBaht(dailyBreakdown.combinedTotal)}</span>
+                  <div className="flex items-center space-x-2">
+                    <h2 className="text-lg sm:text-xl font-extrabold text-slate-800">1. ยอดขายและบัญชีรายวัน</h2>
+                    {selectedDate === getLocalDateString() && (
+                      <span className="px-2.5 py-0.5 bg-emerald-50 text-emerald-700 border border-emerald-200/70 rounded-full text-[10px] font-bold">
+                        วันนี้ (Live)
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-500">
+                    สรุปยอดรายรับ เงินสด เงินโอน รายจ่าย และส่วนแบ่งช่าง ประจำวันที่ <span className="font-bold text-slate-700">{formatThaiDate(selectedDate)}</span>
+                  </p>
                 </div>
               </div>
-
-              {/* Progress Bar Proportion */}
-              {dailyBreakdown.combinedTotal > 0 ? (
-                <div className="space-y-4">
-                  <div className="h-3.5 w-full bg-slate-200/50 rounded-full overflow-hidden flex shadow-inner border border-slate-100">
-                    {dailyBreakdown.haircutTotal > 0 && (
-                      <div 
-                        style={{ width: `${dailyBreakdown.haircutPct}%` }} 
-                        className="bg-indigo-600 h-full transition-all duration-500 hover:opacity-90" 
-                        title={`ค่าตัดผม: ${formatBaht(dailyBreakdown.haircutTotal)} (${dailyBreakdown.haircutPct.toFixed(1)}%)`}
-                      />
-                    )}
-                    {dailyBreakdown.chemicalTotal > 0 && (
-                      <div 
-                        style={{ width: `${dailyBreakdown.chemicalPct}%` }} 
-                        className="bg-pink-500 h-full transition-all duration-500 hover:opacity-90" 
-                        title={`งานเคมี: ${formatBaht(dailyBreakdown.chemicalTotal)} (${dailyBreakdown.chemicalPct.toFixed(1)}%)`}
-                      />
-                    )}
-                    {dailyBreakdown.productTotal > 0 && (
-                      <div 
-                        style={{ width: `${dailyBreakdown.productPct}%` }} 
-                        className="bg-amber-500 h-full transition-all duration-500 hover:opacity-90" 
-                        title={`ขายสินค้า: ${formatBaht(dailyBreakdown.productTotal)} (${dailyBreakdown.productPct.toFixed(1)}%)`}
-                      />
-                    )}
-                  </div>
-
-                  {/* 3-Column Stats Grid */}
-                  <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                    {/* Haircut Card */}
-                    <div className="bg-white border border-slate-100 hover:border-slate-200 p-3.5 rounded-xl flex items-center justify-between shadow-xs transition-colors">
-                      <div className="flex items-center space-x-2.5">
-                        <div className="p-2 bg-indigo-50 text-indigo-600 rounded-lg">
-                          <Scissors className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-[11px] text-slate-400 font-bold">ยอดรวมค่าตัดผม</p>
-                          <p className="text-sm font-black text-slate-800 font-mono mt-0.5">{formatBaht(dailyBreakdown.haircutTotal)}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md font-mono">{dailyBreakdown.haircutPct.toFixed(1)}%</span>
-                    </div>
-
-                    {/* Chemical Card */}
-                    <div className="bg-white border border-slate-100 hover:border-slate-200 p-3.5 rounded-xl flex items-center justify-between shadow-xs transition-colors">
-                      <div className="flex items-center space-x-2.5">
-                        <div className="p-2 bg-pink-50 text-pink-600 rounded-lg">
-                          <Sparkles className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-[11px] text-slate-400 font-bold">ยอดบริการเคมี</p>
-                          <p className="text-sm font-black text-slate-800 font-mono mt-0.5">{formatBaht(dailyBreakdown.chemicalTotal)}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-pink-600 bg-pink-50 px-2 py-0.5 rounded-md font-mono">{dailyBreakdown.chemicalPct.toFixed(1)}%</span>
-                    </div>
-
-                    {/* Product Card */}
-                    <div className="bg-white border border-slate-100 hover:border-slate-200 p-3.5 rounded-xl flex items-center justify-between shadow-xs transition-colors">
-                      <div className="flex items-center space-x-2.5">
-                        <div className="p-2 bg-amber-50 text-amber-600 rounded-lg">
-                          <ShoppingBag className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <p className="text-[11px] text-slate-400 font-bold">ยอดขายสินค้า</p>
-                          <p className="text-sm font-black text-slate-800 font-mono mt-0.5">{formatBaht(dailyBreakdown.productTotal)}</p>
-                        </div>
-                      </div>
-                      <span className="text-xs font-bold text-amber-600 bg-amber-50 px-2 py-0.5 rounded-md font-mono">{dailyBreakdown.productPct.toFixed(1)}%</span>
-                    </div>
-                  </div>
-                </div>
-              ) : (
-                <p className="text-xs text-slate-400 italic">ไม่มีข้อมูลสัดส่วนเนื่องจากยังไม่มียอดขายบันทึกไว้</p>
-              )}
             </div>
 
-            {/* Barber breakdown cards */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {dailyBarberStats.map((barber) => (
-                <div key={barber.id} className="border border-slate-100 hover:border-slate-200 bg-slate-50/40 rounded-2xl p-5 space-y-4 shadow-xs transition-all">
-                  <div className="flex justify-between items-center bg-white p-2 px-3.5 rounded-xl border border-slate-100">
-                    <span className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                      <User className="w-4 h-4 text-indigo-500" />
-                      <span>ช่าง{barber.name}</span>
-                    </span>
-                    <span className="text-xs px-2.5 py-0.5 bg-indigo-50 text-indigo-600 rounded-full font-bold">
-                      ผลงาน: {barber.cutsCount} หัว
-                    </span>
-                  </div>
+            <div className="flex flex-wrap items-center gap-2.5">
+              <button
+                type="button"
+                onClick={() => setIsCloseSalesModalOpen(true)}
+                className="flex items-center space-x-1.5 px-3.5 py-2 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
+              >
+                <Lock className="w-3.5 h-3.5" />
+                <span>ปิดยอดขายประจำวัน</span>
+              </button>
 
-                  <div className="space-y-2 text-xs font-mono text-slate-600">
-                    <div className="flex justify-between">
-                      <span>ส่วนแบ่งตัดผม:</span>
-                      <span className="font-semibold text-slate-800">{formatBahtWithDecimals(barber.haircutCom)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>ส่วนแบ่งเคมี:</span>
-                      <span className="font-semibold text-slate-800">{formatBahtWithDecimals(barber.chemicalCom)}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span>ค่าแนะนำสินค้าแชร์:</span>
-                      <span className="font-semibold text-slate-800">{formatBahtWithDecimals(barber.productCom)}</span>
-                    </div>
-                    <div className="flex justify-between text-rose-500">
-                      <span>ทิปได้รับ:</span>
-                      <span className="font-semibold">{formatBahtWithDecimals(barber.tipTotal)}</span>
-                    </div>
-                    <div className="flex justify-between pt-2 border-t border-slate-200/50 text-sm font-bold font-sans text-indigo-700">
-                      <span>ยอดสุทธิที่ช่างได้รับ:</span>
-                      <span>{formatBahtWithDecimals(barber.grandTotal)}</span>
-                    </div>
-                  </div>
-                </div>
-              ))}
+              <div className="flex items-center space-x-2 bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200">
+                <span className="text-xs font-semibold text-slate-600">วันที่:</span>
+                <select
+                  value={selectedDate}
+                  onChange={(e) => setSelectedDate(e.target.value)}
+                  className="border-0 bg-transparent text-xs font-mono font-bold text-slate-800 outline-none cursor-pointer"
+                >
+                  {availableDates.map(d => (
+                    <option key={d} value={d}>
+                      {formatThaiDate(d)} {d === getLocalDateString() ? '(วันนี้)' : ''}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
+          </div>
 
-            {/* Daily payments metrics & counts */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
+          {/* Daily 4-Card Executive Summary */}
+          {dailySales.length === 0 ? (
+            <div className="p-8 text-center bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center space-y-2">
+              <Calculator className="w-8 h-8 text-slate-400" />
+              <p className="text-sm text-slate-600 font-semibold">ไม่มีรายการขายในวันที่ {formatThaiDate(selectedDate)}</p>
+              <p className="text-xs text-slate-400">เลือกวันที่อื่น หรือบันทึกบริการลูกค้าในหน้าแรกเพื่อดูรายงาน</p>
+            </div>
+          ) : (
+            <div className="space-y-6">
               
-              <div className="bg-emerald-50/30 p-5 rounded-2xl border border-emerald-100/50 text-left space-y-1">
-                <span className="text-xs font-semibold text-emerald-600 flex items-center space-x-1">
-                  <span>💵 ยอดเงินสด</span>
-                </span>
-                <div className="text-2xl font-extrabold text-emerald-800 font-mono">
-                  {formatBaht(dailyPaymentStats.cashAmount)}
+              {/* 4 Clean Primary KPI Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 font-sans">
+                
+                {/* Card 1: Gross Sales */}
+                <div className="bg-slate-900 text-white p-4.5 rounded-2xl border border-slate-800 space-y-2 shadow-xs">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">ยอดรับเงินรวมทั้งหมด</span>
+                    <span className="p-1 bg-indigo-500/20 text-indigo-400 rounded-lg"><TrendingUp className="w-3.5 h-3.5" /></span>
+                  </div>
+                  <div className="text-xl font-black text-white font-mono tracking-tight">
+                    {formatBaht(dailyPaymentStats.cashAmount + dailyPaymentStats.transferAmount)}
+                  </div>
+                  <div className="text-[11px] text-indigo-300 font-sans flex items-center justify-between pt-1 border-t border-slate-800">
+                    <span>{dailySales.length} ใบเสร็จ</span>
+                    <span>ตัดผม {dailySales.filter(s => s.haircutPrice > 0).length} หัว</span>
+                  </div>
                 </div>
-                <div className="text-[11px] text-emerald-600 font-sans">
-                  ชำระทั้งหมด {dailyPaymentStats.cashCount} รายการ
+
+                {/* Card 2: Cash in Drawer */}
+                <div className="bg-emerald-50/70 p-4.5 rounded-2xl border border-emerald-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide">💵 เงินสดรับเข้าเก๊ะ</span>
+                    <span className="p-1 bg-emerald-100 text-emerald-700 rounded-lg"><Coins className="w-3.5 h-3.5" /></span>
+                  </div>
+                  <div className="text-xl font-black text-emerald-800 font-mono tracking-tight">
+                    {formatBaht(dailyPaymentStats.cashAmount)}
+                  </div>
+                  <div className="text-[11px] text-emerald-700 font-sans flex items-center justify-between pt-1 border-t border-emerald-200/50">
+                    <span>ชำระสด {dailyPaymentStats.cashCount} รายการ</span>
+                    <span className="font-mono">{((dailyPaymentStats.cashAmount / Math.max(1, dailyPaymentStats.cashAmount + dailyPaymentStats.transferAmount)) * 100).toFixed(0)}%</span>
+                  </div>
+                </div>
+
+                {/* Card 3: Bank Transfer */}
+                <div className="bg-sky-50/70 p-4.5 rounded-2xl border border-sky-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-sky-800 uppercase tracking-wide">📱 เงินโอนเข้าบัญชี</span>
+                    <span className="p-1 bg-sky-100 text-sky-700 rounded-lg"><DollarSign className="w-3.5 h-3.5" /></span>
+                  </div>
+                  <div className="text-xl font-black text-sky-800 font-mono tracking-tight">
+                    {formatBaht(dailyPaymentStats.transferAmount)}
+                  </div>
+                  <div className="text-[11px] text-sky-700 font-sans flex items-center justify-between pt-1 border-t border-sky-200/50">
+                    <span>สแกนโอน {dailyPaymentStats.transferCount} สลิป</span>
+                    <span className="font-mono">{((dailyPaymentStats.transferAmount / Math.max(1, dailyPaymentStats.cashAmount + dailyPaymentStats.transferAmount)) * 100).toFixed(0)}%</span>
+                  </div>
+                </div>
+
+                {/* Card 4: Net Cash in Drawer */}
+                <div className="bg-amber-50/70 p-4.5 rounded-2xl border border-amber-200/80 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-bold text-amber-900 uppercase tracking-wide">🏦 เงินสดคงเหลือนำส่ง</span>
+                    <span className="p-1 bg-amber-100 text-amber-800 rounded-lg"><Calculator className="w-3.5 h-3.5" /></span>
+                  </div>
+                  <div className="text-xl font-black text-amber-900 font-mono tracking-tight">
+                    {formatBaht(dailyPaymentStats.cashAmount - totalDailyExpensesAmount)}
+                  </div>
+                  <div className="text-[11px] text-amber-800 font-sans flex items-center justify-between pt-1 border-t border-amber-200/50">
+                    <span>หักจ่ายหน้าร้าน -{formatBaht(totalDailyExpensesAmount)}</span>
+                    <span className="font-semibold">({dailyExpenses.length} รายการ)</span>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* Secondary Balance Banner: Shop Share & Barber Share */}
+              <div className="bg-slate-50 p-3.5 px-4 rounded-2xl border border-slate-200/70 flex flex-col sm:flex-row items-start sm:items-center justify-between text-xs gap-2">
+                <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-slate-600">
+                  <span>🏪 <b>รายได้เข้าร้านสุทธิ:</b> <strong className="text-indigo-700 font-mono font-bold text-sm">{formatBaht(dailySales.reduce((sum, s) => sum + (s.shopTotalShare || 0), 0))}</strong></span>
+                  <span>✂️ <b>ส่วนแบ่งช่างรวม:</b> <strong className="text-slate-800 font-mono font-bold text-sm">{formatBahtWithDecimals(dailyBarberStats.reduce((sum, b) => sum + b.grandTotal, 0))}</strong></span>
+                  {dailyPaymentStats.discountUsedCount > 0 && (
+                    <span className="text-rose-600">🏷️ ใช้ส่วนลด {dailyPaymentStats.discountUsedCount} รายการ</span>
+                  )}
+                </div>
+                <div className="text-[11px] text-slate-400 italic">
+                  * อัปเดตข้อมูลแบบเรียลไทม์
                 </div>
               </div>
 
-              <div className="bg-sky-50/30 p-5 rounded-2xl border border-sky-100/50 text-left space-y-1">
-                <span className="text-xs font-semibold text-sky-600 flex items-center space-x-1">
-                  <span>📱 ยอดเงินโอน</span>
-                </span>
-                <div className="text-2xl font-extrabold text-sky-800 font-mono">
-                  {formatBaht(dailyPaymentStats.transferAmount)}
+              {/* Service Breakdown Progress & 3 Cards */}
+              <div className="bg-slate-50/70 border border-slate-200/60 p-4.5 rounded-2xl space-y-3.5">
+                <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2">
+                  <h4 className="text-xs font-extrabold text-slate-800 flex items-center space-x-2">
+                    <span className="p-1 bg-indigo-500/10 text-indigo-600 rounded">
+                      <Calculator className="w-3.5 h-3.5" />
+                    </span>
+                    <span>📊 สัดส่วนรายได้แยกตามบริการและสินค้า</span>
+                  </h4>
+                  <div className="text-xs font-bold text-slate-600 bg-white border border-slate-200/70 px-2.5 py-0.5 rounded-lg shadow-2xs font-mono">
+                    ยอดรวม: <span className="text-indigo-600 font-black">{formatBaht(dailyBreakdown.combinedTotal)}</span>
+                  </div>
                 </div>
-                <div className="text-[11px] text-sky-600 font-sans">
-                  โอนผ่านสแกน {dailyPaymentStats.transferCount} รายการ
-                </div>
+
+                {dailyBreakdown.combinedTotal > 0 && (
+                  <div className="space-y-3">
+                    <div className="h-2.5 w-full bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
+                      {dailyBreakdown.haircutTotal > 0 && (
+                        <div 
+                          style={{ width: `${dailyBreakdown.haircutPct}%` }} 
+                          className="bg-indigo-600 h-full" 
+                          title={`ค่าตัดผม: ${formatBaht(dailyBreakdown.haircutTotal)} (${dailyBreakdown.haircutPct.toFixed(1)}%)`}
+                        />
+                      )}
+                      {dailyBreakdown.chemicalTotal > 0 && (
+                        <div 
+                          style={{ width: `${dailyBreakdown.chemicalPct}%` }} 
+                          className="bg-pink-500 h-full" 
+                          title={`งานเคมี: ${formatBaht(dailyBreakdown.chemicalTotal)} (${dailyBreakdown.chemicalPct.toFixed(1)}%)`}
+                        />
+                      )}
+                      {dailyBreakdown.productTotal > 0 && (
+                        <div 
+                          style={{ width: `${dailyBreakdown.productPct}%` }} 
+                          className="bg-amber-500 h-full" 
+                          title={`ขายสินค้า: ${formatBaht(dailyBreakdown.productTotal)} (${dailyBreakdown.productPct.toFixed(1)}%)`}
+                        />
+                      )}
+                    </div>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5">
+                      <div className="bg-white border border-slate-200/70 p-3 rounded-xl flex items-center justify-between shadow-2xs">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1.5 bg-indigo-50 text-indigo-600 rounded-lg"><Scissors className="w-3.5 h-3.5" /></div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-bold">ตัดผม</p>
+                            <p className="text-xs font-black text-slate-800 font-mono">{formatBaht(dailyBreakdown.haircutTotal)}</p>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold text-indigo-600 bg-indigo-50 px-1.5 py-0.5 rounded font-mono">{dailyBreakdown.haircutPct.toFixed(1)}%</span>
+                      </div>
+
+                      <div className="bg-white border border-slate-200/70 p-3 rounded-xl flex items-center justify-between shadow-2xs">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1.5 bg-pink-50 text-pink-600 rounded-lg"><Sparkles className="w-3.5 h-3.5" /></div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-bold">บริการเคมี</p>
+                            <p className="text-xs font-black text-slate-800 font-mono">{formatBaht(dailyBreakdown.chemicalTotal)}</p>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold text-pink-600 bg-pink-50 px-1.5 py-0.5 rounded font-mono">{dailyBreakdown.chemicalPct.toFixed(1)}%</span>
+                      </div>
+
+                      <div className="bg-white border border-slate-200/70 p-3 rounded-xl flex items-center justify-between shadow-2xs">
+                        <div className="flex items-center space-x-2">
+                          <div className="p-1.5 bg-amber-50 text-amber-600 rounded-lg"><ShoppingBag className="w-3.5 h-3.5" /></div>
+                          <div>
+                            <p className="text-[10px] text-slate-400 font-bold">สินค้า</p>
+                            <p className="text-xs font-black text-slate-800 font-mono">{formatBaht(dailyBreakdown.productTotal)}</p>
+                          </div>
+                        </div>
+                        <span className="text-[11px] font-bold text-amber-600 bg-amber-50 px-1.5 py-0.5 rounded font-mono">{dailyBreakdown.productPct.toFixed(1)}%</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
 
-              <div className="bg-rose-50/20 p-5 rounded-2xl border border-rose-100/40 text-left space-y-1">
-                <span className="text-xs font-semibold text-rose-600 flex items-center space-x-1">
-                  <span>🔥 โปรโมชั่น/ส่วนลด</span>
-                </span>
-                <div className="text-2xl font-extrabold text-rose-700 font-mono">
-                  {dailyPaymentStats.discountUsedCount} รายการ
-                </div>
-                <div className="text-[11px] text-rose-500 font-sans">
-                  * ช่างส่วนแบ่งคงเดิมเต็มจำนวน
+              {/* Barber breakdown cards */}
+              <div className="space-y-3">
+                <h4 className="text-xs font-extrabold text-slate-700 flex items-center space-x-1.5">
+                  <Users className="w-4 h-4 text-slate-500" />
+                  <span>ผลงานและส่วนแบ่งช่างรายบุคคล</span>
+                </h4>
+                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
+                  {dailyBarberStats.map((barber) => (
+                    <div key={barber.id} className="border border-slate-200/80 bg-slate-50/40 rounded-2xl p-4 space-y-3 shadow-2xs">
+                      <div className="flex justify-between items-center bg-white p-2 px-3 rounded-xl border border-slate-100">
+                        <span className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                          <User className="w-3.5 h-3.5 text-indigo-500" />
+                          <span>ช่าง{barber.name}</span>
+                        </span>
+                        <span className="text-[11px] px-2 py-0.5 bg-indigo-50 text-indigo-700 rounded-full font-bold">
+                          {barber.cutsCount} หัว
+                        </span>
+                      </div>
+
+                      <div className="space-y-1.5 text-[11px] font-mono text-slate-600">
+                        <div className="flex justify-between">
+                          <span>ส่วนแบ่งตัดผม:</span>
+                          <span className="font-semibold text-slate-800">{formatBahtWithDecimals(barber.haircutCom)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>ส่วนแบ่งเคมี:</span>
+                          <span className="font-semibold text-slate-800">{formatBahtWithDecimals(barber.chemicalCom)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                          <span>ค่าแนะนำสินค้า:</span>
+                          <span className="font-semibold text-slate-800">{formatBahtWithDecimals(barber.productCom)}</span>
+                        </div>
+                        <div className="flex justify-between text-rose-500">
+                          <span>ทิปได้รับเต็ม:</span>
+                          <span className="font-semibold">{formatBahtWithDecimals(barber.tipTotal)}</span>
+                        </div>
+                        <div className="flex justify-between pt-1.5 border-t border-slate-200 text-xs font-bold font-sans text-indigo-700">
+                          <span>ยอดรวมที่ช่างได้รับ:</span>
+                          <span>{formatBahtWithDecimals(barber.grandTotal)}</span>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
                 </div>
               </div>
-
-              <div className="bg-pink-50/40 p-5 rounded-2xl border border-pink-200/50 text-left space-y-1">
-                <span className="text-xs font-semibold text-pink-600 flex items-center space-x-1">
-                  <span>📉 ยอดจ่ายออก/เบิกเงิน</span>
-                </span>
-                <div className="text-2xl font-extrabold text-pink-800 font-mono">
-                  {formatBaht(totalDailyExpensesAmount)}
-                </div>
-                <div className="text-[11px] text-pink-500 font-sans">
-                  เบิกถอนหน้างาน {dailyExpenses.length} รายการ
-                </div>
-              </div>
-
-              <div className="bg-violet-50/30 p-5 rounded-2xl border border-violet-100/50 text-left space-y-1">
-                <span className="text-xs font-semibold text-violet-600 flex items-center space-x-1">
-                  <span>💰 เงินสดคงเหลือส่งเงิน</span>
-                </span>
-                <div className="text-2xl font-extrabold text-violet-800 font-mono">
-                  {formatBaht(dailyPaymentStats.cashAmount - totalDailyExpensesAmount)}
-                </div>
-                <div className="text-[11px] text-violet-500 font-sans">
-                  * หลังหักค่าเบิกถอนรายวันแล้ว
-                </div>
-              </div>
-
-            </div>
-
-            {/* EXPORTS FOR DAILY BACKUP */}
-            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-              <div>
-                <h4 className="text-xs font-bold text-slate-800">สำรองข้อมูลสรุปประจำวัน (Backup Daily Report)</h4>
-                <p className="text-[11px] text-slate-500">เลือกดาวน์โหลดไฟล์บัญชีเพื่อพิมพ์กระดาษ ส่งสำนักงานบัญชี หรือเก็บเข้าฐานข้อมูลส่วนกลาง</p>
-              </div>
-
-              <div className="flex flex-wrap gap-2">
-                <button
-                  onClick={() => handleDownloadDaily('excel')}
-                  className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-all shadow-xs"
-                >
-                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                  <span>MS Excel / CSV</span>
-                </button>
-
-                <button
-                  onClick={() => handleDownloadDaily('word')}
-                  className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-all shadow-xs"
-                >
-                  <FileText className="w-3.5 h-3.5 text-sky-600" />
-                  <span>MS Word</span>
-                </button>
-
-                <button
-                  onClick={() => handleDownloadDaily('pdf')}
-                  className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-all shadow-xs"
-                >
-                  <span className="w-3.5 h-3.5 font-bold text-[10px] bg-amber-100 text-amber-700 rounded flex items-center justify-center">PDF</span>
-                  <span>พิมพ์รายงาน (PDF / HTML)</span>
-                </button>
-
-                <button
-                  onClick={() => handleDownloadDaily('png')}
-                  className="flex items-center space-x-1.5 px-3 py-2 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-all shadow-xs"
-                >
-                  <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
-                  <span>รูปภาพ (PNG / Graphic)</span>
-                </button>
-              </div>
-            </div>
 
             {/* NEW SECTION: DAILY TRANSACTION LIST WITH PRECISE TIMESTAMPS FOR BANK SYNC */}
             <div className="space-y-4 pt-4 border-t border-slate-100/60">
@@ -2877,7 +2647,6 @@ export default function DashboardTab({
                     {sortedDailySales.map((sale, index) => {
                       const displayIndex = sortedDailySales.length - index;
                       const timeStr = formatLocalTime(sale.timestamp);
-                      const isTransfer = sale.paymentMethod === 'transfer';
                       const jointSales = sale.groupPaymentId ? dailySales.filter(s => s.groupPaymentId === sale.groupPaymentId && s.id !== sale.id) : [];
                       
                       return (
@@ -3022,6 +2791,7 @@ export default function DashboardTab({
                           <td className="p-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
                               <button
+                                type="button"
                                 onClick={() => {
                                   setPaymentEditSale(sale);
                                 }}
@@ -3033,6 +2803,7 @@ export default function DashboardTab({
                               </button>
 
                               <button
+                                type="button"
                                 id={`delete-sale-${sale.id}`}
                                 onClick={() => {
                                   setConfirmDialog({
@@ -3060,11 +2831,38 @@ export default function DashboardTab({
               </div>
             </div>
 
+            {/* Exports for Daily Backup */}
+            <div className="bg-slate-50 rounded-2xl p-4 border border-slate-200/70 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <div>
+                <h4 className="text-xs font-bold text-slate-800">สำรองข้อมูลสรุปประจำวัน (Backup Daily Report)</h4>
+                <p className="text-[11px] text-slate-500">ดาวน์โหลดเอกสารบัญชีประจำวันสำหรับส่งฝ่ายบัญชีหรือพิมพ์เก็บเป็นหลักฐาน</p>
+              </div>
+
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={() => handleDownloadDaily('excel')}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer"
+                >
+                  <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>MS Excel</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDownloadDaily('pdf')}
+                  className="flex items-center space-x-1.5 px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-semibold transition-all shadow-2xs cursor-pointer"
+                >
+                  <FileText className="w-3.5 h-3.5 text-rose-600" />
+                  <span>พิมพ์ PDF</span>
+                </button>
+              </div>
+            </div>
+
           </div>
         )}
 
       </div>
-      </>
       )}
 
       {/* ========================================================== */}
@@ -3117,82 +2915,68 @@ export default function DashboardTab({
         ) : (
           <div className="space-y-8">
             
-            {/* Top KPIs Banner */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+            {/* Top KPIs 4-Card Executive Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
               
-              <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 text-left relative overflow-hidden sm:col-span-2 lg:col-span-1 xl:col-span-1">
-                <div className="absolute right-3 top-3 opacity-15"><Coins className="w-10 h-10 text-emerald-400" /></div>
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wide">ยอดชำระสะสมรวม</span>
-                <div className="text-lg font-extrabold text-emerald-400 mt-1 font-mono">
+              {/* Card 1: Gross Revenue */}
+              <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">ยอดรับชำระสะสมรวม</span>
+                  <span className="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-xl"><Coins className="w-4 h-4" /></span>
+                </div>
+                <div className="text-2xl font-black text-white font-mono tracking-tight">
                   {formatBaht(monthlyOverallStats.totalCustomerPaid)}
                 </div>
-                <div className="text-[9px] text-slate-400 mt-0.5">
-                  มูลค่ารวมก่อนแบ่งช่าง
+                <div className="text-xs text-indigo-300 font-sans flex items-center justify-between pt-2 border-t border-slate-800">
+                  <span>ตัดผมรวม {monthlyOverallStats.totalCuts} หัว</span>
+                  <span className="font-bold bg-indigo-500/20 text-indigo-200 px-2 py-0.5 rounded-md">
+                    เฉลี่ย {Math.ceil(monthlyOverallStats.avgCutsPerDay)} หัว/วัน
+                  </span>
                 </div>
               </div>
 
-              <div className="bg-indigo-950 text-white p-5 rounded-2xl border border-indigo-900 text-left relative overflow-hidden xl:col-span-1">
-                <div className="absolute right-2 top-2 opacity-15"><TrendingUp className="w-10 h-10 text-amber-300" /></div>
-                <span className="text-[10px] font-bold text-indigo-300 uppercase tracking-wide">รายได้สุทธิร้านสะสม</span>
-                <div className="text-lg font-extrabold text-amber-300 mt-1 font-mono">
+              {/* Card 2: Shop Net Revenue */}
+              <div className="bg-indigo-50/70 p-5 rounded-2xl border border-indigo-200/80 space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wide">🏪 รายได้สุทธิส่วนของร้าน</span>
+                  <span className="p-1.5 bg-indigo-100 text-indigo-700 rounded-xl"><TrendingUp className="w-4 h-4" /></span>
+                </div>
+                <div className="text-2xl font-black text-indigo-900 font-mono tracking-tight">
                   {formatBaht(monthlyOverallStats.shopRevenue)}
                 </div>
-                <div className="text-[9px] text-indigo-300 mt-0.5">
-                  หักคอมค่าแรงแบ่งช่างแล้ว
+                <div className="text-xs text-indigo-700 font-sans flex items-center justify-between pt-2 border-t border-indigo-200/60">
+                  <span>สด {formatBaht(monthlyOverallStats.cashAmount)}</span>
+                  <span>โอน {formatBaht(monthlyOverallStats.transferAmount)}</span>
                 </div>
               </div>
 
-              <div className="bg-rose-950 text-white p-5 rounded-2xl border border-rose-900 text-left relative overflow-hidden xl:col-span-1">
-                <div className="absolute right-2 top-2 opacity-15 animate-bounce"><ArrowDownCircle className="w-10 h-10 text-pink-300" /></div>
-                <span className="text-[10px] font-bold text-rose-300 uppercase tracking-wide">รวมรายจ่ายทั้งเดือน</span>
-                <div className="text-lg font-extrabold text-pink-300 mt-1 font-mono">
+              {/* Card 3: Monthly Expenses */}
+              <div className="bg-rose-50/70 p-5 rounded-2xl border border-rose-200/80 space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wide">💸 รายจ่าย/เบิกสะสม</span>
+                  <span className="p-1.5 bg-rose-100 text-rose-700 rounded-xl"><ArrowDownCircle className="w-4 h-4" /></span>
+                </div>
+                <div className="text-2xl font-black text-rose-800 font-mono tracking-tight">
                   {formatBaht(totalMonthlyExpensesAmount)}
                 </div>
-                <div className="text-[9px] text-rose-300 mt-0.5">
-                  เบิกจ่ายถอนสะสมรอบเดือน
+                <div className="text-xs text-rose-700 font-sans flex items-center justify-between pt-2 border-t border-rose-200/60">
+                  <span>รายจ่ายรอบเดือน {formatThaiMonth(selectedMonth)}</span>
+                  <span className="font-semibold">หักจากเก๊ะสด</span>
                 </div>
               </div>
 
-              <div className="bg-emerald-950 text-white p-5 rounded-2xl border border-emerald-900 text-left relative overflow-hidden xl:col-span-1">
-                <div className="absolute right-2 top-2 opacity-15"><TrendingUp className="w-10 h-10 text-emerald-300 animate-pulse" /></div>
-                <span className="text-[10px] font-bold text-emerald-300 uppercase tracking-wide">กำไรบริสุทธิ์ของร้าน</span>
-                <div className="text-lg font-semibold text-emerald-400 mt-1 font-mono hover:text-emerald-300 transition-colors">
+              {/* Card 4: Net Profit */}
+              <div className="bg-emerald-50/80 p-5 rounded-2xl border border-emerald-200/90 space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide">📈 กำไรสุทธิของร้าน</span>
+                  <span className="p-1.5 bg-emerald-100 text-emerald-700 rounded-xl"><TrendingUp className="w-4 h-4" /></span>
+                </div>
+                <div className="text-2xl font-black text-emerald-800 font-mono tracking-tight">
                   {formatBaht(monthlyOverallStats.shopRevenue - totalMonthlyExpensesAmount)}
                 </div>
-                <div className="text-[9px] text-emerald-300 mt-0.5">
-                  กำไรสุทธิหลังหักจ่ายครบชุด
-                </div>
-              </div>
-
-              <div className="bg-indigo-50 p-5 rounded-2xl border-2 border-indigo-200 text-left xl:col-span-1 relative overflow-hidden shadow-sm scale-[1.02] ring-4 ring-indigo-50/50">
-                <div className="absolute right-2 top-2 opacity-10"><Users className="w-8 h-8 text-indigo-600" /></div>
-                <span className="text-[10px] font-black text-indigo-800 uppercase tracking-wide">เฉลี่ยหัวต่อวัน (ปัดเศษขึ้น)</span>
-                <div className="text-2xl font-black text-indigo-600 mt-1 font-mono flex items-baseline gap-1">
-                  <span>{Math.ceil(monthlyOverallStats.avgCutsPerDay)}</span>
-                  <span className="text-xs font-bold text-indigo-700">หัว/วัน</span>
-                </div>
-                <div className="mt-2 pt-1.5 border-t border-indigo-100">
-                  <div className="text-[9px] text-slate-500 font-bold">จำนวนหัวที่ตัดรวมทั้งหมด: <span className="font-mono text-slate-700 font-bold">{monthlyOverallStats.totalCuts} หัว</span></div>
-                </div>
-              </div>
-
-              <div className="bg-emerald-50/40 p-5 rounded-2xl border border-emerald-100 text-left xl:col-span-1">
-                <span className="text-[10px] font-bold text-emerald-700 uppercase tracking-wide">เงินสดสะสมรวม</span>
-                <div className="text-lg font-extrabold text-emerald-800 mt-1 font-mono">
-                  {formatBaht(monthlyOverallStats.cashAmount)}
-                </div>
-                <div className="text-[9px] text-emerald-600 mt-0.5">
-                  รวม {monthlyOverallStats.cashCount} บิลเงินสด
-                </div>
-              </div>
-
-              <div className="bg-sky-50/40 p-5 rounded-2xl border border-sky-100 text-left xl:col-span-1">
-                <span className="text-[10px] font-bold text-sky-700 uppercase tracking-wide">เงินสดหักจ่ายคงถอน</span>
-                <div className="text-lg font-extrabold text-sky-800 mt-1 font-mono">
-                  {formatBaht(monthlyOverallStats.cashAmount - totalMonthlyExpensesAmount)}
-                </div>
-                <div className="text-[9px] text-sky-600 mt-0.5">
-                  * หลังหักค่าเบิกจ่ายสะสม
+                <div className="text-xs text-emerald-700 font-sans flex items-center justify-between pt-2 border-t border-emerald-200/60">
+                  <span>เงินสดคงเหลือนำส่งสะสม</span>
+                  <span className="font-bold font-mono">{formatBaht(monthlyOverallStats.cashAmount - totalMonthlyExpensesAmount)}</span>
                 </div>
               </div>
 
@@ -3291,6 +3075,15 @@ export default function DashboardTab({
                 <p className="text-xs text-slate-400 italic">ไม่มีข้อมูลสัดส่วนเนื่องจากยังไม่มียอดขายบันทึกไว้ในเดือนนี้</p>
               )}
             </div>
+
+            {/* RECHARTS DAILY SALES OVERVIEW CHART (ACCOUNTANT & BUSINESS INTELLIGENCE) */}
+            <DailySalesChart
+              monthlyDailyBreakdown={monthlyDailyBreakdown}
+              selectedDate={selectedDate}
+              onSelectDate={setSelectedDate}
+              selectedMonth={selectedMonth}
+              shopConfig={shopConfig}
+            />
 
             {/* Monthly Profitability Bar/Line Chart */}
             <div className="bg-white rounded-2xl p-6 border border-slate-100 shadow-xs space-y-4">
@@ -3469,12 +3262,21 @@ export default function DashboardTab({
             </div>
 
             {/* NEW SECTION: DAILY PAYMENT METHOD BREAKDOWN TABLE (CASH VS TRANSFER) */}
-            <div id="daily-breakdown-section" className="space-y-3 pt-4 border-t border-slate-100">
-              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+            <div id="daily-breakdown-section" className="space-y-4 pt-4 border-t border-slate-100">
+              {/* Daily Sales & Revenue Recharts Chart */}
+              <DailySalesChart
+                monthlyDailyBreakdown={monthlyDailyBreakdown}
+                selectedDate={selectedDate}
+                onSelectDate={setSelectedDate}
+                selectedMonth={selectedMonth}
+                shopConfig={shopConfig}
+              />
+
+              <div className="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pt-2">
                 <div>
                   <h3 className="text-sm font-extrabold text-slate-800 flex items-center space-x-2">
                     <Calendar className="w-4 h-4 text-sky-600" />
-                    <span>สรุปยอดเงินสด / ยอดเงินโอน แยกรายวันสะสม (ตั้งแต่วันที่ 1 ถึงปัจจุบัน)</span>
+                    <span>ตารางแจกแจงยอดเงินสด / ยอดเงินโอน แยกรายวันสะสม (ตั้งแต่วันที่ 1 ถึงปัจจุบัน)</span>
                   </h3>
                   <p className="text-xs text-slate-500">
                     ตรวจสอบยอดเงินสด เงินโอน รายรับรวม (ไม่รวมยอดทิปช่าง) และรายจ่ายย้อนหลังของทุกวันในเดือน {formatThaiMonth(selectedMonth)} เพื่อคำนวณและกระทบยอดบัญชี
