@@ -370,6 +370,24 @@ export default function DashboardTab({
     });
   }, [dailySales, barbers]);
 
+  const dailyBarberTotalStats = useMemo(() => {
+    return dailyBarberStats.reduce((acc, b) => ({
+      totalCuts: acc.totalCuts + b.cutsCount,
+      totalHaircutCom: acc.totalHaircutCom + b.haircutCom,
+      totalChemicalCom: acc.totalChemicalCom + b.chemicalCom,
+      totalProductCom: acc.totalProductCom + b.productCom,
+      totalTips: acc.totalTips + b.tipTotal,
+      totalGrandPayout: acc.totalGrandPayout + b.grandTotal,
+    }), {
+      totalCuts: 0,
+      totalHaircutCom: 0,
+      totalChemicalCom: 0,
+      totalProductCom: 0,
+      totalTips: 0,
+      totalGrandPayout: 0,
+    });
+  }, [dailyBarberStats]);
+
   const dailyPaymentStats = useMemo(() => {
     let cashAmount = 0;
     let cashCount = 0;
@@ -465,6 +483,24 @@ export default function DashboardTab({
       };
     });
   }, [monthlySales, barbers]);
+
+  const monthlyBarberTotalStats = useMemo(() => {
+    return monthlyBarberStats.reduce((acc, b) => ({
+      totalCuts: acc.totalCuts + b.cutsCount,
+      totalHaircutCom: acc.totalHaircutCom + b.haircutCom,
+      totalChemicalCom: acc.totalChemicalCom + b.chemicalCom,
+      totalProductCom: acc.totalProductCom + b.productCom,
+      totalTips: acc.totalTips + b.tipTotal,
+      totalGrandPayout: acc.totalGrandPayout + b.grandTotal,
+    }), {
+      totalCuts: 0,
+      totalHaircutCom: 0,
+      totalChemicalCom: 0,
+      totalProductCom: 0,
+      totalTips: 0,
+      totalGrandPayout: 0,
+    });
+  }, [monthlyBarberStats]);
 
   const selectedSlipBarberStats = useMemo(() => {
     const stats = monthlyBarberStats.find(b => b.id === slipBarberId);
@@ -2569,10 +2605,19 @@ export default function DashboardTab({
 
               {/* Barber breakdown cards */}
               <div className="space-y-3">
-                <h4 className="text-xs font-extrabold text-slate-700 flex items-center space-x-1.5">
-                  <Users className="w-4 h-4 text-slate-500" />
-                  <span>ผลงานและส่วนแบ่งช่างรายบุคคล</span>
-                </h4>
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                  <h4 className="text-xs font-extrabold text-slate-700 flex items-center space-x-1.5">
+                    <Users className="w-4 h-4 text-slate-500" />
+                    <span>ผลงานและส่วนแบ่งช่างรายบุคคล (ประจำวัน)</span>
+                  </h4>
+                  {dailyBarberTotalStats.totalGrandPayout > 0 && (
+                    <div className="inline-flex items-center gap-2 bg-purple-50 text-purple-900 border border-purple-200/80 px-3 py-1 rounded-xl text-xs font-bold font-sans">
+                      <span>✂️ ยอดรวมต้องจ่ายช่างวันนี้:</span>
+                      <span className="font-mono text-purple-700 font-black text-sm">{formatBahtWithDecimals(dailyBarberTotalStats.totalGrandPayout)}</span>
+                      <span className="text-[11px] text-purple-500 font-normal">({dailyBarberTotalStats.totalCuts} หัว)</span>
+                    </div>
+                  )}
+                </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3.5">
                   {dailyBarberStats.map((barber) => (
                     <div key={barber.id} className="border border-slate-200/80 bg-slate-50/40 rounded-2xl p-4 space-y-3 shadow-2xs">
@@ -2915,33 +2960,48 @@ export default function DashboardTab({
         ) : (
           <div className="space-y-8">
             
-            {/* Top KPIs 4-Card Executive Summary */}
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 font-sans">
+            {/* Top KPIs 5-Card Executive Summary */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3.5 font-sans">
               
               {/* Card 1: Gross Revenue */}
-              <div className="bg-slate-900 text-white p-5 rounded-2xl border border-slate-800 space-y-2 shadow-xs">
+              <div className="bg-slate-900 text-white p-4.5 rounded-2xl border border-slate-800 space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wide">ยอดรับชำระสะสมรวม</span>
                   <span className="p-1.5 bg-indigo-500/20 text-indigo-400 rounded-xl"><Coins className="w-4 h-4" /></span>
                 </div>
-                <div className="text-2xl font-black text-white font-mono tracking-tight">
+                <div className="text-xl font-black text-white font-mono tracking-tight">
                   {formatBaht(monthlyOverallStats.totalCustomerPaid)}
                 </div>
                 <div className="text-xs text-indigo-300 font-sans flex items-center justify-between pt-2 border-t border-slate-800">
                   <span>ตัดผมรวม {monthlyOverallStats.totalCuts} หัว</span>
-                  <span className="font-bold bg-indigo-500/20 text-indigo-200 px-2 py-0.5 rounded-md">
+                  <span className="font-bold bg-indigo-500/20 text-indigo-200 px-1.5 py-0.5 rounded text-[10px]">
                     เฉลี่ย {Math.ceil(monthlyOverallStats.avgCutsPerDay)} หัว/วัน
                   </span>
                 </div>
               </div>
 
-              {/* Card 2: Shop Net Revenue */}
-              <div className="bg-indigo-50/70 p-5 rounded-2xl border border-indigo-200/80 space-y-2 shadow-xs">
+              {/* Card 2: Barber Payout Total */}
+              <div className="bg-purple-50/80 p-4.5 rounded-2xl border border-purple-200/90 space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
-                  <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wide">🏪 รายได้สุทธิส่วนของร้าน</span>
+                  <span className="text-[11px] font-bold text-purple-900 uppercase tracking-wide">✂️ รวมยอดต้องจ่ายช่าง</span>
+                  <span className="p-1.5 bg-purple-100 text-purple-700 rounded-xl"><Users className="w-4 h-4" /></span>
+                </div>
+                <div className="text-xl font-black text-purple-900 font-mono tracking-tight">
+                  {formatBaht(monthlyBarberTotalStats.totalGrandPayout)}
+                </div>
+                <div className="text-xs text-purple-700 font-sans flex items-center justify-between pt-2 border-t border-purple-200/60">
+                  <span>ช่างรวม {monthlyBarberStats.length} คน</span>
+                  <span className="font-bold font-mono">ทิป {formatBaht(monthlyBarberTotalStats.totalTips)}</span>
+                </div>
+              </div>
+
+              {/* Card 3: Shop Net Revenue */}
+              <div className="bg-indigo-50/70 p-4.5 rounded-2xl border border-indigo-200/80 space-y-2 shadow-xs">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-bold text-indigo-800 uppercase tracking-wide">🏪 รายได้สุทธิส่วนร้าน</span>
                   <span className="p-1.5 bg-indigo-100 text-indigo-700 rounded-xl"><TrendingUp className="w-4 h-4" /></span>
                 </div>
-                <div className="text-2xl font-black text-indigo-900 font-mono tracking-tight">
+                <div className="text-xl font-black text-indigo-900 font-mono tracking-tight">
                   {formatBaht(monthlyOverallStats.shopRevenue)}
                 </div>
                 <div className="text-xs text-indigo-700 font-sans flex items-center justify-between pt-2 border-t border-indigo-200/60">
@@ -2950,32 +3010,32 @@ export default function DashboardTab({
                 </div>
               </div>
 
-              {/* Card 3: Monthly Expenses */}
-              <div className="bg-rose-50/70 p-5 rounded-2xl border border-rose-200/80 space-y-2 shadow-xs">
+              {/* Card 4: Monthly Expenses */}
+              <div className="bg-rose-50/70 p-4.5 rounded-2xl border border-rose-200/80 space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-rose-800 uppercase tracking-wide">💸 รายจ่าย/เบิกสะสม</span>
                   <span className="p-1.5 bg-rose-100 text-rose-700 rounded-xl"><ArrowDownCircle className="w-4 h-4" /></span>
                 </div>
-                <div className="text-2xl font-black text-rose-800 font-mono tracking-tight">
+                <div className="text-xl font-black text-rose-800 font-mono tracking-tight">
                   {formatBaht(totalMonthlyExpensesAmount)}
                 </div>
                 <div className="text-xs text-rose-700 font-sans flex items-center justify-between pt-2 border-t border-rose-200/60">
-                  <span>รายจ่ายรอบเดือน {formatThaiMonth(selectedMonth)}</span>
-                  <span className="font-semibold">หักจากเก๊ะสด</span>
+                  <span>หักจากเก๊ะสด</span>
+                  <span className="font-semibold">{monthlyExpenses.length} รายการ</span>
                 </div>
               </div>
 
-              {/* Card 4: Net Profit */}
-              <div className="bg-emerald-50/80 p-5 rounded-2xl border border-emerald-200/90 space-y-2 shadow-xs">
+              {/* Card 5: Net Profit */}
+              <div className="bg-emerald-50/80 p-4.5 rounded-2xl border border-emerald-200/90 space-y-2 shadow-xs">
                 <div className="flex items-center justify-between">
                   <span className="text-[11px] font-bold text-emerald-800 uppercase tracking-wide">📈 กำไรสุทธิของร้าน</span>
                   <span className="p-1.5 bg-emerald-100 text-emerald-700 rounded-xl"><TrendingUp className="w-4 h-4" /></span>
                 </div>
-                <div className="text-2xl font-black text-emerald-800 font-mono tracking-tight">
+                <div className="text-xl font-black text-emerald-800 font-mono tracking-tight">
                   {formatBaht(monthlyOverallStats.shopRevenue - totalMonthlyExpensesAmount)}
                 </div>
                 <div className="text-xs text-emerald-700 font-sans flex items-center justify-between pt-2 border-t border-emerald-200/60">
-                  <span>เงินสดคงเหลือนำส่งสะสม</span>
+                  <span>เงินสดคงเหลือนำส่ง</span>
                   <span className="font-bold font-mono">{formatBaht(monthlyOverallStats.cashAmount - totalMonthlyExpensesAmount)}</span>
                 </div>
               </div>
@@ -3216,23 +3276,36 @@ export default function DashboardTab({
             </div>
 
             {/* Barber Salary Breakdown Table */}
-            <div className="space-y-3">
-              <h3 className="text-sm font-bold text-slate-800 flex items-center space-x-1.5">
-                <Users className="w-4 h-4 text-slate-600" />
-                <span>สรุปยอดเงินเดือนสะสมที่ต้องโอนจ่ายช่างตัดผม (Salary / Payout Sheet)</span>
-              </h3>
+            <div className="space-y-4">
+              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 bg-purple-50/60 border border-purple-200/80 p-4 rounded-2xl">
+                <div>
+                  <h3 className="text-sm font-extrabold text-purple-950 flex items-center space-x-2">
+                    <Users className="w-4 h-4 text-purple-600" />
+                    <span>สรุปยอดเงินเดือนและส่วนแบ่งสะสมที่ต้องโอนจ่ายช่างตัดผม (Barber Payout Sheet)</span>
+                  </h3>
+                  <p className="text-xs text-purple-700 mt-0.5">
+                    คำนวณส่วนแบ่งค่าตัดผม เคมี สินค้า และทิปสะสมตลอดทั้งเดือน เพื่อเตรียมจ่ายเงินเดือนหรือออกสลิป
+                  </p>
+                </div>
+                <div className="flex items-center gap-2 bg-white border border-purple-200 px-3.5 py-1.5 rounded-xl shadow-2xs">
+                  <span className="text-xs font-bold text-slate-600 font-sans">✂️ ยอดรวมต้องจ่ายช่างทุกคน:</span>
+                  <span className="text-base font-black text-purple-700 font-mono">
+                    {formatBahtWithDecimals(monthlyBarberTotalStats.totalGrandPayout)}
+                  </span>
+                </div>
+              </div>
               
-              <div className="overflow-x-auto border border-slate-100 rounded-2xl bg-white shadow-xs">
+              <div className="overflow-x-auto border border-slate-200/80 rounded-2xl bg-white shadow-xs">
                 <table className="w-full text-left border-collapse">
                   <thead>
-                    <tr className="bg-slate-50 text-slate-600 text-xs font-bold font-sans tracking-wide">
+                    <tr className="bg-slate-50 text-slate-600 text-xs font-bold font-sans tracking-wide border-b border-slate-200">
                       <th className="p-4 pl-6">ช่างตัดผม</th>
                       <th className="p-4 text-center">ผลงานรวม (หัว)</th>
                       <th className="p-4 text-right">ส่วนแบ่งตัดผม (สะสม)</th>
                       <th className="p-4 text-right">ส่วนแบ่งเคมี (สะสม)</th>
                       <th className="p-4 text-right">ส่วนแบ่งสินค้าสะสม</th>
                       <th className="p-4 text-right text-rose-600">ทิปสะสมได้รับเต็ม</th>
-                      <th className="p-4 text-right pr-6 bg-slate-100/40 text-slate-900">ยอดที่ต้องจ่ายจริง</th>
+                      <th className="p-4 text-right pr-6 bg-purple-50/60 text-purple-950 font-black">ยอดที่ต้องจ่ายจริง</th>
                     </tr>
                   </thead>
                   <tbody className="text-xs divide-y divide-slate-100 font-mono text-slate-700">
@@ -3244,10 +3317,39 @@ export default function DashboardTab({
                         <td className="p-4 text-right">{formatBahtWithDecimals(b.chemicalCom)}</td>
                         <td className="p-4 text-right">{formatBahtWithDecimals(b.productCom)}</td>
                         <td className="p-4 text-right text-rose-500 font-semibold">{formatBahtWithDecimals(b.tipTotal)}</td>
-                        <td className="p-4 text-right pr-6 font-extrabold text-indigo-700 bg-slate-50/40 text-sm">{formatBahtWithDecimals(b.grandTotal)}</td>
+                        <td className="p-4 text-right pr-6 font-extrabold text-purple-700 bg-purple-50/40 text-sm">{formatBahtWithDecimals(b.grandTotal)}</td>
                       </tr>
                     ))}
                   </tbody>
+                  {/* TOTAL SUMMARY FOOTER ROW */}
+                  <tfoot className="bg-slate-900 text-white font-mono text-xs border-t-2 border-slate-700">
+                    <tr>
+                      <td className="p-4 pl-6 font-bold font-sans text-amber-300">
+                        <div className="flex items-center space-x-1.5">
+                          <Users className="w-4 h-4 text-amber-400" />
+                          <span>รวมช่างทุกคน ({monthlyBarberStats.length} คน)</span>
+                        </div>
+                      </td>
+                      <td className="p-4 text-center font-bold text-indigo-300 text-sm font-mono">
+                        {monthlyBarberTotalStats.totalCuts} หัว
+                      </td>
+                      <td className="p-4 text-right text-slate-200 font-bold">
+                        {formatBahtWithDecimals(monthlyBarberTotalStats.totalHaircutCom)}
+                      </td>
+                      <td className="p-4 text-right text-slate-200 font-bold">
+                        {formatBahtWithDecimals(monthlyBarberTotalStats.totalChemicalCom)}
+                      </td>
+                      <td className="p-4 text-right text-slate-200 font-bold">
+                        {formatBahtWithDecimals(monthlyBarberTotalStats.totalProductCom)}
+                      </td>
+                      <td className="p-4 text-right text-rose-300 font-bold">
+                        {formatBahtWithDecimals(monthlyBarberTotalStats.totalTips)}
+                      </td>
+                      <td className="p-4 text-right pr-6 font-black text-amber-300 bg-slate-800 text-base">
+                        {formatBahtWithDecimals(monthlyBarberTotalStats.totalGrandPayout)}
+                      </td>
+                    </tr>
+                  </tfoot>
                 </table>
               </div>
             </div>
