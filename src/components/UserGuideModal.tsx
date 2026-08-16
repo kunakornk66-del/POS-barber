@@ -343,6 +343,46 @@ export default function UserGuideModal({ isOpen, onClose, shopConfig }: UserGuid
             </div>
           </div>
 
+          {/* Group Transfer (โอนรวมหลายคน/หลายหัว สลิปเดียว) Guide */}
+          <div className="bg-sky-900 text-white p-4 rounded-xl space-y-2.5">
+            <h4 className="font-extrabold text-sky-300 flex items-center gap-1.5 text-xs">
+              <span className="p-1 bg-sky-500/30 rounded">🔗</span>
+              วิธีคีย์บิลกรณีลูกค้าโอนรวมหลายคน/หลายหัว (เช่น พ่อโอนรวมจ่ายให้ลูก 2-3 คนในสลิปเดียว)
+            </h4>
+            <p className="text-slate-200 text-[11px] leading-relaxed">
+              เมื่อมีลูกค้ามาเป็นกลุ่ม ครอบครัว หรือเพื่อน แล้วคนหนึ่งเป็นคนโอนเงินก้อนเดียวรวมทั้งหมด (เช่น พ่อตัดผม 300฿ + ลูกคนที่หนึ่ง 250฿ + ลูกคนที่สอง 250฿ = โอนสลิปเดียว 800฿) 
+              <strong>ให้ทำการคีย์บันทึกแยกทีละคน (3 บิล)</strong> เพื่อให้ช่างแต่ละคนได้ส่วนแบ่งถูกต้อง และนับจำนวนหัวจริงตามขั้นตอนดังนี้:
+            </p>
+            <div className="bg-sky-950/80 p-3 rounded-lg border border-sky-800/80 space-y-2.5 text-slate-300">
+              <div className="p-2 bg-sky-900/90 rounded border border-sky-700 text-[11px] text-sky-100">
+                <strong>👨 บิลที่ 1 (คนแรก - เช่น คุณพ่อ 300 บาท):</strong>
+                <ul className="list-disc list-inside mt-1 pl-1 space-y-0.5 text-[10.5px] text-sky-200">
+                  <li>เลือกช่าง → ใส่ราคา 300 → ใส่ชื่อ "คุณพ่อ"</li>
+                  <li>เลือกช่องชำระเงินเป็น <strong>"📱 เงินโอน"</strong></li>
+                  <li>ติ๊กถูกช่อง <strong>"☑️ ลูกค้าโอนรวมหลายคน/หลายหัว"</strong></li>
+                  <li>เลือก <strong>"✨ 1. สร้างกลุ่มสลิปใหม่"</strong> และพิมพ์ชื่อกลุ่ม เช่น <em>"พ่อ + ลูก 2 คน"</em></li>
+                  <li>กด <strong>"บันทึกบริการ"</strong></li>
+                </ul>
+              </div>
+
+              <div className="p-2 bg-sky-900/90 rounded border border-sky-700 text-[11px] text-sky-100">
+                <strong>👦 บิลที่ 2 และ 3 (คนถัดไป - เช่น ลูกคนที่ 1 และ 2 คนละ 250 บาท):</strong>
+                <ul className="list-disc list-inside mt-1 pl-1 space-y-0.5 text-[10.5px] text-sky-200">
+                  <li>เลือกช่างที่ตัดให้ลูก → ใส่ราคา 250 → ใส่ชื่อ "ลูกคนที่ 1"</li>
+                  <li>เลือกช่องชำระเงินเป็น <strong>"📱 เงินโอน"</strong></li>
+                  <li>ติ๊กถูกช่อง <strong>"☑️ ลูกค้าโอนรวมหลายคน/หลายหัว"</strong></li>
+                  <li>เลือก <strong>"🔗 2. ผูกเข้ากับกลุ่มเดิม"</strong> แล้วเลือกกลุ่ม <em>"พ่อ + ลูก 2 คน"</em> ที่สร้างไว้</li>
+                  <li>ระบบจะคำนวณและแสดงยอดสะสมสลิปให้ทันที (เช่น 300 + 250 = 550 บาท) → กด <strong>"บันทึกบริการ"</strong></li>
+                  <li>ทำซ้ำกับลูกคนที่ 2 เพื่อรวมยอดสลิปเป็น 800 บาท</li>
+                </ul>
+              </div>
+
+              <div className="p-2 bg-emerald-950/90 rounded border border-emerald-700 text-[10px] text-emerald-200">
+                ✅ <strong>ผลลัพธ์ในระบบแดชบอร์ด:</strong> ระบบจะแสดงป้ายกำกับ <strong>"🔗 โอนร่วม: พ่อ + ลูก 2 คน"</strong> ในตารางบันทึกประจำวัน ทำให้ยอดเงินโอนสลิปธนาคาร 800 บาทตรงเป๊ะกับรายการในบัญชี และช่างแต่ละคนได้ยอดส่วนแบ่งค่าแรงถูกต้องครบถ้วน 100%!
+              </div>
+            </div>
+          </div>
+
           {/* System Notifications & Alerts Section */}
           <div className="bg-slate-900 text-white p-4 rounded-xl space-y-2.5">
             <h4 className="font-extrabold text-amber-400 flex items-center gap-1.5 text-xs">

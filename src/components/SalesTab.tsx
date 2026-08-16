@@ -1028,6 +1028,140 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
               )}
             </div>
 
+            {/* Transfer Group Payment Interactive Card */}
+            {paymentMethod === 'transfer' && (
+              <div className="bg-sky-50/70 border-2 border-sky-200 p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="flex items-center justify-between">
+                  <label className="flex items-center space-x-2.5 cursor-pointer select-none">
+                    <input
+                      id="pos-group-transfer-checkbox"
+                      type="checkbox"
+                      checked={isGroupPayment}
+                      onChange={(e) => {
+                        setIsGroupPayment(e.target.checked);
+                        if (e.target.checked && !selectedGroupLink && (activeGroups.existingGroups.length > 0 || activeGroups.potentialSingles.length > 0)) {
+                          if (activeGroups.existingGroups.length > 0) {
+                            setSelectedGroupLink(activeGroups.existingGroups[0].id);
+                            setGroupPaymentOption('link');
+                          }
+                        }
+                      }}
+                      className="w-4.5 h-4.5 text-sky-600 bg-white border-slate-300 rounded focus:ring-sky-500 cursor-pointer"
+                    />
+                    <div>
+                      <span className="text-xs font-black text-sky-950 flex items-center gap-1.5">
+                        <LinkIcon className="w-3.5 h-3.5 text-sky-600" />
+                        <span>ลูกค้าโอนรวมหลายคน/หลายหัว (สลิปเดียวรวมหลายบิล)</span>
+                      </span>
+                      <span className="text-[10px] text-slate-500 font-sans block">
+                        เช่น พ่อโอนก้อนเดียวจ่ายให้ลูก 2-3 คน ระบบจะผูกยอดสลิปเข้าด้วยกัน และคำนวณส่วนแบ่งช่างแต่ละคนถูกต้อง
+                      </span>
+                    </div>
+                  </label>
+                </div>
+
+                {isGroupPayment && (
+                  <div className="pt-2 border-t border-sky-200/80 space-y-3 animate-in fade-in duration-200">
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => setGroupPaymentOption('new')}
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          groupPaymentOption === 'new'
+                            ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        ✨ 1. สร้างกลุ่มสลิปใหม่ (คนแรก)
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setGroupPaymentOption('link');
+                          if (!selectedGroupLink) {
+                            if (activeGroups.existingGroups.length > 0) {
+                              setSelectedGroupLink(activeGroups.existingGroups[0].id);
+                            } else if (activeGroups.potentialSingles.length > 0) {
+                              setSelectedGroupLink(activeGroups.potentialSingles[0].id);
+                            }
+                          }
+                        }}
+                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          groupPaymentOption === 'link'
+                            ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
+                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        🔗 2. ผูกเข้ากับกลุ่มเดิม (คนถัดไป)
+                      </button>
+                    </div>
+
+                    {groupPaymentOption === 'new' ? (
+                      <div className="space-y-1.5 bg-white p-3 rounded-xl border border-sky-200">
+                        <label className="block text-[11px] font-bold text-slate-700">
+                          ชื่อหรือป้ายกำกับกลุ่มสลิปโอนร่วม (เช่น พ่อ+ลูก 2 คน):
+                        </label>
+                        <input
+                          type="text"
+                          placeholder="เช่น พ่อ + ลูก 2 คน หรือ ครอบครัวคุณเอก"
+                          value={newGroupCode}
+                          onChange={(e) => setNewGroupCode(e.target.value)}
+                          className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-sky-600"
+                        />
+                        <p className="text-[10px] text-slate-500">
+                          💡 เมื่อบันทึกบิลนี้เสร็จแล้ว สำหรับบิลของคนที่ 2 และ 3 ให้เลือก <strong>"2. ผูกเข้ากับกลุ่มเดิม"</strong> เพื่อรวมยอดสลิป
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="space-y-1.5 bg-white p-3 rounded-xl border border-sky-200">
+                        <label className="block text-[11px] font-bold text-slate-700">
+                          เลือกกลุ่มหรือบิลที่ต้องการผูกรวมสลิปในวันนี้:
+                        </label>
+                        {(activeGroups.existingGroups.length === 0 && activeGroups.potentialSingles.length === 0) ? (
+                          <div className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
+                            ยังไม่มีรายการโอนเงินอื่นในวันนี้ กรุณาเลือก "1. สร้างกลุ่มสลิปใหม่" สำหรับบิลแรก
+                          </div>
+                        ) : (
+                          <div className="space-y-2">
+                            <select
+                              value={selectedGroupLink}
+                              onChange={(e) => setSelectedGroupLink(e.target.value)}
+                              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-slate-50 font-bold text-slate-800 outline-none focus:ring-1 focus:ring-sky-600 cursor-pointer"
+                            >
+                              <option value="">-- กรุณาเลือกกลุ่มบิลที่ต้องการผูก --</option>
+                              {activeGroups.existingGroups.map(g => (
+                                <option key={g.id} value={g.id}>
+                                  🏷️ กลุ่ม: {g.label} (รวม {g.count} บิล • มียอดแล้ว {formatBaht(g.totalAmount)})
+                                </option>
+                              ))}
+                              {activeGroups.potentialSingles.map(s => (
+                                <option key={s.id} value={s.id}>
+                                  👤 บิลเดี่ยว: {s.label}
+                                </option>
+                              ))}
+                            </select>
+
+                            {selectedGroupLink && (() => {
+                              const existing = activeGroups.existingGroups.find(g => g.id === selectedGroupLink);
+                              const single = activeGroups.potentialSingles.find(s => s.id === selectedGroupLink);
+                              const prevTotal = existing ? existing.totalAmount : single ? single.totalAmount : 0;
+                              const combinedTotal = prevTotal + payableAmount;
+                              return (
+                                <div className="p-2 bg-sky-50 rounded-lg border border-sky-200 text-[11px] text-sky-950 font-sans flex items-center justify-between font-bold">
+                                  <span>ยอดเดิม {formatBaht(prevTotal)} + บิลนี้ {formatBaht(payableAmount)}</span>
+                                  <span className="text-sky-700 font-mono text-xs">✨ รวมสลิปนี้: {formatBaht(combinedTotal)}</span>
+                                </div>
+                              );
+                            })()}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
+
             {/* Member Credit Payment Interactive Panel */}
             {shareConfig?.enableMemberSystem !== false && paymentMethod === 'member_credit' && (
               <div className="bg-amber-50/80 border-2 border-amber-300 p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
