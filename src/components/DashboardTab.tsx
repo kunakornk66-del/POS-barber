@@ -59,7 +59,8 @@ import {
   Check,
   Scissors,
   Sparkles,
-  ShoppingBag
+  ShoppingBag,
+  ArrowLeftRight
 } from 'lucide-react';
 
 interface DashboardTabProps {
@@ -2257,6 +2258,53 @@ export default function DashboardTab({
     };
   }, [sales, paymentEditSale]);
 
+  const [toggleNotice, setToggleNotice] = useState<{ id: string; text: string } | null>(null);
+
+  const handleQuickTogglePaymentMethod = (sale: SaleRecord) => {
+    let nextMethod: 'cash' | 'transfer' = 'cash';
+    if (sale.paymentMethod === 'cash') {
+      nextMethod = 'transfer';
+    } else if (sale.paymentMethod === 'transfer') {
+      nextMethod = 'cash';
+    } else {
+      nextMethod = 'transfer';
+    }
+
+    if (onUpdateSale) {
+      const updates: Partial<SaleRecord> = {
+        paymentMethod: nextMethod,
+        ...(nextMethod === 'cash' ? {
+          cashReceived: sale.customerPaid,
+          cashAmount: sale.customerPaid,
+          transferAmount: 0,
+          splitCashAmount: 0,
+          splitTransferAmount: 0,
+          groupPaymentId: undefined,
+          groupPaymentCode: undefined,
+        } : {
+          transferAmount: sale.customerPaid,
+          cashReceived: 0,
+          cashAmount: 0,
+          splitCashAmount: 0,
+          splitTransferAmount: 0,
+          groupPaymentId: undefined,
+          groupPaymentCode: undefined,
+        })
+      };
+      onUpdateSale(sale.id, updates);
+    } else if (onUpdateSalePaymentMethod) {
+      onUpdateSalePaymentMethod(sale.id, nextMethod);
+    }
+
+    setToggleNotice({
+      id: sale.id,
+      text: nextMethod === 'transfer' ? '📱 สลับเป็นเงินโอนแล้ว (บันทึกคลาวด์เรียบร้อย)' : '💵 สลับเป็นเงินสดแล้ว (บันทึกคลาวด์เรียบร้อย)'
+    });
+    setTimeout(() => {
+      setToggleNotice(prev => (prev?.id === sale.id ? null : prev));
+    }, 2500);
+  };
+
 
   return (
     <div className="space-y-10" id="accounting-dashboard">
@@ -2667,7 +2715,7 @@ export default function DashboardTab({
                     <span>รายการธุรกรรมสำหรับการตรวจสอบเทียบแอปธนาคาร (Bank Comparison Sheet)</span>
                   </h3>
                   <p className="text-xs text-slate-500">
-                    ตรวจสอบเวลาทำรายการ ความเข้ากันได้ของยอดเงินโอน และบริการที่ทำของแต่ละบิลย่อยแบบรายตัว
+                    ตรวจสอบเวลาทำรายการ ความเข้ากันได้ของยอดเงินโอน และบริการที่ทำของแต่ละบิลย่อย (คลิกที่ปุ่มช่องทาง 💳 เพื่อสลับ เงินโอน ⇄ เงินสด ได้ทันที)
                   </p>
                 </div>
                 <div className="text-xs text-slate-400 font-mono">
@@ -2682,7 +2730,7 @@ export default function DashboardTab({
                       <th className="p-3 pl-5 w-16 text-center">ลำดับ</th>
                       <th className="p-3 text-left w-32 font-sans">🕒 เวลาโอน/จ่าย</th>
                       <th className="p-3 text-left w-32 font-sans">💈 ช่างผู้ให้บริการ / ลูกค้า</th>
-                      <th className="p-3 text-left w-32 font-sans">💳 ช่องทาง</th>
+                      <th className="p-3 text-left w-36 font-sans">💳 ช่องทาง (คลิกสลับได้)</th>
                       <th className="p-3 text-left font-sans">🛒 รายละเอียดบริการ / สินค้า</th>
                       <th className="p-3 text-right pr-5 w-36 font-sans">💰 ยอดเงินลูกค้าจ่ายสุทธิ</th>
                       <th className="p-3 text-center w-40 font-sans">⚙️ จัดการ</th>
@@ -2747,39 +2795,53 @@ export default function DashboardTab({
                               const b = getSalePaymentBreakdown(sale);
                               const isSplit = sale.paymentMethod === 'split';
                               const isMemberCredit = sale.paymentMethod === 'member_credit' || (sale.memberCreditUsed && sale.memberCreditUsed > 0 && !isSplit && !b.cashAmount && !b.transferAmount);
+                              const isTransfer = sale.paymentMethod === 'transfer';
+                              const isNotice = toggleNotice?.id === sale.id;
+
                               return (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    setPaymentEditSale({ ...sale });
-                                    setEditPairSaleId('');
-                                    setEditGroupLabel(sale.groupPaymentCode || '');
-                                  }}
-                                  className={`inline-flex items-center space-x-1 text-[11px] font-bold px-2.5 py-1 rounded-xl border transition-all cursor-pointer hover:scale-105 active:scale-95 ${
-                                    isSplit
-                                      ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border-indigo-200'
-                                      : isMemberCredit
-                                      ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
-                                      : sale.paymentMethod === 'transfer'
-                                      ? 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200/80'
-                                      : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200/80'
-                                  }`}
-                                  title="คลิกเพื่อปรับแต่งช่องทางชำระเงิน (สด/โอน/เครดิตสมาชิก/ชำระแบบผสม)"
-                                >
-                                  {isSplit ? (
-                                    <span className="flex items-center gap-1">
-                                      <span>⚡ ผสม</span>
-                                      <span className="text-[10px] font-mono text-indigo-700">(สด {formatBaht(b.cashAmount)} + โอน {formatBaht(b.transferAmount)})</span>
+                                <div className="flex flex-col items-start gap-1">
+                                  <button
+                                    type="button"
+                                    onClick={() => handleQuickTogglePaymentMethod(sale)}
+                                    className={`group relative inline-flex items-center space-x-1.5 text-[11px] font-extrabold px-3 py-1.5 rounded-xl border-2 transition-all cursor-pointer shadow-xs hover:scale-105 active:scale-95 ${
+                                      isSplit
+                                        ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border-indigo-300'
+                                        : isMemberCredit
+                                        ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
+                                        : isTransfer
+                                        ? 'bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-300 hover:border-sky-400'
+                                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 hover:border-emerald-400'
+                                    }`}
+                                    title="💡 คลิกเพื่อสลับระหว่าง 'เงินโอน' ⇄ 'เงินสด' ทันที"
+                                  >
+                                    {isSplit ? (
+                                      <span className="flex items-center gap-1">
+                                        <span>⚡ ผสม</span>
+                                        <span className="text-[10px] font-mono text-indigo-700">(สด {formatBaht(b.cashAmount)} + โอน {formatBaht(b.transferAmount)})</span>
+                                      </span>
+                                    ) : isMemberCredit ? (
+                                      <span>👑 เครดิตสมาชิก</span>
+                                    ) : isTransfer ? (
+                                      <span className="flex items-center gap-1">
+                                        <span>📱 เงินโอน</span>
+                                      </span>
+                                    ) : (
+                                      <span className="flex items-center gap-1">
+                                        <span>💵 เงินสด</span>
+                                      </span>
+                                    )}
+
+                                    <span className="inline-flex items-center justify-center p-0.5 rounded-md bg-white/90 border border-slate-200 group-hover:bg-white text-slate-500 group-hover:text-indigo-600 transition-colors shadow-2xs">
+                                      <ArrowLeftRight className="w-2.5 h-2.5 group-hover:rotate-180 transition-transform duration-300" />
                                     </span>
-                                  ) : isMemberCredit ? (
-                                    <span>👑 หักเครดิตสมาชิก</span>
-                                  ) : sale.paymentMethod === 'transfer' ? (
-                                    <span>📱 โอนเงินผ่านแบงก์</span>
-                                  ) : (
-                                    <span>💵 รับด้วยเงินสด</span>
+                                  </button>
+
+                                  {isNotice && (
+                                    <span className="text-[10px] font-bold font-sans text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-md animate-fade-in shadow-2xs">
+                                      {toggleNotice.text}
+                                    </span>
                                   )}
-                                  <span className="text-[10px] opacity-65 ml-0.5">✏️</span>
-                                </button>
+                                </div>
                               );
                             })()}
                           </td>
@@ -2835,6 +2897,23 @@ export default function DashboardTab({
                           {/* 7. Action column */}
                           <td className="p-3 text-center">
                             <div className="flex items-center justify-center gap-1.5">
+                              {/* Quick Toggle Cash/Transfer button */}
+                              <button
+                                type="button"
+                                onClick={() => handleQuickTogglePaymentMethod(sale)}
+                                className={`p-1 px-2 rounded-lg font-bold text-[11px] transition-all inline-flex items-center space-x-1 border cursor-pointer ${
+                                  sale.paymentMethod === 'cash'
+                                    ? 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200 hover:shadow-xs hover:border-sky-300'
+                                    : sale.paymentMethod === 'transfer'
+                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 hover:shadow-xs hover:border-emerald-300'
+                                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:shadow-xs hover:border-indigo-300'
+                                }`}
+                                title={sale.paymentMethod === 'cash' ? 'คลิกเพื่อสลับเป็น "📱 เงินโอน" ทันที' : 'คลิกเพื่อสลับเป็น "💵 เงินสด" ทันที'}
+                              >
+                                <ArrowLeftRight className="w-3 h-3" />
+                                <span className="hidden sm:inline">{sale.paymentMethod === 'cash' ? 'สลับเป็นโอน' : 'สลับเป็นสด'}</span>
+                              </button>
+
                               <button
                                 type="button"
                                 onClick={() => {

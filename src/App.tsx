@@ -16,7 +16,6 @@ import DashboardTab from './components/DashboardTab';
 import ConfigTab from './components/ConfigTab';
 import CashCounterTab from './components/CashCounterTab';
 import PayslipsTab from './components/PayslipsTab';
-import UserGuideModal from './components/UserGuideModal';
 import SuperAdminTab from './components/SuperAdminTab';
 import AnnualResetModal from './components/AnnualResetModal';
 import MembersTab from './components/MembersTab';
@@ -38,7 +37,6 @@ import {
   Plus,
   Store,
   KeyRound,
-  BookOpen,
   AlertTriangle,
   Trash2,
   ShieldCheck,
@@ -337,7 +335,6 @@ export default function App() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
-  const [showUserGuide, setShowUserGuide] = useState(false);
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
   const [showClearSalesConfirm, setShowClearSalesConfirm] = useState(false);
   const [showFullResetConfirm, setShowFullResetConfirm] = useState(false);
@@ -2102,18 +2099,6 @@ export default function App() {
               </div>
 
               <button
-                onClick={() => setShowUserGuide(true)}
-                className="relative overflow-hidden group flex items-center space-x-2 px-3.5 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-600 hover:to-orange-600 text-white rounded-xl text-xs font-black transition-all duration-300 cursor-pointer shadow-md shadow-amber-500/20 hover:shadow-lg hover:shadow-amber-500/35 hover:-translate-y-0.5 active:translate-y-0"
-                title="คู่มือการใช้งานระบบและ POS อย่างละเอียด"
-              >
-                <BookOpen className="w-4 h-4 text-white animate-pulse" />
-                <span className="font-sans">คู่มือระบบอัจฉริยะ</span>
-                <span className="absolute top-1 right-1 flex h-2 w-2">
-                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-200 opacity-75"></span>
-                  <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-300"></span>
-                </span>
-              </button>
-              <button
                 onClick={handleLogout}
                 className="p-1.5 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-400 rounded-lg transition-all border border-slate-100"
                 title="ออกจากระบบ"
@@ -2438,13 +2423,6 @@ export default function App() {
           </div>
         </div>
       )}
-
-      {/* 5. Complete Interactive User Guide Modal */}
-      <UserGuideModal 
-        isOpen={showUserGuide} 
-        onClose={() => setShowUserGuide(false)} 
-        shopConfig={shopConfig} 
-      />
 
       {/* Annual Reset Modal (1 Year Popup Warning & Report Export) */}
       <AnnualResetModal
