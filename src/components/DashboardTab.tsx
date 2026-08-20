@@ -2730,10 +2730,10 @@ export default function DashboardTab({
                       <th className="p-3 pl-5 w-16 text-center">ลำดับ</th>
                       <th className="p-3 text-left w-32 font-sans">🕒 เวลาโอน/จ่าย</th>
                       <th className="p-3 text-left w-32 font-sans">💈 ช่างผู้ให้บริการ / ลูกค้า</th>
-                      <th className="p-3 text-left w-36 font-sans">💳 ช่องทาง (คลิกสลับได้)</th>
+                      <th className="p-3 text-left w-44 font-sans">💳 ช่องทาง (คลิกสลับ สด⇄โอน)</th>
                       <th className="p-3 text-left font-sans">🛒 รายละเอียดบริการ / สินค้า</th>
                       <th className="p-3 text-right pr-5 w-36 font-sans">💰 ยอดเงินลูกค้าจ่ายสุทธิ</th>
-                      <th className="p-3 text-center w-40 font-sans">⚙️ จัดการ</th>
+                      <th className="p-3 text-center w-36 whitespace-nowrap font-sans">⚙️ จัดการ</th>
                     </tr>
                   </thead>
                   <tbody className="text-xs divide-y divide-slate-100 font-sans text-slate-700">
@@ -2803,16 +2803,16 @@ export default function DashboardTab({
                                   <button
                                     type="button"
                                     onClick={() => handleQuickTogglePaymentMethod(sale)}
-                                    className={`group relative inline-flex items-center space-x-1.5 text-[11px] font-extrabold px-3 py-1.5 rounded-xl border-2 transition-all cursor-pointer shadow-xs hover:scale-105 active:scale-95 ${
+                                    className={`group relative inline-flex items-center space-x-1.5 text-[11px] font-bold px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer shadow-2xs hover:shadow-xs hover:scale-105 active:scale-95 ${
                                       isSplit
-                                        ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border-indigo-300'
+                                        ? 'bg-indigo-50 hover:bg-indigo-100 text-indigo-950 border-indigo-200'
                                         : isMemberCredit
                                         ? 'bg-purple-50 hover:bg-purple-100 text-purple-900 border-purple-300'
                                         : isTransfer
-                                        ? 'bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-300 hover:border-sky-400'
-                                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-300 hover:border-emerald-400'
+                                        ? 'bg-sky-50 hover:bg-sky-100 text-sky-800 border-sky-200 hover:border-sky-300'
+                                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200 hover:border-emerald-300'
                                     }`}
-                                    title="💡 คลิกเพื่อสลับระหว่าง 'เงินโอน' ⇄ 'เงินสด' ทันที"
+                                    title="💡 คลิกเพื่อสลับระหว่าง 'เงินสด' ⇄ 'เงินโอน' ทันที"
                                   >
                                     {isSplit ? (
                                       <span className="flex items-center gap-1">
@@ -2822,18 +2822,22 @@ export default function DashboardTab({
                                     ) : isMemberCredit ? (
                                       <span>👑 เครดิตสมาชิก</span>
                                     ) : isTransfer ? (
-                                      <span className="flex items-center gap-1">
+                                      <span className="flex items-center gap-1.5">
                                         <span>📱 เงินโอน</span>
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] bg-sky-200/60 text-sky-800 px-1 py-0.5 rounded font-sans group-hover:bg-sky-300/80 transition-colors">
+                                          <ArrowLeftRight className="w-2.5 h-2.5" />
+                                          <span>สลับเป็นสด</span>
+                                        </span>
                                       </span>
                                     ) : (
-                                      <span className="flex items-center gap-1">
+                                      <span className="flex items-center gap-1.5">
                                         <span>💵 เงินสด</span>
+                                        <span className="inline-flex items-center gap-0.5 text-[9px] bg-emerald-200/60 text-emerald-800 px-1 py-0.5 rounded font-sans group-hover:bg-emerald-300/80 transition-colors">
+                                          <ArrowLeftRight className="w-2.5 h-2.5" />
+                                          <span>สลับเป็นโอน</span>
+                                        </span>
                                       </span>
                                     )}
-
-                                    <span className="inline-flex items-center justify-center p-0.5 rounded-md bg-white/90 border border-slate-200 group-hover:bg-white text-slate-500 group-hover:text-indigo-600 transition-colors shadow-2xs">
-                                      <ArrowLeftRight className="w-2.5 h-2.5 group-hover:rotate-180 transition-transform duration-300" />
-                                    </span>
                                   </button>
 
                                   {isNotice && (
@@ -2895,35 +2899,18 @@ export default function DashboardTab({
                           </td>
 
                           {/* 7. Action column */}
-                          <td className="p-3 text-center">
-                            <div className="flex items-center justify-center gap-1.5">
-                              {/* Quick Toggle Cash/Transfer button */}
-                              <button
-                                type="button"
-                                onClick={() => handleQuickTogglePaymentMethod(sale)}
-                                className={`p-1 px-2 rounded-lg font-bold text-[11px] transition-all inline-flex items-center space-x-1 border cursor-pointer ${
-                                  sale.paymentMethod === 'cash'
-                                    ? 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200 hover:shadow-xs hover:border-sky-300'
-                                    : sale.paymentMethod === 'transfer'
-                                    ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border-emerald-200 hover:shadow-xs hover:border-emerald-300'
-                                    : 'bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border-indigo-200 hover:shadow-xs hover:border-indigo-300'
-                                }`}
-                                title={sale.paymentMethod === 'cash' ? 'คลิกเพื่อสลับเป็น "📱 เงินโอน" ทันที' : 'คลิกเพื่อสลับเป็น "💵 เงินสด" ทันที'}
-                              >
-                                <ArrowLeftRight className="w-3 h-3" />
-                                <span className="hidden sm:inline">{sale.paymentMethod === 'cash' ? 'สลับเป็นโอน' : 'สลับเป็นสด'}</span>
-                              </button>
-
+                          <td className="p-3 text-center whitespace-nowrap">
+                            <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
                               <button
                                 type="button"
                                 onClick={() => {
                                   setPaymentEditSale(sale);
                                 }}
-                                className="p-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg hover:text-indigo-800 hover:shadow-xs font-semibold text-[11px] transition-all inline-flex items-center space-x-1 border border-indigo-200/50 cursor-pointer"
-                                title="แก้ไขรายการขายนี้"
+                                className="py-1 px-2.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg hover:text-indigo-800 hover:shadow-xs font-semibold text-[11px] transition-all inline-flex items-center space-x-1 border border-indigo-200/50 cursor-pointer whitespace-nowrap shrink-0"
+                                title="แก้ไขรายการขายนี้ (ปรับเปลี่ยนยอดเงิน ช่าง บริการ หรือช่องทางชำระเงิน)"
                               >
-                                <Edit className="w-3.5 h-3.5" />
-                                <span>แก้ไข</span>
+                                <Edit className="w-3.5 h-3.5 shrink-0" />
+                                <span className="whitespace-nowrap">แก้ไข</span>
                               </button>
 
                               <button
@@ -2939,11 +2926,11 @@ export default function DashboardTab({
                                     }
                                   });
                                 }}
-                                className="p-1 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg hover:text-rose-700 hover:shadow-xs font-semibold text-[11px] transition-all inline-flex items-center space-x-1 border border-rose-200/50 cursor-pointer"
+                                className="py-1 px-2.5 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg hover:text-rose-700 hover:shadow-xs font-semibold text-[11px] transition-all inline-flex items-center space-x-1 border border-rose-200/50 cursor-pointer whitespace-nowrap shrink-0"
                                 title="ลบรายการขายนี้"
                               >
-                                <Trash2 className="w-3.5 h-3.5" />
-                                <span>ลบ</span>
+                                <Trash2 className="w-3.5 h-3.5 shrink-0" />
+                                <span className="whitespace-nowrap">ลบ</span>
                               </button>
                             </div>
                           </td>

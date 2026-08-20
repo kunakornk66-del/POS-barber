@@ -33,6 +33,18 @@
           "type": "array",
           "description": "List of salon expenses / store withdrawals"
         },
+        "members": {
+          "type": "array",
+          "description": "List of registered salon members with prepaid credits and usage logs"
+        },
+        "memberPackages": {
+          "type": "array",
+          "description": "List of member prepaid credit top-up packages"
+        },
+        "cashCounter": {
+          "type": "object",
+          "description": "Cash counting and drawer balance status"
+        },
         "chemicalPromos": {
           "type": "array",
           "description": "List of chemical promotions and preset discounts"

@@ -245,7 +245,7 @@ export default function App() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashCounter, setCashCounter] = useState<CashCounterState | null>(null);
-  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'expenses' | 'members' | 'config' | 'cash' | 'payslips' | 'superadmin'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'expenses' | 'config' | 'cash' | 'payslips' | 'superadmin'>('sales');
 
   const isSuperAdmin = useMemo(() => {
     if (!userEmail) return false;
@@ -328,10 +328,7 @@ export default function App() {
     if (shopConfig?.enablePayslips === false && activeTab === 'payslips') {
       setActiveTab('sales');
     }
-    if (shareConfig?.enableMemberSystem === false && activeTab === 'members') {
-      setActiveTab('sales');
-    }
-  }, [shopConfig?.enableCashCounter, shopConfig?.enablePayslips, shareConfig?.enableMemberSystem, activeTab]);
+  }, [shopConfig?.enableCashCounter, shopConfig?.enablePayslips, activeTab]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -2053,7 +2050,6 @@ export default function App() {
                 { id: 'sales' as const, label: 'หน้าบันทึกการขาย', icon: <Scissors className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> },
                 { id: 'dashboard' as const, label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500" /> },
                 { id: 'expenses' as const, label: 'ควบคุมรายจ่าย/เบิกเงิน', icon: <ArrowDownCircle className="w-3.5 h-3.5 text-rose-500" /> },
-                ...(shareConfig?.enableMemberSystem !== false ? [{ id: 'members' as const, label: 'ระบบสมาชิก Member', icon: <Crown className="w-3.5 h-3.5 text-amber-500 fill-amber-500" /> }] : []),
                 ...(shopConfig?.enableCashCounter !== false ? [{ id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 { id: 'config' as const, label: 'ตั้งค่า', icon: <Settings className="w-3.5 h-3.5 text-indigo-500" /> },
@@ -2156,19 +2152,6 @@ export default function App() {
               expenses={expenses}
               sales={correctedSales}
               onUpdateExpenses={handleUpdateExpenses}
-            />
-          </div>
-        )}
-
-        {activeTab === 'members' && shareConfig?.enableMemberSystem !== false && (
-          <div className="tab-content-enter">
-            <MembersTab
-              members={members}
-              memberPackages={memberPackages}
-              barbers={barbers}
-              onUpdateMembers={handleUpdateMembers}
-              onUpdateMemberPackages={handleUpdateMemberPackages}
-              onSellPackageToMember={handleSellPackageToMember}
             />
           </div>
         )}

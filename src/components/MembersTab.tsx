@@ -22,8 +22,68 @@ import {
   ChevronRight,
   Info,
   X,
-  UserPlus
+  UserPlus,
+  Award,
+  Star,
+  Zap,
+  CheckCircle2,
+  Layers,
+  Flame
 } from 'lucide-react';
+
+export const PACKAGE_PRESETS = [
+  {
+    name: 'Package VIP Diamond (18,000)',
+    price: 18000,
+    credit: 20000,
+    color: 'amber' as const,
+    desc: '👑 ระดับสูงสุด: ซื้อ 18,000 รับเครดิตเต็ม 20,000 บ. (ประหยัด 2,000 บ.) • สิทธิ์จองคิว VIP • บริการเครื่องดื่มพรีเมียม',
+    tierLabel: 'VIP DIAMOND'
+  },
+  {
+    name: 'Package Gold Elite (10,000)',
+    price: 10000,
+    credit: 11500,
+    color: 'purple' as const,
+    desc: '🥇 ซื้อ 10,000 รับเครดิต 11,500 บ. (โบนัส +1,500 บ.) • สิทธิ์เลือกช่างตัดผมประจำ • ฟรีเซ็ททรง',
+    tierLabel: 'GOLD ELITE'
+  },
+  {
+    name: 'Package Silver Executive (5,000)',
+    price: 5000,
+    credit: 5500,
+    color: 'indigo' as const,
+    desc: '🥈 ซื้อ 5,000 รับเครดิต 5,500 บ. (โบนัส +500 บ.) เหมาะสำหรับลูกค้าประจำ',
+    tierLabel: 'SILVER EXECUTIVE'
+  },
+  {
+    name: 'Package Titanium Supreme (30,000)',
+    price: 30000,
+    credit: 35000,
+    color: 'slate' as const,
+    desc: '🖤 ระดับพรีเมียมเอกสิทธิ์: เติม 30,000 รับเครดิต 35,000 บ. (โบนัสพิเศษ +5,000 บ.) • ไม่จำกัดวันหมดอายุ',
+    tierLabel: 'TITANIUM BLACK'
+  },
+  {
+    name: 'Package Classic Starter (3,000)',
+    price: 3000,
+    credit: 3200,
+    color: 'emerald' as const,
+    desc: '🟢 เติม 3,000 รับเครดิต 3,200 บ. (โบนัส +200 บ.) เริ่มต้นเข้าสู่ระบบสมาชิก',
+    tierLabel: 'CLASSIC MEMBER'
+  }
+];
+
+export const QUICK_PRIVILEGES = [
+  '✂️ ตัดผม & เซ็ททรงพรีเมียม',
+  '☕ Welcome Drink พิเศษ',
+  '📅 จองคิว VIP ล่วงหน้า',
+  '💆 นวดสปาศีรษะผ่อนคลาย',
+  '🎁 ส่วนลดทรีทเมนต์ 10%',
+  '🎂 ของขวัญวันเกิดสุดพิเศษ',
+  '💈 ฟรีผลิตภัณฑ์จัดแต่งทรงผม',
+  '♾️ ไม่จำกัดวันหมดอายุ'
+];
 
 interface MembersTabProps {
   members: Member[];
@@ -585,6 +645,83 @@ export default function MembersTab({
     setDeletePackageConfirm(null);
   };
 
+  const getPackageCardTheme = (color?: string) => {
+    switch (color) {
+      case 'amber':
+        return {
+          cardBg: 'bg-gradient-to-br from-amber-950 via-stone-900 to-amber-900 text-amber-50',
+          chipBg: 'bg-gradient-to-br from-amber-300 to-amber-500 text-amber-950',
+          accentText: 'text-amber-400',
+          glowBorder: 'border-amber-500/40 hover:border-amber-400/80',
+          badge: 'bg-amber-400/20 text-amber-300 border-amber-400/40',
+          crown: 'text-amber-400',
+          tag: 'VIP GOLD',
+          foilShine: 'from-amber-400/20 via-amber-200/5 to-transparent',
+          glowRing: 'ring-amber-500/30'
+        };
+      case 'slate':
+        return {
+          cardBg: 'bg-gradient-to-br from-zinc-950 via-neutral-900 to-slate-900 text-slate-100',
+          chipBg: 'bg-gradient-to-br from-slate-200 to-slate-400 text-slate-950',
+          accentText: 'text-slate-200',
+          glowBorder: 'border-slate-500/40 hover:border-slate-300/80',
+          badge: 'bg-slate-500/20 text-slate-200 border-slate-400/40',
+          crown: 'text-slate-300',
+          tag: 'BLACK TITANIUM',
+          foilShine: 'from-white/15 via-white/5 to-transparent',
+          glowRing: 'ring-slate-500/30'
+        };
+      case 'emerald':
+        return {
+          cardBg: 'bg-gradient-to-br from-emerald-950 via-teal-950 to-slate-950 text-emerald-50',
+          chipBg: 'bg-gradient-to-br from-emerald-300 to-teal-400 text-emerald-950',
+          accentText: 'text-emerald-400',
+          glowBorder: 'border-emerald-500/40 hover:border-emerald-400/80',
+          badge: 'bg-emerald-400/20 text-emerald-300 border-emerald-400/40',
+          crown: 'text-emerald-400',
+          tag: 'IMPERIAL JADE',
+          foilShine: 'from-emerald-400/20 via-emerald-200/5 to-transparent',
+          glowRing: 'ring-emerald-500/30'
+        };
+      case 'indigo':
+        return {
+          cardBg: 'bg-gradient-to-br from-indigo-950 via-blue-950 to-slate-950 text-indigo-50',
+          chipBg: 'bg-gradient-to-br from-indigo-300 to-blue-400 text-indigo-950',
+          accentText: 'text-indigo-300',
+          glowBorder: 'border-indigo-500/40 hover:border-indigo-400/80',
+          badge: 'bg-indigo-400/20 text-indigo-300 border-indigo-400/40',
+          crown: 'text-indigo-400',
+          tag: 'ROYAL SAPPHIRE',
+          foilShine: 'from-indigo-400/20 via-indigo-200/5 to-transparent',
+          glowRing: 'ring-indigo-500/30'
+        };
+      case 'rose':
+        return {
+          cardBg: 'bg-gradient-to-br from-rose-950 via-pink-950 to-slate-950 text-rose-50',
+          chipBg: 'bg-gradient-to-br from-rose-300 to-pink-400 text-rose-950',
+          accentText: 'text-rose-400',
+          glowBorder: 'border-rose-500/40 hover:border-rose-400/80',
+          badge: 'bg-rose-400/20 text-rose-300 border-rose-400/40',
+          crown: 'text-rose-400',
+          tag: 'RUBY VELVET',
+          foilShine: 'from-rose-400/20 via-rose-200/5 to-transparent',
+          glowRing: 'ring-rose-500/30'
+        };
+      default: // purple
+        return {
+          cardBg: 'bg-gradient-to-br from-purple-950 via-indigo-950 to-slate-950 text-purple-50',
+          chipBg: 'bg-gradient-to-br from-purple-300 to-amber-400 text-purple-950',
+          accentText: 'text-purple-300',
+          glowBorder: 'border-purple-500/40 hover:border-purple-400/80',
+          badge: 'bg-purple-400/20 text-purple-300 border-purple-400/40',
+          crown: 'text-amber-400',
+          tag: 'ROYAL AMETHYST',
+          foilShine: 'from-purple-400/20 via-purple-200/5 to-transparent',
+          glowRing: 'ring-purple-500/30'
+        };
+    }
+  };
+
   const getBadgeClass = (color?: string) => {
     switch (color) {
       case 'amber': return 'bg-amber-100 text-amber-800 border-amber-300';
@@ -875,108 +1012,200 @@ export default function MembersTab({
 
       {/* SUB-TAB 2: PACKAGES SETTINGS */}
       {activeSubTab === 'packages' && (
-        <div className="space-y-4">
-          <div className="flex items-center justify-between bg-white p-4 rounded-2xl border border-slate-200 shadow-xs">
-            <div>
-              <h3 className="text-sm font-extrabold text-slate-900">แพ็กเกจสมาชิกเติมเงินที่กำหนดไว้</h3>
-              <p className="text-xs text-slate-500">ตั้งค่าราคาขายและมูลค่าเครดิตที่ได้รับ เช่น ซื้อ 18,000 ได้ 20,000 บาท</p>
+        <div className="space-y-6">
+          {/* Header & Quick Action Bar */}
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 bg-white p-5 rounded-3xl border border-slate-200 shadow-xs">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <span className="p-1.5 bg-amber-100 text-amber-800 rounded-xl">
+                  <Crown className="w-4 h-4" />
+                </span>
+                <h3 className="text-base font-black text-slate-900 font-sans">
+                  ตั้งค่าระดับแพ็กเกจบัตรสมาชิก VIP (VIP Membership Tier Cards)
+                </h3>
+              </div>
+              <p className="text-xs text-slate-500 max-w-xl">
+                กำหนดราคาจ่ายจริงและมูลค่าเครดิตในกระเป๋าของสมาชิก (เช่น ซื้อ 18,000 บ. ได้รับเครดิต 20,000 บ. ได้โบนัสฟรี +2,000 บ.)
+              </p>
             </div>
-            <button
-              onClick={() => handleOpenPackageModal()}
-              className="px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-2 cursor-pointer shadow-xs"
-            >
-              <Plus className="w-4 h-4" />
-              <span>+ สร้างแพ็กเกจใหม่</span>
-            </button>
+            
+            <div className="flex items-center space-x-2 w-full sm:w-auto">
+              <button
+                type="button"
+                onClick={() => handleOpenPackageModal()}
+                className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-2xl text-xs font-black transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md shadow-amber-500/20 active:scale-95"
+              >
+                <Plus className="w-4 h-4" />
+                <span>+ สร้างแพ็กเกจสมาชิก VIP ใหม่</span>
+              </button>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {memberPackages.map(pkg => (
-              <div 
-                key={pkg.id} 
-                className={`bg-white rounded-3xl p-5 border shadow-xs transition-all flex flex-col justify-between relative overflow-hidden ${
-                  pkg.isActive ? 'border-slate-200/80 hover:shadow-md' : 'border-slate-200 opacity-60 bg-slate-50/50'
-                }`}
-              >
-                {/* Badge Color Top Border */}
-                <div className={`h-1.5 w-full absolute top-0 left-0 right-0 ${
-                  pkg.badgeColor === 'emerald' ? 'bg-emerald-500' :
-                  pkg.badgeColor === 'amber' ? 'bg-amber-500' :
-                  pkg.badgeColor === 'indigo' ? 'bg-indigo-500' :
-                  pkg.badgeColor === 'rose' ? 'bg-rose-500' :
-                  'bg-purple-600'
-                }`} />
+          {/* Quick Presets Bar */}
+          <div className="bg-slate-900 text-white p-4 rounded-3xl border border-slate-800 space-y-2.5">
+            <div className="flex items-center justify-between">
+              <span className="text-[11px] font-black text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5" />
+                เทมเพลตแพ็กเกจยอดนิยม (คลิกเพื่อสร้างทันที)
+              </span>
+              <span className="text-[10px] text-slate-400 font-mono">1-CLICK PRESETS</span>
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-2">
+              {PACKAGE_PRESETS.map((preset, idx) => (
+                <button
+                  key={idx}
+                  type="button"
+                  onClick={() => {
+                    setEditingPackage(null);
+                    setPkgName(preset.name);
+                    setPkgPrice(preset.price);
+                    setPkgCredit(preset.credit);
+                    setPkgColor(preset.color);
+                    setPkgDesc(preset.desc);
+                    setShowPackageModal(true);
+                  }}
+                  className="p-2.5 bg-white/5 hover:bg-white/10 hover:border-amber-400/50 border border-white/10 rounded-2xl text-left transition-all group cursor-pointer"
+                >
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="font-extrabold text-white text-[11px] group-hover:text-amber-300 transition-colors truncate">
+                      {preset.tierLabel}
+                    </span>
+                    <span className="text-[10px] font-mono text-amber-400 font-bold">
+                      +{Math.round(((preset.credit - preset.price) / preset.price) * 100)}%
+                    </span>
+                  </div>
+                  <div className="text-[10.5px] font-mono text-slate-300">
+                    {formatBaht(preset.price)} <span className="text-slate-500">→</span> <span className="text-emerald-400 font-bold">{formatBaht(preset.credit)}</span>
+                  </div>
+                </button>
+              ))}
+            </div>
+          </div>
 
-                <div className="space-y-4 pt-2">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <span className={`inline-block text-[10px] font-black px-2.5 py-0.5 rounded-full border mb-1.5 ${getBadgeClass(pkg.badgeColor)}`}>
-                        {pkg.bonusCredit > 0 ? `แถมฟรี +${formatBaht(pkg.bonusCredit)}` : 'เครดิตมาตรฐาน'}
+          {/* Package Cards Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {memberPackages.map(pkg => {
+              const theme = getPackageCardTheme(pkg.badgeColor);
+              const bonusAmount = Math.max(0, (pkg.credit || 0) - (pkg.price || 0));
+              const bonusPercent = pkg.price > 0 ? Math.round((bonusAmount / pkg.price) * 100) : 0;
+
+              return (
+                <div 
+                  key={pkg.id} 
+                  className={`rounded-3xl border ${theme.glowBorder} p-6 shadow-lg transition-all duration-200 flex flex-col justify-between relative overflow-hidden group ${
+                    pkg.isActive ? `${theme.cardBg}` : 'bg-slate-900/80 opacity-60 border-slate-700'
+                  }`}
+                >
+                  {/* Subtle Foil Background Reflection */}
+                  <div className={`absolute -top-24 -right-24 w-56 h-56 rounded-full bg-gradient-to-br ${theme.foilShine} blur-2xl pointer-events-none`} />
+
+                  {/* Card Header: Chip, Crown, Actions */}
+                  <div className="relative z-10 space-y-4">
+                    <div className="flex items-start justify-between">
+                      {/* Realistic EMV Smart Chip Graphic */}
+                      <div className="flex items-center space-x-2.5">
+                        <div className={`w-10 h-7 rounded-md ${theme.chipBg} p-1 flex flex-col justify-between border border-black/20 shadow-inner`}>
+                          <div className="w-full h-1 bg-black/15 rounded-full" />
+                          <div className="grid grid-cols-2 gap-0.5 h-2">
+                            <div className="border-r border-black/20" />
+                            <div />
+                          </div>
+                          <div className="w-full h-0.5 bg-black/15 rounded-full" />
+                        </div>
+                        <div>
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${theme.badge}`}>
+                            {theme.tag}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action Menu (Edit, Delete) */}
+                      <div className="flex items-center space-x-1 bg-black/30 backdrop-blur-xs p-1 rounded-xl border border-white/10">
+                        <button
+                          type="button"
+                          onClick={() => handleOpenPackageModal(pkg)}
+                          className="p-1.5 text-slate-300 hover:text-white hover:bg-white/10 rounded-lg transition-all cursor-pointer"
+                          title="แก้ไขแพ็กเกจ"
+                        >
+                          <Edit3 className="w-3.5 h-3.5" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleDeletePackage(pkg.id, pkg.name)}
+                          className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-all cursor-pointer"
+                          title="ลบแพ็กเกจ"
+                        >
+                          <Trash2 className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Card Title & Crown */}
+                    <div className="pt-2">
+                      <div className="flex items-center space-x-1.5 text-amber-400 mb-1">
+                        <Crown className="w-4 h-4 shrink-0" />
+                        <span className="text-[10px] font-mono font-black tracking-widest uppercase">VIP MEMBER PASS</span>
+                      </div>
+                      <h4 className="text-lg font-black tracking-tight text-white line-clamp-1">
+                        {pkg.name}
+                      </h4>
+                    </div>
+
+                    {/* Financial Value Display Box */}
+                    <div className="bg-black/35 backdrop-blur-md rounded-2xl p-4 border border-white/10 space-y-2.5">
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-300 font-medium">ราคาชำระจริง (Paid):</span>
+                        <span className="font-mono font-black text-white text-base">{formatBaht(pkg.price)}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-slate-300 font-medium">เครดิตเข้ากระเป๋า (Credit):</span>
+                        <span className="font-mono font-black text-emerald-400 text-lg">{formatBaht(pkg.credit)}</span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-[11px] pt-2 border-t border-white/10 text-amber-300 font-bold">
+                        <span className="flex items-center gap-1">
+                          <Gift className="w-3.5 h-3.5 text-amber-400" />
+                          โบนัสพิเศษที่ได้รับ:
+                        </span>
+                        <span className="font-mono bg-amber-500/20 px-2 py-0.5 rounded-md border border-amber-500/30">
+                          +{formatBaht(bonusAmount)} (+{bonusPercent}%)
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Description & Privileges */}
+                    {pkg.description && (
+                      <p className="text-[11.5px] text-slate-200/90 leading-relaxed bg-white/5 backdrop-blur-xs p-3 rounded-2xl border border-white/5 font-sans">
+                        {pkg.description}
+                      </p>
+                    )}
+                  </div>
+
+                  {/* Footer Status & Toggle */}
+                  <div className="pt-4 mt-4 border-t border-white/10 flex items-center justify-between relative z-10">
+                    <div className="flex items-center space-x-2">
+                      <div className={`w-2.5 h-2.5 rounded-full ${pkg.isActive ? 'bg-emerald-400 animate-pulse' : 'bg-slate-500'}`} />
+                      <span className="text-xs font-bold text-slate-300">
+                        {pkg.isActive ? 'เปิดขายปกติ' : 'ปิดการขายชั่วคราว'}
                       </span>
-                      <h4 className="text-base font-black text-slate-900">{pkg.name}</h4>
                     </div>
 
-                    <div className="flex items-center space-x-1">
-                      <button
-                        onClick={() => handleOpenPackageModal(pkg)}
-                        className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 rounded-lg transition-all cursor-pointer"
-                        title="แก้ไขแพ็กเกจ"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                      </button>
-                      <button
-                        onClick={() => handleDeletePackage(pkg.id, pkg.name)}
-                        className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                        title="ลบแพ็กเกจ"
-                      >
-                        <Trash2 className="w-3.5 h-3.5" />
-                      </button>
-                    </div>
+                    <button
+                      type="button"
+                      onClick={() => handleTogglePackageStatus(pkg.id)}
+                      className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                        pkg.isActive 
+                          ? 'bg-white/10 hover:bg-rose-500/20 text-slate-200 hover:text-rose-200 border border-white/10 hover:border-rose-400/40' 
+                          : 'bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-black shadow-md'
+                      }`}
+                    >
+                      {pkg.isActive ? 'ปิดการขาย' : 'เปิดขายแพ็กเกจนี้'}
+                    </button>
                   </div>
-
-                  {/* Pricing Breakdown */}
-                  <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100 space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">ราคาซื้อจริง (จ่ายเงินสด/โอน):</span>
-                      <span className="font-mono font-extrabold text-slate-900 text-sm">{formatBaht(pkg.price)}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-slate-500">เครดิตที่จะได้รับเพิ่ม:</span>
-                      <span className="font-mono font-extrabold text-emerald-600 text-base">{formatBaht(pkg.credit)}</span>
-                    </div>
-
-                    <div className="flex items-center justify-between text-[11px] pt-2 border-t border-slate-200/60 text-amber-700 font-bold">
-                      <span>ประหยัดทันที (โบนัส):</span>
-                      <span className="font-mono">+{formatBaht(pkg.bonusCredit)} ({Math.round((pkg.bonusCredit / pkg.price) * 100)}%)</span>
-                    </div>
-                  </div>
-
-                  {pkg.description && (
-                    <p className="text-xs text-slate-600 leading-relaxed bg-amber-50/50 p-2.5 rounded-xl border border-amber-100/60">
-                      {pkg.description}
-                    </p>
-                  )}
                 </div>
-
-                {/* Status Toggle Footer */}
-                <div className="pt-4 mt-4 border-t border-slate-100 flex items-center justify-between">
-                  <span className="text-xs text-slate-500 font-medium">
-                    สถานะ: <strong className={pkg.isActive ? 'text-emerald-600' : 'text-slate-400'}>{pkg.isActive ? 'เปิดขายปกติ' : 'ปิดการขาย'}</strong>
-                  </span>
-                  <button
-                    onClick={() => handleTogglePackageStatus(pkg.id)}
-                    className={`px-3 py-1 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                      pkg.isActive 
-                        ? 'bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200' 
-                        : 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200'
-                    }`}
-                  >
-                    {pkg.isActive ? 'ปิดแพ็กเกจนี้' : 'เปิดขายแพ็กเกจนี้'}
-                  </button>
-                </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -1188,41 +1417,59 @@ export default function MembersTab({
               </div>
 
               <div>
-                <label className="block font-bold text-slate-700 mb-1">เลือกแพ็กเกจเติมเงิน <span className="text-rose-500">*</span></label>
-                <div className="space-y-2 max-h-48 overflow-y-auto pr-1">
-                  {memberPackages.filter(p => p.isActive).map(pkg => (
-                    <label 
-                      key={pkg.id} 
-                      className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
-                        selectedPackageId === pkg.id 
-                          ? 'border-indigo-600 bg-indigo-50/60 ring-2 ring-indigo-500/20' 
-                          : 'border-slate-200 hover:bg-slate-50'
-                      }`}
-                    >
-                      <div className="flex items-center space-x-3">
-                        <input
-                          type="radio"
-                          name="topup_package"
-                          value={pkg.id}
-                          checked={selectedPackageId === pkg.id}
-                          onChange={() => setSelectedPackageId(pkg.id)}
-                          className="accent-indigo-600 w-4 h-4"
-                        />
-                        <div>
-                          <div className="font-extrabold text-slate-900">{pkg.name}</div>
-                          <div className="text-[11px] text-slate-500">
-                            จ่าย {formatBaht(pkg.price)} บาท ได้รับเครดิต <strong className="text-emerald-600">{formatBaht(pkg.credit)}</strong>
+                <label className="block font-bold text-slate-700 mb-1.5 flex items-center justify-between">
+                  <span>เลือกแพ็กเกจเติมเงิน VIP <span className="text-rose-500">*</span></span>
+                  <span className="text-[10px] text-amber-700 font-normal">คลิกเลือกแพ็กเกจที่ลูกค้าต้องการ</span>
+                </label>
+                <div className="space-y-2 max-h-56 overflow-y-auto pr-1">
+                  {memberPackages.filter(p => p.isActive).map(pkg => {
+                    const theme = getPackageCardTheme(pkg.badgeColor);
+                    const bonusAmount = Math.max(0, (pkg.credit || 0) - (pkg.price || 0));
+                    const bonusPercent = pkg.price > 0 ? Math.round((bonusAmount / pkg.price) * 100) : 0;
+                    const isSelected = selectedPackageId === pkg.id;
+
+                    return (
+                      <label 
+                        key={pkg.id} 
+                        className={`flex items-center justify-between p-3 rounded-2xl border cursor-pointer transition-all ${
+                          isSelected 
+                            ? 'border-amber-500 bg-amber-50/70 ring-2 ring-amber-400/40 shadow-xs' 
+                            : 'border-slate-200 hover:bg-slate-50'
+                        }`}
+                      >
+                        <div className="flex items-center space-x-3">
+                          <input
+                            type="radio"
+                            name="topup_package"
+                            value={pkg.id}
+                            checked={isSelected}
+                            onChange={() => setSelectedPackageId(pkg.id)}
+                            className="accent-amber-600 w-4 h-4"
+                          />
+                          <div>
+                            <div className="flex items-center space-x-2">
+                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded border ${theme.badge}`}>
+                                {theme.tag}
+                              </span>
+                              <span className="font-extrabold text-slate-900 text-xs">{pkg.name}</span>
+                            </div>
+                            <div className="text-[11px] text-slate-600 mt-0.5 font-sans">
+                              จ่าย <strong className="font-mono text-slate-900">{formatBaht(pkg.price)}</strong> ➔ ได้เครดิต <strong className="font-mono text-emerald-600">{formatBaht(pkg.credit)}</strong>
+                            </div>
                           </div>
                         </div>
-                      </div>
 
-                      <div className="text-right">
-                        <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-100 text-amber-800">
-                          +{formatBaht(pkg.bonusCredit)} ฟรี
-                        </span>
-                      </div>
-                    </label>
-                  ))}
+                        <div className="text-right pl-2">
+                          <span className="text-[10.5px] font-mono font-bold px-2 py-0.5 rounded-md bg-amber-100/90 text-amber-900 border border-amber-300/60 block">
+                            +{formatBaht(bonusAmount)}
+                          </span>
+                          <span className="text-[9.5px] text-emerald-700 font-bold">
+                            (+{bonusPercent}%)
+                          </span>
+                        </div>
+                      </label>
+                    );
+                  })}
                 </div>
               </div>
 
@@ -1677,113 +1924,333 @@ export default function MembersTab({
       )}
 
       {/* MODAL 5: CREATE / EDIT PACKAGE */}
-      {showPackageModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col">
-            <div className="bg-slate-900 text-white p-5 flex items-center justify-between">
-              <div className="flex items-center space-x-2">
-                <Crown className="w-5 h-5 text-amber-400" />
-                <h3 className="text-base font-extrabold font-sans">
-                  {editingPackage ? 'แก้ไขแพ็กเกจสมาชิก' : 'สร้างแพ็กเกจสมาชิกใหม่'}
-                </h3>
-              </div>
-              <button onClick={() => setShowPackageModal(false)} className="text-slate-400 hover:text-white p-1">
-                <X className="w-5 h-5" />
-              </button>
-            </div>
+      {showPackageModal && (() => {
+        const previewTheme = getPackageCardTheme(pkgColor);
+        const priceVal = Number(pkgPrice) || 0;
+        const creditVal = Number(pkgCredit) || 0;
+        const bonusVal = Math.max(0, creditVal - priceVal);
+        const bonusPercent = priceVal > 0 ? Math.round((bonusVal / priceVal) * 100) : 0;
 
-            <form onSubmit={handleSavePackage} className="p-6 space-y-4 text-xs font-sans">
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">ชื่อแพ็กเกจ <span className="text-rose-500">*</span></label>
-                <input
-                  type="text"
-                  required
-                  placeholder="เช่น Package VIP Diamond (18,000)"
-                  value={pkgName}
-                  onChange={(e) => setPkgName(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900"
-                />
-              </div>
+        const handleAddPrivilege = (privilegeText: string) => {
+          if (!pkgDesc) {
+            setPkgDesc(privilegeText);
+          } else if (!pkgDesc.includes(privilegeText)) {
+            setPkgDesc(`${pkgDesc} • ${privilegeText}`);
+          }
+        };
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">ราคาขายจริง (จ่ายจริง) <span className="text-rose-500">*</span></label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="เช่น 18000"
-                    value={pkgPrice}
-                    onChange={(e) => setPkgPrice(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-slate-900"
-                  />
+        return (
+          <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-md flex items-center justify-center z-50 p-4 sm:p-6 overflow-y-auto animate-fade-in">
+            <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-200/80 flex flex-col my-auto max-h-[92vh]">
+              
+              {/* Modal Header */}
+              <div className="bg-gradient-to-r from-slate-950 via-neutral-900 to-slate-950 text-white p-5 sm:px-6 flex items-center justify-between border-b border-amber-500/20">
+                <div className="flex items-center space-x-3">
+                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-amber-400 to-amber-600 p-0.5 shadow-md shadow-amber-500/20 flex items-center justify-center text-slate-950">
+                    <Crown className="w-5 h-5 fill-slate-950" />
+                  </div>
+                  <div>
+                    <h3 className="text-base sm:text-lg font-black font-sans tracking-tight text-white flex items-center gap-2">
+                      {editingPackage ? 'แก้ไขระดับแพ็กเกจสมาชิก VIP' : 'สร้างแพ็กเกจสมาชิก VIP ระดับใหม่'}
+                      <span className="text-[10px] bg-amber-500/20 text-amber-300 font-mono px-2 py-0.5 rounded-full border border-amber-500/30">
+                        {previewTheme.tag}
+                      </span>
+                    </h3>
+                    <p className="text-[10px] text-slate-400 font-mono tracking-widest uppercase">
+                      VIP MEMBERSHIP TIER CONFIGURATOR
+                    </p>
+                  </div>
                 </div>
-
-                <div>
-                  <label className="block font-bold text-slate-700 mb-1">เครดิตที่ได้รับเข้ากระเป๋า <span className="text-rose-500">*</span></label>
-                  <input
-                    type="number"
-                    required
-                    placeholder="เช่น 20000"
-                    value={pkgCredit}
-                    onChange={(e) => setPkgCredit(e.target.value ? Number(e.target.value) : '')}
-                    className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-bold text-emerald-600"
-                  />
-                </div>
-              </div>
-
-              {Number(pkgPrice) > 0 && Number(pkgCredit) > 0 && (
-                <div className="bg-emerald-50 border border-emerald-200 p-3 rounded-xl text-emerald-800 font-bold flex items-center justify-between">
-                  <span>โบนัสเครดิตที่ลูกค้าประหยัดได้:</span>
-                  <span className="font-mono text-sm">+{formatBaht(Math.max(0, Number(pkgCredit) - Number(pkgPrice)))}</span>
-                </div>
-              )}
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">สีป้ายสัญลักษณ์</label>
-                <select
-                  value={pkgColor}
-                  onChange={(e) => setPkgColor(e.target.value as any)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold"
-                >
-                  <option value="purple">🟣 สีม่วง VIP (Purple)</option>
-                  <option value="amber">🟠 สีส้มทอง (Amber)</option>
-                  <option value="indigo">🔵 สีน้ำเงินคลาสสิก (Indigo)</option>
-                  <option value="emerald">🟢 สีเขียวมรกต (Emerald)</option>
-                  <option value="rose">🔴 สีแดงโรส (Rose)</option>
-                  <option value="slate">ข สีเทาเข้ม (Slate)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="block font-bold text-slate-700 mb-1">คำอธิบาย/สิทธิประโยชน์</label>
-                <input
-                  type="text"
-                  placeholder="เช่น ซื้อ 18,000 รับเครดิตเต็ม 20,000 บาท..."
-                  value={pkgDesc}
-                  onChange={(e) => setPkgDesc(e.target.value)}
-                  className="w-full p-2.5 bg-slate-50 border border-slate-200 rounded-xl text-slate-900"
-                />
-              </div>
-
-              <div className="pt-3 flex space-x-2">
-                <button
+                <button 
                   type="button"
-                  onClick={() => setShowPackageModal(false)}
-                  className="flex-1 py-2.5 bg-slate-100 text-slate-700 rounded-xl font-bold"
+                  onClick={() => setShowPackageModal(false)} 
+                  className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer"
                 >
-                  ยกเลิก
-                </button>
-                <button
-                  type="submit"
-                  className="flex-1 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl font-bold shadow-md"
-                >
-                  บันทึกแพ็กเกจ
+                  <X className="w-4 h-4" />
                 </button>
               </div>
-            </form>
+
+              {/* Modal Body */}
+              <div className="p-5 sm:p-6 space-y-5 overflow-y-auto font-sans text-xs">
+                
+                {/* 1. REAL-TIME LIVE VIP MEMBERSHIP CARD PREVIEW */}
+                <div className="space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-black text-slate-700 uppercase tracking-wider flex items-center gap-1.5">
+                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
+                      ตัวอย่างบัตรสมาชิกจริง (Live Card Preview)
+                    </span>
+                    <span className="text-[10px] font-mono text-slate-400">ภาพจำลองบัตรของลูกค้า</span>
+                  </div>
+
+                  <div className={`rounded-3xl border ${previewTheme.glowBorder} p-5 sm:p-6 shadow-xl transition-all ${previewTheme.cardBg} relative overflow-hidden`}>
+                    {/* Background Foil Glow */}
+                    <div className={`absolute -top-20 -right-20 w-48 h-48 rounded-full bg-gradient-to-br ${previewTheme.foilShine} blur-xl pointer-events-none`} />
+
+                    <div className="relative z-10 space-y-3.5">
+                      {/* Top row: EMV Chip & Crown */}
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-2.5">
+                          <div className={`w-9 h-6.5 rounded-md ${previewTheme.chipBg} p-1 flex flex-col justify-between border border-black/20 shadow-inner`}>
+                            <div className="w-full h-0.5 bg-black/20 rounded-full" />
+                            <div className="grid grid-cols-2 gap-0.5 h-1.5">
+                              <div className="border-r border-black/20" />
+                              <div />
+                            </div>
+                            <div className="w-full h-0.5 bg-black/20 rounded-full" />
+                          </div>
+                          <span className={`text-[9px] font-black uppercase tracking-widest px-2 py-0.5 rounded-md border ${previewTheme.badge}`}>
+                            {previewTheme.tag}
+                          </span>
+                        </div>
+                        <div className="flex items-center space-x-1 text-amber-400 font-mono text-[10px] font-black">
+                          <Crown className="w-4 h-4 fill-amber-400 text-amber-400" />
+                          <span>VIP PASS</span>
+                        </div>
+                      </div>
+
+                      {/* Middle row: Tier Name */}
+                      <div>
+                        <p className="text-[10px] font-mono text-slate-300/80 uppercase tracking-widest">MEMBERSHIP PACKAGE</p>
+                        <h4 className="text-lg sm:text-xl font-black text-white tracking-tight line-clamp-1">
+                          {pkgName || 'ชื่อแพ็กเกจสมาชิก VIP...'}
+                        </h4>
+                      </div>
+
+                      {/* Bottom values display */}
+                      <div className="grid grid-cols-2 gap-3 bg-black/35 backdrop-blur-md p-3.5 rounded-2xl border border-white/10">
+                        <div>
+                          <span className="text-[10px] text-slate-400 block font-medium">ราคาชำระจริง (Paid)</span>
+                          <span className="text-base sm:text-lg font-black text-white font-mono">
+                            {priceVal > 0 ? formatBaht(priceVal) : '฿0'}
+                          </span>
+                        </div>
+                        <div className="text-right">
+                          <span className="text-[10px] text-slate-400 block font-medium">เครดิตที่ได้รับ (Credit)</span>
+                          <span className="text-base sm:text-lg font-black text-emerald-400 font-mono">
+                            {creditVal > 0 ? formatBaht(creditVal) : '฿0'}
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Live Bonus Savings Pill */}
+                      {bonusVal > 0 && (
+                        <div className="flex items-center justify-between bg-amber-500/20 border border-amber-500/30 px-3 py-1.5 rounded-xl text-amber-300 text-[11px] font-bold">
+                          <span className="flex items-center gap-1">
+                            <Gift className="w-3.5 h-3.5 text-amber-400" />
+                            โบนัสพิเศษที่ลูกค้าได้รับฟรี:
+                          </span>
+                          <span className="font-mono font-black">
+                            +{formatBaht(bonusVal)} (+{bonusPercent}%)
+                          </span>
+                        </div>
+                      )}
+
+                      {pkgDesc && (
+                        <p className="text-[11px] text-slate-300 leading-relaxed font-sans line-clamp-2">
+                          {pkgDesc}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                {/* 2. 1-CLICK LUXURY PRESETS */}
+                <div className="space-y-1.5">
+                  <span className="text-[11px] font-extrabold text-slate-600 uppercase tracking-wider block">
+                    ⚡ เลือกจากเทมเพลตมาตรฐาน (1-Click Presets)
+                  </span>
+                  <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                    {PACKAGE_PRESETS.map((preset, idx) => (
+                      <button
+                        key={idx}
+                        type="button"
+                        onClick={() => {
+                          setPkgName(preset.name);
+                          setPkgPrice(preset.price);
+                          setPkgCredit(preset.credit);
+                          setPkgColor(preset.color);
+                          setPkgDesc(preset.desc);
+                        }}
+                        className="p-2 bg-slate-50 hover:bg-amber-50 hover:border-amber-300 border border-slate-200 rounded-xl text-left transition-all cursor-pointer group"
+                      >
+                        <div className="flex items-center justify-between text-[11px] font-bold text-slate-800 group-hover:text-amber-900">
+                          <span className="truncate">{preset.tierLabel}</span>
+                          <span className="text-[10px] font-mono text-emerald-600 font-extrabold">
+                            +{Math.round(((preset.credit - preset.price) / preset.price) * 100)}%
+                          </span>
+                        </div>
+                        <div className="text-[10px] font-mono text-slate-500 mt-0.5">
+                          จ่าย {formatBaht(preset.price)} → ได้ {formatBaht(preset.credit)}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <form onSubmit={handleSavePackage} className="space-y-4 pt-1">
+                  {/* Package Name Input */}
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1.5">
+                      ชื่อระดับแพ็กเกจสมาชิก <span className="text-rose-500">*</span>
+                    </label>
+                    <input
+                      type="text"
+                      required
+                      placeholder="เช่น Package VIP Diamond (18,000)"
+                      value={pkgName}
+                      onChange={(e) => setPkgName(e.target.value)}
+                      className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-bold text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-xs transition-all"
+                    />
+                  </div>
+
+                  {/* Pricing Inputs (2 Columns) */}
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
+                    <div>
+                      <label className="block font-bold text-slate-800 mb-1.5">
+                        💳 ราคาชำระจริง (จ่ายเงินสด/โอน) <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          placeholder="เช่น 18000"
+                          value={pkgPrice}
+                          onChange={(e) => setPkgPrice(e.target.value ? Number(e.target.value) : '')}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-black text-slate-900 focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none text-xs transition-all"
+                        />
+                        <span className="absolute right-3 top-2.5 text-slate-400 font-bold text-xs pointer-events-none">บาท</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block font-bold text-slate-800 mb-1.5">
+                        💰 มูลค่าเครดิตในกระเป๋า (ได้เครดิตเต็ม) <span className="text-rose-500">*</span>
+                      </label>
+                      <div className="relative">
+                        <input
+                          type="number"
+                          required
+                          min="1"
+                          placeholder="เช่น 20000"
+                          value={pkgCredit}
+                          onChange={(e) => setPkgCredit(e.target.value ? Number(e.target.value) : '')}
+                          className="w-full px-3.5 py-2.5 bg-slate-50 border border-slate-200 rounded-xl font-mono font-black text-emerald-600 focus:bg-white focus:ring-2 focus:ring-emerald-500/20 focus:border-emerald-500 outline-none text-xs transition-all"
+                        />
+                        <span className="absolute right-3 top-2.5 text-slate-400 font-bold text-xs pointer-events-none">บาท</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Calculation Card (Instant Math) */}
+                  {priceVal > 0 && creditVal > 0 && (
+                    <div className="bg-gradient-to-r from-emerald-50 to-teal-50 border border-emerald-200 p-3.5 rounded-2xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-2">
+                      <div className="space-y-0.5">
+                        <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                          สรุปผลประโยชน์ที่สมาชิกได้รับ (Member Value):
+                        </span>
+                        <p className="text-xs text-emerald-950 font-bold">
+                          จ่าย <span className="font-mono">{formatBaht(priceVal)}</span> ➔ รับเครดิต <span className="font-mono font-black text-emerald-700">{formatBaht(creditVal)}</span>
+                        </p>
+                      </div>
+                      <div className="bg-white px-3 py-1.5 rounded-xl border border-emerald-200 shadow-2xs text-right">
+                        <span className="text-[10px] text-slate-500 font-medium block">โบนัสแถมฟรี (Bonus)</span>
+                        <span className="font-mono font-black text-emerald-600 text-sm">
+                          +{formatBaht(bonusVal)} ({bonusPercent}%)
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Card Theme Color Selector */}
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1.5">
+                      🎨 ธีมสีระดับบัตร VIP (Card Theme)
+                    </label>
+                    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+                      {[
+                        { id: 'amber', label: '👑 Royal Gold', bg: 'bg-amber-500', desc: 'สีทองคำหรูหรา' },
+                        { id: 'purple', label: '🟣 Royal Amethyst', bg: 'bg-purple-600', desc: 'สีม่วงราชวงศ์' },
+                        { id: 'slate', label: '🖤 Black Titanium', bg: 'bg-slate-900', desc: 'สีดำไททาเนียม' },
+                        { id: 'emerald', label: '🟢 Imperial Jade', bg: 'bg-emerald-600', desc: 'สีเขียวมรกต' },
+                        { id: 'indigo', label: '🔵 Royal Sapphire', bg: 'bg-indigo-600', desc: 'สีน้ำเงินแซฟไฟร์' },
+                        { id: 'rose', label: '🔴 Ruby Velvet', bg: 'bg-rose-600', desc: 'สีแดงทับทิม' }
+                      ].map((t) => (
+                        <button
+                          key={t.id}
+                          type="button"
+                          onClick={() => setPkgColor(t.id as any)}
+                          className={`p-2.5 rounded-xl border text-left flex items-center space-x-2.5 transition-all cursor-pointer ${
+                            pkgColor === t.id 
+                              ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-amber-400' 
+                              : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200'
+                          }`}
+                        >
+                          <div className={`w-4 h-4 rounded-full ${t.bg} shrink-0 border border-white/40`} />
+                          <div className="truncate">
+                            <div className="font-bold text-[11px] leading-tight truncate">{t.label}</div>
+                          </div>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Privileges Fast-Selector */}
+                  <div className="space-y-1.5">
+                    <span className="block font-bold text-slate-800">
+                      🎁 คลิกเพื่อเพิ่มสิทธิประโยชน์ VIP ลงในคำอธิบาย:
+                    </span>
+                    <div className="flex flex-wrap gap-1.5">
+                      {QUICK_PRIVILEGES.map((privilege, pIdx) => (
+                        <button
+                          key={pIdx}
+                          type="button"
+                          onClick={() => handleAddPrivilege(privilege)}
+                          className="px-2.5 py-1 bg-slate-100 hover:bg-amber-100 hover:text-amber-900 text-slate-700 rounded-lg text-[10.5px] font-semibold border border-slate-200 hover:border-amber-300 transition-all cursor-pointer"
+                        >
+                          + {privilege}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  {/* Description / Notes */}
+                  <div>
+                    <label className="block font-bold text-slate-800 mb-1.5">คำอธิบายและสิทธิประโยชน์เพิ่มเติม</label>
+                    <textarea
+                      rows={2}
+                      placeholder="เช่น ซื้อ 18,000 รับเครดิตเต็ม 20,000 บาท • สิทธิ์จองคิว VIP • เครื่องดื่ม Welcome Drink..."
+                      value={pkgDesc}
+                      onChange={(e) => setPkgDesc(e.target.value)}
+                      className="w-full px-3.5 py-2 bg-slate-50 border border-slate-200 rounded-xl text-slate-900 text-xs focus:bg-white focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 outline-none transition-all"
+                    />
+                  </div>
+
+                  {/* Modal Action Buttons */}
+                  <div className="pt-3 flex items-center space-x-3">
+                    <button
+                      type="button"
+                      onClick={() => setShowPackageModal(false)}
+                      className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl font-bold transition-all cursor-pointer text-xs"
+                    >
+                      ยกเลิก
+                    </button>
+                    <button
+                      type="submit"
+                      className="flex-1 py-3 bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 rounded-2xl font-black shadow-lg shadow-amber-500/25 transition-all cursor-pointer text-xs flex items-center justify-center space-x-1.5 active:scale-95"
+                    >
+                      <Crown className="w-4 h-4 fill-slate-950" />
+                      <span>✨ บันทึกแพ็กเกจ VIP นี้</span>
+                    </button>
+                  </div>
+                </form>
+
+              </div>
+            </div>
           </div>
-        </div>
-      )}
+        );
+      })()}
 
       {/* MODAL 6: DELETE PACKAGE CONFIRM POPUP */}
       {deletePackageConfirm && (

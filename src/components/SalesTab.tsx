@@ -491,135 +491,21 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
             )}
           </div>
 
-          {/* Customer Name & Member Link */}
-          {shareConfig?.enableMemberSystem !== false ? (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-in fade-in duration-300">
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700">ชื่อลูกค้า (ถ้ามี)</label>
-                <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-slate-400 font-medium text-sm">👤</span>
-                  <input
-                    id="pos-customer-name-field"
-                    type="text"
-                    placeholder="ระบุชื่อลูกค้าทั่วไป"
-                    value={customerNameInput}
-                    onChange={(e) => setCustomerNameInput(e.target.value)}
-                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all text-sm font-sans"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                  <label className="block text-sm font-semibold text-amber-800 flex items-center space-x-1">
-                    <Crown className="w-4 h-4 text-amber-500 fill-amber-500" />
-                    <span>เลือกลูกค้าสมาชิก (Member)</span>
-                  </label>
-                  {members.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setQuickMemberId(selectedMemberId || members[0]?.id || '');
-                        setQuickPackageId(memberPackages[0]?.id || '');
-                        setQuickBarberId(selectedBarberId || barbers[0]?.id || '');
-                        setShowQuickSellModal(true);
-                      }}
-                      className="text-xs font-bold text-amber-700 hover:text-amber-900 bg-amber-100 hover:bg-amber-200 px-2 py-0.5 rounded-lg transition-all flex items-center space-x-1 cursor-pointer"
-                    >
-                      <Plus className="w-3 h-3" />
-                      <span>เติม/ขายแพ็กเกจ</span>
-                    </button>
-                  )}
-                </div>
-                <div className="relative">
-                  <select
-                    value={selectedMemberId}
-                    onChange={(e) => {
-                      const id = e.target.value;
-                      setSelectedMemberId(id);
-                      if (id) {
-                        const m = members.find(mem => mem.id === id);
-                        if (m && !customerNameInput) {
-                          setCustomerNameInput(formatMemberDisplayName(m));
-                        }
-                      }
-                    }}
-                    className="w-full px-3 py-2 border border-amber-200 rounded-xl bg-amber-50/50 text-slate-800 text-sm font-semibold focus:ring-2 focus:ring-amber-500 focus:border-amber-500 transition-all outline-none cursor-pointer"
-                  >
-                    <option value="">-- ไม่ใช่สมาชิก / ลูกค้าทั่วไป --</option>
-                    {members.map((mem) => (
-                      <option key={mem.id} value={mem.id}>
-                        👑 {formatMemberDisplayName(mem)} ({mem.memberCode}) - เครดิต: {formatBaht(mem.creditBalance)}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
+          {/* Customer Name */}
+          <div className="space-y-2">
+            <label className="block text-sm font-semibold text-slate-700">ชื่อลูกค้า (ถ้ามี)</label>
+            <div className="relative">
+              <span className="absolute left-3 top-2.5 text-slate-400 font-medium text-sm">👤</span>
+              <input
+                id="pos-customer-name-field"
+                type="text"
+                placeholder="ระบุชื่อลูกค้าทั่วไป"
+                value={customerNameInput}
+                onChange={(e) => setCustomerNameInput(e.target.value)}
+                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all text-sm font-sans"
+              />
             </div>
-          ) : (
-            <div className="space-y-2 animate-in fade-in duration-300">
-              <label className="block text-sm font-semibold text-slate-700">ชื่อลูกค้า (ถ้ามี)</label>
-              <div className="relative">
-                <span className="absolute left-3 top-2.5 text-slate-400 font-medium text-sm">👤</span>
-                <input
-                  id="pos-customer-name-field"
-                  type="text"
-                  placeholder="ระบุชื่อลูกค้าทั่วไป"
-                  value={customerNameInput}
-                  onChange={(e) => setCustomerNameInput(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all text-sm font-sans"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Selected Member Highlight Card */}
-          {shareConfig?.enableMemberSystem !== false && selectedMemberId && (() => {
-            const mem = members.find(m => m.id === selectedMemberId);
-            if (!mem) return null;
-            return (
-              <div className="bg-gradient-to-r from-amber-500 to-amber-600 text-white rounded-2xl p-4 shadow-md flex flex-wrap items-center justify-between gap-3 animate-in zoom-in-95 duration-200">
-                <div className="flex items-center space-x-3">
-                  <div className="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center text-white font-extrabold text-lg border border-white/30 shrink-0">
-                    👑
-                  </div>
-                  <div>
-                    <div className="flex items-center space-x-2">
-                      <span className="font-extrabold text-base tracking-tight">{formatMemberDisplayName(mem)}</span>
-                      <span className="px-2 py-0.5 bg-black/20 text-amber-100 font-mono text-xs rounded-full">
-                        {mem.memberCode}
-                      </span>
-                    </div>
-                    <div className="text-xs text-amber-100 flex items-center space-x-2 mt-0.5">
-                      <span>โทร: {mem.phone || 'ไม่ระบุ'}</span>
-                      <span>•</span>
-                      <span>เติมสะสม: {formatBaht(mem.totalTopUpAmount)}</span>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="flex items-center space-x-3">
-                  <div className="bg-white/20 backdrop-blur-md px-4 py-2 rounded-xl text-right border border-white/20">
-                    <span className="block text-[10px] text-amber-100 uppercase tracking-wider">เครดิตคงเหลือคงใช้ได้</span>
-                    <span className="text-xl font-black font-mono tracking-tight text-white">{formatBaht(mem.creditBalance)}</span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSelectedMemberId('');
-                      if (paymentMethod === 'member_credit') {
-                        setPaymentMethod('transfer');
-                      }
-                    }}
-                    className="p-1.5 hover:bg-white/20 rounded-full transition-all text-white/80 hover:text-white cursor-pointer"
-                    title="ยกเลิกการเลือกสมาชิก"
-                  >
-                    <X className="w-5 h-5" />
-                  </button>
-                </div>
-              </div>
-            );
-          })()}
+          </div>
 
           {/* 2. Prices & Chemical Work */}
           <div className={`grid grid-cols-1 ${shareConfig.enableChemicalService !== false ? 'sm:grid-cols-2' : ''} gap-4`}>
@@ -1005,27 +891,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                 <Coins className="w-4 h-4 text-indigo-600 shrink-0" />
                 <span className="mt-1 sm:mt-0">⚡ ผสม (สด+โอน)</span>
               </button>
-
-              {shareConfig?.enableMemberSystem !== false && (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setPaymentMethod('member_credit');
-                    setIsGroupPayment(false);
-                    if (!selectedMemberId && members.length > 0) {
-                      setSelectedMemberId(members[0].id);
-                    }
-                  }}
-                  className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
-                    paymentMethod === 'member_credit'
-                      ? 'border-amber-600 bg-amber-500 text-white shadow-md font-bold'
-                      : 'border-amber-300 bg-amber-50 text-amber-900 hover:bg-amber-100'
-                  }`}
-                >
-                  <Crown className="w-4 h-4 text-amber-300 fill-amber-300 shrink-0" />
-                  <span className="mt-1 sm:mt-0">👑 หักเครดิตสมาชิก</span>
-                </button>
-              )}
             </div>
 
             {/* Transfer Group Payment Interactive Card */}
@@ -1463,151 +1328,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
           </div>
         </div>
       </form>
-
-      {/* POS Quick Sell Member Package Modal */}
-      {showQuickSellModal && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-sm flex items-center justify-center p-4 z-50 animate-in fade-in duration-200">
-          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center border-b border-slate-100 pb-3">
-              <div className="flex items-center space-x-2">
-                <div className="p-2 bg-amber-100 text-amber-700 rounded-xl">
-                  <Crown className="w-5 h-5 fill-amber-500" />
-                </div>
-                <h3 className="text-lg font-bold text-slate-800">เติม / ขายแพ็กเกจสมาชิก</h3>
-              </div>
-              <button
-                type="button"
-                onClick={() => setShowQuickSellModal(false)}
-                className="p-1 text-slate-400 hover:text-slate-600 rounded-lg hover:bg-slate-100 cursor-pointer"
-              >
-                <X className="w-5 h-5" />
-              </button>
-            </div>
-
-            <div className="space-y-4 text-sm font-sans">
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">1. เลือกลูกค้าสมาชิก</label>
-                <select
-                  value={quickMemberId}
-                  onChange={(e) => setQuickMemberId(e.target.value)}
-                  className="w-full px-3 py-2 border border-slate-200 rounded-xl text-sm bg-slate-50 font-semibold focus:ring-2 focus:ring-amber-500 outline-none cursor-pointer"
-                >
-                  <option value="">-- กรุณาเลือกลูกค้าสมาชิก --</option>
-                  {members.map((m) => (
-                    <option key={m.id} value={m.id}>
-                      👑 {formatMemberDisplayName(m)} ({m.memberCode}) - เครดิตคงเหลือ: {formatBaht(m.creditBalance)}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">2. เลือกแพ็กเกจสมาชิก</label>
-                <div className="space-y-2">
-                  {memberPackages.filter(p => p.isActive).map((pkg) => (
-                    <label
-                      key={pkg.id}
-                      onClick={() => setQuickPackageId(pkg.id)}
-                      className={`block p-3 rounded-xl border-2 transition-all cursor-pointer ${
-                        quickPackageId === pkg.id
-                          ? 'border-amber-500 bg-amber-50/80 shadow-xs'
-                          : 'border-slate-200 bg-white hover:border-slate-300'
-                      }`}
-                    >
-                      <div className="flex justify-between items-center">
-                        <span className="font-bold text-slate-900">{pkg.name}</span>
-                        <span className="font-black text-amber-700 font-mono text-sm">
-                          จ่าย {formatBaht(pkg.price)} (ได้ {formatBaht(pkg.credit)})
-                        </span>
-                      </div>
-                      <div className="text-xs text-slate-500 mt-0.5">
-                        {pkg.description || `คุ้มค่า ประหยัดไปได้ ${formatBaht(pkg.credit - pkg.price)} บาท`}
-                      </div>
-                    </label>
-                  ))}
-                </div>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">3. ช่าง/พนักงานขาย</label>
-                  <select
-                    value={quickBarberId}
-                    onChange={(e) => setQuickBarberId(e.target.value)}
-                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50 outline-none cursor-pointer"
-                  >
-                    <option value="">-- ช่าง/หน้าร้าน --</option>
-                    {barbers.map((b) => (
-                      <option key={b.id} value={b.id}>
-                        ช่าง{b.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-xs font-bold text-slate-700 mb-1">4. วิธีชำระเงิน</label>
-                  <select
-                    value={quickPaymentMethod}
-                    onChange={(e) => setQuickPaymentMethod(e.target.value as 'cash' | 'transfer')}
-                    className="w-full px-2.5 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50 outline-none cursor-pointer"
-                  >
-                    <option value="transfer">📱 เงินโอนเข้าบัญชีร้าน</option>
-                    <option value="cash">💵 เงินสด</option>
-                  </select>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-slate-700 mb-1">หมายเหตุเพิ่มเติม (ถ้ามี)</label>
-                <input
-                  type="text"
-                  placeholder="เช่น ซื้อแพ็กเกจโปรโมชั่นหน้าร้าน"
-                  value={quickNotes}
-                  onChange={(e) => setQuickNotes(e.target.value)}
-                  className="w-full px-3 py-1.5 border border-slate-200 rounded-xl text-xs outline-none focus:ring-1 focus:ring-amber-500"
-                />
-              </div>
-            </div>
-
-            <div className="flex space-x-2 pt-2 border-t border-slate-100">
-              <button
-                type="button"
-                onClick={() => setShowQuickSellModal(false)}
-                className="w-1/3 py-2.5 border border-slate-200 hover:bg-slate-50 text-slate-600 font-bold rounded-xl text-xs transition-all cursor-pointer"
-              >
-                ยกเลิก
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  if (!quickMemberId) {
-                    alert('กรุณาเลือกลูกค้าสมาชิก');
-                    return;
-                  }
-                  const pkg = memberPackages.find(p => p.id === quickPackageId);
-                  if (!pkg) {
-                    alert('กรุณาเลือกแพ็กเกจ');
-                    return;
-                  }
-                  if (onSellPackageToMember) {
-                    onSellPackageToMember(quickMemberId, pkg, quickBarberId, quickPaymentMethod, quickNotes);
-                    alert(`✅ เติมแพ็กเกจ "${pkg.name}" ให้สมาชิกสำเร็จ!\nได้รับเครดิตเพิ่ม +${formatBaht(pkg.credit)} บาท`);
-                    setSelectedMemberId(quickMemberId);
-                    const targetMem = members.find(m => m.id === quickMemberId);
-                    setCustomerNameInput(formatMemberDisplayName(targetMem) || '');
-                  }
-                  setShowQuickSellModal(false);
-                }}
-                className="w-2/3 py-2.5 bg-amber-500 hover:bg-amber-600 text-white font-bold rounded-xl text-xs shadow-md transition-all cursor-pointer flex items-center justify-center space-x-1"
-              >
-                <Crown className="w-4 h-4 fill-white" />
-                <span>ยืนยันขายแพ็กเกจ & บันทึกรายได้</span>
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
     </div>
   );
 }

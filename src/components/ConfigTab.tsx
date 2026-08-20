@@ -591,104 +591,6 @@ export default function ConfigTab({
   };
 
 
-  // ==========================================
-  // CHEMICAL PROMOTIONS MANAGEMENT
-  // ==========================================
-  const [newPromoName, setNewPromoName] = useState<string>('');
-  const [newPromoOriginalPrice, setNewPromoOriginalPrice] = useState<string>('');
-  const [newPromoDiscountedPrice, setNewPromoDiscountedPrice] = useState<string>('');
-
-  const [editingPromoId, setEditingPromoId] = useState<string | null>(null);
-  const [editPromoName, setEditPromoName] = useState<string>('');
-  const [editPromoOriginalPrice, setEditPromoOriginalPrice] = useState<string>('');
-  const [editPromoDiscountedPrice, setEditPromoDiscountedPrice] = useState<string>('');
-
-  const handleAddChemicalPromo = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newPromoName.trim() || !newPromoOriginalPrice || !newPromoDiscountedPrice) return;
-
-    const op = Math.max(0, parseFloat(newPromoOriginalPrice) || 0);
-    const dp = Math.max(0, parseFloat(newPromoDiscountedPrice) || 0);
-
-    const newPromo: ChemicalPromo = {
-      id: `chem-promo-${Date.now()}`,
-      name: newPromoName.trim(),
-      originalPrice: op,
-      discountedPrice: dp,
-      isActive: true
-    };
-
-    onUpdateChemicalPromos([...chemicalPromos, newPromo]);
-    setNewPromoName('');
-    setNewPromoOriginalPrice('');
-    setNewPromoDiscountedPrice('');
-  };
-
-  const handleTogglePromoActive = (id: string) => {
-    const updated = chemicalPromos.map(c => c.id === id ? { ...c, isActive: !c.isActive } : c);
-    onUpdateChemicalPromos(updated);
-  };
-
-  const handleDeletePromo = (id: string) => {
-    const promoName = chemicalPromos.find(c => c.id === id)?.name || '';
-    setConfirmDialog({
-      isOpen: true,
-      title: 'ยืนยันการลบโปรโมชั่นเคมี',
-      message: `คุณต้องการลบรายการโปรโมชั่นเคมี "${promoName}" ออกจากระบบใช่หรือไม่?`,
-      type: 'danger',
-      onConfirm: () => {
-        const updated = chemicalPromos.filter(c => c.id !== id);
-        onUpdateChemicalPromos(updated);
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      }
-    });
-  };
-
-  const handleStartEditPromo = (promo: ChemicalPromo) => {
-    setEditingPromoId(promo.id);
-    setEditPromoName(promo.name);
-    setEditPromoOriginalPrice(promo.originalPrice.toString());
-    setEditPromoDiscountedPrice(promo.discountedPrice.toString());
-  };
-
-  const handleCancelEditPromo = () => {
-    setEditingPromoId(null);
-  };
-
-  const handleSaveEditPromo = (id: string) => {
-    if (!editPromoName.trim()) return;
-    const op = Math.max(0, parseFloat(editPromoOriginalPrice) || 0);
-    const dp = Math.max(0, parseFloat(editPromoDiscountedPrice) || 0);
-
-    const updated = chemicalPromos.map(c => c.id === id ? {
-      ...c,
-      name: editPromoName.trim(),
-      originalPrice: op,
-      discountedPrice: dp
-    } : c);
-
-    onUpdateChemicalPromos(updated);
-    setEditingPromoId(null);
-  };
-
-  const handleMovePromoUp = (index: number) => {
-    if (index === 0) return;
-    const updated = [...chemicalPromos];
-    const temp = updated[index];
-    updated[index] = updated[index - 1];
-    updated[index - 1] = temp;
-    onUpdateChemicalPromos(updated);
-  };
-
-  const handleMovePromoDown = (index: number) => {
-    if (index === chemicalPromos.length - 1) return;
-    const updated = [...chemicalPromos];
-    const temp = updated[index];
-    updated[index] = updated[index + 1];
-    updated[index + 1] = temp;
-    onUpdateChemicalPromos(updated);
-  };
-
 
   if (shopConfig.isPinLocked && !isUnlocked && shopConfig.pinCode) {
     const targetLen = shopConfig.pinCode.length;
@@ -1407,13 +1309,13 @@ export default function ConfigTab({
 
           </div>
 
-          {/* Divider and Feature Toggles (Chemical, Products, Member System) */}
+          {/* Divider and Feature Toggles (Chemical, Products) */}
           <div className="border-t border-slate-100 pt-5 space-y-3">
             <h4 className="text-xs font-bold text-slate-700 flex items-center space-x-1">
               <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              <span>เปิด/ปิดฟังก์ชั่นการทำงานของระบบ (ค่าเคมี, สินค้า, สมาชิก Member)</span>
+              <span>เปิด/ปิดฟังก์ชั่นการทำงานของระบบ (ค่าเคมี, สินค้า)</span>
             </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {/* Chemical Services Toggle */}
               <label className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
                 <div>
@@ -1438,20 +1340,6 @@ export default function ConfigTab({
                   type="checkbox"
                   checked={enableProductSales}
                   onChange={(e) => setEnableProductSales(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer shrink-0 ml-2"
-                />
-              </label>
-
-              {/* Member System Toggle */}
-              <label className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
-                <div>
-                  <span className="block text-xs font-semibold text-slate-700">เปิดใช้งาน "ระบบสมาชิก Member"</span>
-                  <span className="block text-[10px] text-slate-500">แสดงแท็บสมาชิก แพ็กเกจ และหักเครดิตในหน้าคิดเงิน</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={enableMemberSystem}
-                  onChange={(e) => setEnableMemberSystem(e.target.checked)}
                   className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer shrink-0 ml-2"
                 />
               </label>
@@ -1946,191 +1834,6 @@ export default function ConfigTab({
         </div>
       )}
 
-      {/* 5. CHEMICAL PROMOTIONS CONFIGURATION */}
-      {shareConfig.enableChemicalService !== false && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
-          <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-            <Percent className="w-5 h-5 text-indigo-500" />
-            <span>จัดการโปรโมชั่นงานเคมี (ดัด ยืด ทำสี)</span>
-          </h3>
-          <p className="text-xs text-slate-500 leading-relaxed font-sans">
-            * กำหนดค่าบริการเคมี และส่วนลดพิเศษหน้าร้าน โดยส่วนแบ่งระหว่างช่างและร้านค้า จะถูกคิดจาก <b>"ราคาคงเหลือหลังหักส่วนลดจริง"</b> เสมอ
-          </p>
-
-          {/* Add Chemical Promo Form */}
-          <form onSubmit={handleAddChemicalPromo} className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-12 gap-2">
-            <input
-              type="text"
-              required
-              placeholder="ชื่อโปรโมชั่นเคมี เช่น ยืดผม+ดัดลอน"
-              value={newPromoName}
-              onChange={(e) => setNewPromoName(e.target.value)}
-              className="sm:col-span-2 md:col-span-5 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs"
-            />
-            <input
-              type="number"
-              required
-              min="0"
-              placeholder="ราคาปกติ (บาท)"
-              value={newPromoOriginalPrice}
-              onChange={(e) => setNewPromoOriginalPrice(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              className="md:col-span-2 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs font-mono"
-            />
-            <input
-              type="number"
-              required
-              min="0"
-              placeholder="ราคาลดเหลือ (บาท)"
-              value={newPromoDiscountedPrice}
-              onChange={(e) => setNewPromoDiscountedPrice(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              className="md:col-span-2 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs font-mono"
-            />
-            <button
-              type="submit"
-              className="sm:col-span-2 md:col-span-3 px-4 py-1.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center whitespace-nowrap cursor-pointer h-full"
-            >
-              <Plus className="w-4 h-4 mr-1" />
-              <span>เพิ่มโปรร้าน</span>
-            </button>
-          </form>
-
-          {/* List of Chemical Promos */}
-          <div className="grid grid-cols-1 gap-2 pt-2">
-            {chemicalPromos.map((promo, index) => {
-              const isEditing = editingPromoId === promo.id;
-              return (
-                <div key={promo.id} className="flex flex-col sm:flex-row sm:items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 gap-3">
-                  {isEditing ? (
-                    <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-2 w-full">
-                      <input
-                        type="text"
-                        className="px-3 py-1 border border-slate-200 rounded-lg text-xs"
-                        value={editPromoName}
-                        onChange={(e) => setEditPromoName(e.target.value)}
-                        placeholder="ชื่อโปรโมชั่น"
-                      />
-                      <input
-                        type="number"
-                        className="px-3 py-1 border border-slate-200 rounded-lg text-xs font-mono"
-                        value={editPromoOriginalPrice}
-                        onChange={(e) => setEditPromoOriginalPrice(e.target.value)}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="ราคาปกติ"
-                      />
-                      <input
-                        type="number"
-                        className="px-3 py-1 border border-slate-200 rounded-lg text-xs font-mono"
-                        value={editPromoDiscountedPrice}
-                        onChange={(e) => setEditPromoDiscountedPrice(e.target.value)}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="ราคาพิเศษ"
-                      />
-                    </div>
-                  ) : (
-                    <div className="flex-1">
-                      <div className="flex items-center gap-2">
-                        <span className={`text-sm font-bold font-sans ${promo.isActive ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
-                          {promo.name}
-                        </span>
-                        {!promo.isActive && (
-                          <span className="text-[9px] bg-slate-200 text-slate-600 px-1.5 py-0.5 rounded font-bold font-sans">ปิดใช้งาน</span>
-                        )}
-                      </div>
-                      <div className="flex items-center gap-1.5 text-xs text-slate-500 font-sans mt-0.5">
-                        <span>ราคาปกติ: </span>
-                        <span className="line-through font-mono">{formatBaht(promo.originalPrice)}</span>
-                        <span>→</span>
-                        <span className="text-emerald-700 font-extrabold font-mono bg-emerald-50 px-1.5 py-0.5 rounded border border-emerald-100/50">ลดเหลือ: {formatBaht(promo.discountedPrice)}</span>
-                        <span className="text-indigo-600 font-bold font-mono">(ประหยัดไป: {formatBaht(promo.originalPrice - promo.discountedPrice)})</span>
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="flex items-center justify-end space-x-1.5 self-end sm:self-center">
-                    {/* Sorting Buttons */}
-                    <div className="flex flex-col border border-slate-200 rounded-lg overflow-hidden bg-white">
-                      <button
-                        type="button"
-                        onClick={() => handleMovePromoUp(index)}
-                        disabled={index === 0}
-                        className="p-1 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all border-b border-slate-100 cursor-pointer"
-                        title="เลื่อนขึ้น"
-                      >
-                        <ChevronUp className="w-3.5 h-3.5 text-slate-500" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleMovePromoDown(index)}
-                        disabled={index === chemicalPromos.length - 1}
-                        className="p-1 hover:bg-slate-50 disabled:opacity-30 disabled:hover:bg-transparent transition-all cursor-pointer"
-                        title="เลื่อนลง"
-                      >
-                        <ChevronDown className="w-3.5 h-3.5 text-slate-500" />
-                      </button>
-                    </div>
-
-                    {isEditing ? (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleSaveEditPromo(promo.id)}
-                          className="p-1.5 text-white bg-emerald-600 hover:bg-emerald-500 rounded-lg transition-all text-xs font-bold cursor-pointer"
-                          title="บันทึก"
-                        >
-                          <Check className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          onClick={handleCancelEditPromo}
-                          className="p-1.5 text-slate-600 bg-slate-200 hover:bg-slate-300 rounded-lg transition-all text-xs cursor-pointer"
-                          title="ยกเลิก"
-                        >
-                          <X className="w-4 h-4" />
-                        </button>
-                      </>
-                    ) : (
-                      <>
-                        <button
-                          type="button"
-                          onClick={() => handleStartEditPromo(promo)}
-                          className="p-1.5 text-slate-500 hover:text-slate-700 hover:bg-slate-100 rounded-lg transition-all cursor-pointer"
-                          title="แก้ไขโปรโมชั่น"
-                        >
-                          <Edit3 className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleTogglePromoActive(promo.id)}
-                          className={`p-1.5 rounded-lg transition-all cursor-pointer ${
-                            promo.isActive 
-                              ? 'text-emerald-600 hover:bg-emerald-50' 
-                              : 'text-slate-400 hover:bg-slate-200'
-                          }`}
-                          title={promo.isActive ? 'ปิดส่วนลดชั่วคราว' : 'เปิดสถานะส่วนลด'}
-                        >
-                          <Power className="w-4 h-4" />
-                        </button>
-
-                        <button
-                          type="button"
-                          onClick={() => handleDeletePromo(promo.id)}
-                          className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                          title="ลบโปรโมชั่นเคมีนี้"
-                        >
-                          <Trash2 className="w-4 h-4" />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-      )}
 
       {/* 6. VOUCHERS MANAGEMENT */}
       <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">

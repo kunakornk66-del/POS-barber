@@ -37,16 +37,17 @@ interface Denomination {
 
 const DENOMINATIONS: Denomination[] = [
   // Banknotes
-  { id: 'n1000', type: 'note', value: 1000, label: '1,000 บาท', colorClass: 'bg-indigo-50 border-indigo-200 text-indigo-700', badgeClass: 'bg-indigo-600 text-white' },
-  { id: 'n500', type: 'note', value: 500, label: '500 บาท', colorClass: 'bg-purple-50 border-purple-200 text-purple-700', badgeClass: 'bg-purple-600 text-white' },
-  { id: 'n100', type: 'note', value: 100, label: '100 บาท', colorClass: 'bg-rose-50 border-rose-200 text-rose-700', badgeClass: 'bg-rose-600 text-white' },
-  { id: 'n50', type: 'note', value: 50, label: '50 บาท', colorClass: 'bg-blue-50 border-blue-200 text-blue-700', badgeClass: 'bg-blue-600 text-white' },
-  { id: 'n20', type: 'note', value: 20, label: '20 บาท', colorClass: 'bg-emerald-50 border-emerald-200 text-emerald-700', badgeClass: 'bg-emerald-600 text-white' },
+  { id: 'n1000', type: 'note', value: 1000, label: '1,000 บาท', colorClass: 'bg-slate-50 border-slate-300 text-slate-800', badgeClass: 'bg-gradient-to-r from-slate-800 to-indigo-900 text-white shadow-sm' },
+  { id: 'n500', type: 'note', value: 500, label: '500 บาท', colorClass: 'bg-purple-50/70 border-purple-200 text-purple-800', badgeClass: 'bg-gradient-to-r from-purple-600 to-purple-700 text-white shadow-sm' },
+  { id: 'n100', type: 'note', value: 100, label: '100 บาท', colorClass: 'bg-rose-50/70 border-rose-200 text-rose-800', badgeClass: 'bg-gradient-to-r from-rose-600 to-rose-700 text-white shadow-sm' },
+  { id: 'n50', type: 'note', value: 50, label: '50 บาท', colorClass: 'bg-sky-50/70 border-sky-200 text-sky-800', badgeClass: 'bg-gradient-to-r from-sky-600 to-sky-700 text-white shadow-sm' },
+  { id: 'n20', type: 'note', value: 20, label: '20 บาท', colorClass: 'bg-emerald-50/70 border-emerald-200 text-emerald-800', badgeClass: 'bg-gradient-to-r from-emerald-600 to-emerald-700 text-white shadow-sm' },
   
   // Coins
-  { id: 'c10', type: 'coin', value: 10, label: '10 บาท', colorClass: 'bg-amber-50 border-amber-200 text-amber-800', badgeClass: 'bg-amber-600 text-white' },
-  { id: 'c5', type: 'coin', value: 5, label: '5 บาท', colorClass: 'bg-slate-100 border-slate-200 text-slate-700', badgeClass: 'bg-slate-600 text-white' },
-  { id: 'c1', type: 'coin', value: 1, label: '1 บาท', colorClass: 'bg-slate-50 border-slate-200 text-slate-600', badgeClass: 'bg-slate-500 text-white' },
+  { id: 'c10', type: 'coin', value: 10, label: '10 บาท', colorClass: 'bg-amber-50/70 border-amber-200 text-amber-900', badgeClass: 'bg-gradient-to-r from-amber-500 to-amber-600 text-white shadow-sm' },
+  { id: 'c5', type: 'coin', value: 5, label: '5 บาท', colorClass: 'bg-slate-100 border-slate-300 text-slate-800', badgeClass: 'bg-slate-600 text-white shadow-sm' },
+  { id: 'c2', type: 'coin', value: 2, label: '2 บาท', colorClass: 'bg-yellow-50/70 border-yellow-200 text-yellow-900', badgeClass: 'bg-yellow-600 text-white shadow-sm' },
+  { id: 'c1', type: 'coin', value: 1, label: '1 บาท', colorClass: 'bg-slate-50 border-slate-200 text-slate-700', badgeClass: 'bg-slate-500 text-white shadow-sm' }
 ];
 
 const getTodayDateString = () => {
@@ -238,8 +239,8 @@ export default function CashCounterTab({
 
 
 
-  const handleSetCount = (id: string, val: string) => {
-    const parsed = parseInt(val, 10);
+  const handleSetCount = (id: string, val: string | number) => {
+    const parsed = typeof val === 'number' ? val : parseInt(val, 10);
     setCounts(prev => ({
       ...prev,
       [id]: isNaN(parsed) || parsed < 0 ? 0 : parsed
@@ -871,44 +872,110 @@ export default function CashCounterTab({
         {/* Left Column: Denomination Counters (Grid span 7) */}
         <div className="lg:col-span-7 space-y-6">
           
-          {/* Note Section */}
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <span className="w-7 h-7 bg-indigo-50 text-indigo-600 rounded-lg flex items-center justify-center">
-                  <Banknote className="w-4 h-4" />
-                </span>
-                นับธนบัตร (Banknotes ในเก๊ะ)
-              </h3>
-              <p className="text-xs font-mono font-bold text-slate-500">
-                รวมธนบัตร: <span className="text-indigo-600 font-extrabold">{formatBaht(totalNotes)}</span>
-              </p>
+          {/* Quick Float & Mode Bar */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="flex items-center space-x-2">
+                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">
+                  💸
+                </div>
+                <div>
+                  <h4 className="text-xs font-black text-slate-900">เงินทอนตั้งต้นเริ่มวัน (Opening Float)</h4>
+                  <p className="text-[10.5px] text-slate-400">เลือกจำนวนเงินสำรองทอนที่ใส่ไว้ในเก๊ะตอนเปิดร้าน</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-1.5">
+                <input
+                  type="number"
+                  min="0"
+                  value={openingFloat === 0 ? '' : openingFloat}
+                  onChange={(e) => setOpeningFloat(Math.max(0, parseFloat(e.target.value) || 0))}
+                  onFocus={(e) => e.target.select()}
+                  placeholder="0"
+                  className="w-24 text-right px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                />
+                <span className="text-xs font-bold text-slate-600">บาท</span>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            {/* Quick Float Preset Buttons */}
+            <div className="flex flex-wrap gap-1.5 pt-1">
+              <span className="text-[11px] font-bold text-slate-400 self-center mr-1">ปุ่มด่วน:</span>
+              {[0, 500, 1000, 1500, 2000, 3000, 5000].map(val => (
+                <button
+                  key={val}
+                  type="button"
+                  onClick={() => setOpeningFloat(val)}
+                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                    openingFloat === val 
+                      ? 'bg-amber-500 text-slate-950 shadow-xs ring-2 ring-amber-400/40' 
+                      : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                  }`}
+                >
+                  {val === 0 ? '0 (ไม่มีเงินทอน)' : formatBaht(val)}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Note Section */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
+                  <Banknote className="w-4 h-4" />
+                </span>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">นับธนบัตร (Banknotes ในเก๊ะ)</h3>
+                  <p className="text-[10.5px] text-slate-400">กดปุ่มตัวเลขเพื่อเพิ่มเร็ว หรือพิมพ์จำนวนใบได้เลย</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = { ...counts };
+                    DENOMINATIONS.filter(d => d.type === 'note').forEach(d => { next[d.id] = 0; });
+                    setCounts(next);
+                  }}
+                  className="text-[11px] font-bold text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
+                  title="เคลียร์จำนวนแบงค์ทั้งหมด"
+                >
+                  ล้างแบงค์
+                </button>
+                <div className="px-3 py-1 bg-indigo-50 text-indigo-900 rounded-xl text-xs font-mono font-black border border-indigo-100">
+                  {formatBaht(totalNotes)}
+                </div>
+              </div>
+            </div>
+
+            <div className="space-y-2.5">
               {DENOMINATIONS.filter(d => d.type === 'note').map((d) => {
                 const count = counts[d.id] || 0;
                 return (
-                  <div key={d.id} className={`p-3 rounded-2xl border transition-all md:col-span-5 hover:shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 ${d.colorClass}`}>
+                  <div 
+                    key={d.id} 
+                    className={`p-3 rounded-2xl border transition-all hover:shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 ${d.colorClass}`}
+                  >
                     
                     {/* Value label */}
-                    <div className="flex items-center space-x-3 w-full md:w-1/3">
-                      <div className={`w-8 h-8 rounded-lg flex items-center justify-center shrink-0 font-extrabold text-xs shadow-xs ${d.badgeClass}`}>
+                    <div className="flex items-center space-x-2.5 w-full sm:w-auto shrink-0">
+                      <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-extrabold text-xs shadow-xs ${d.badgeClass}`}>
                         ฿
                       </div>
                       <div className="text-left">
-                        <p className="text-xs font-black text-slate-900 font-mono">{d.label}</p>
-                        <p className="text-[10px] text-slate-400 font-sans">มูลค่าใบละ {d.value}</p>
+                        <p className="text-sm font-black text-slate-900 font-mono leading-tight">{d.label}</p>
+                        <p className="text-[10px] text-slate-400 font-sans">ใบละ {formatBaht(d.value)}</p>
                       </div>
                     </div>
 
-                    {/* Controller Adjustment */}
-                    <div className="flex items-center space-x-2">
+                    {/* Stepper + Quick Increment Buttons */}
+                    <div className="flex items-center flex-wrap gap-1.5 justify-center">
                       <button
                         type="button"
                         onClick={() => adjustCount(d.id, -1)}
-                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition-all cursor-pointer font-extrabold text-slate-600"
-                        title="ลดทีละ 1"
+                        className="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer font-extrabold text-slate-700 active:scale-95 shadow-2xs"
+                        title="ลด 1 ใบ"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
@@ -920,32 +987,71 @@ export default function CashCounterTab({
                         onChange={(e) => handleSetCount(d.id, e.target.value)}
                         onFocus={(e) => e.target.select()}
                         placeholder="0"
-                        className="w-16 h-8 text-center bg-white border border-slate-200 rounded-lg text-xs font-mono font-extrabold outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                        className="w-16 h-8 text-center bg-white border border-slate-200 rounded-xl text-xs font-mono font-black text-slate-900 outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 shadow-2xs"
                       />
 
                       <button
                         type="button"
                         onClick={() => adjustCount(d.id, 1)}
-                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition-all cursor-pointer font-extrabold text-slate-600"
-                        title="เพิ่มทีละ 1"
+                        className="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer font-extrabold text-slate-700 active:scale-95 shadow-2xs"
+                        title="เพิ่ม 1 ใบ"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* Rapid Increment helper badges */}
-                      <button
-                        type="button"
-                        onClick={() => adjustCount(d.id, 5)}
-                        className="px-2 py-1 text-[10px] font-black bg-white/70 border border-slate-200 hover:bg-slate-100 rounded-md transition-all text-slate-500 cursor-pointer font-mono"
-                      >
-                        +5
-                      </button>
+                      {/* Rapid Multi-Increment Buttons */}
+                      <div className="flex items-center space-x-1 pl-1">
+                        <button
+                          type="button"
+                          onClick={() => adjustCount(d.id, 5)}
+                          className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
+                          title="เพิ่ม 5 ใบ"
+                        >
+                          +5
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => adjustCount(d.id, 10)}
+                          className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
+                          title="เพิ่ม 10 ใบ"
+                        >
+                          +10
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => adjustCount(d.id, 20)}
+                          className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
+                          title="เพิ่ม 20 ใบ"
+                        >
+                          +20
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => adjustCount(d.id, 100)}
+                          className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-indigo-100 border border-indigo-200 hover:bg-indigo-200 text-indigo-900 rounded-lg transition-all cursor-pointer shadow-2xs"
+                          title="เพิ่ม 1 ปึก (100 ใบ)"
+                        >
+                          +100 (ปึก)
+                        </button>
+                        {count > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetCount(d.id, 0)}
+                            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
+                            title="ล้างจำนวนนี้"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Line Total */}
-                    <div className="text-right w-full md:w-1/4">
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">รวมย่อย</p>
-                      <p className="text-xs font-extrabold text-slate-800 font-mono">
+                    <div className="text-right w-full sm:w-28 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 flex sm:flex-col justify-between items-center sm:items-end">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">
+                        {count} ใบ =
+                      </p>
+                      <p className="text-sm font-black text-slate-900 font-mono">
                         {formatBaht(count * d.value)}
                       </p>
                     </div>
@@ -957,42 +1063,63 @@ export default function CashCounterTab({
           </div>
 
           {/* Coin Section */}
-          <div className="bg-white rounded-3xl border border-slate-100 p-6 shadow-sm space-y-4">
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <h3 className="text-sm font-black text-slate-900 flex items-center gap-2">
-                <span className="w-7 h-7 bg-amber-50 text-amber-600 rounded-lg flex items-center justify-center">
+              <div className="flex items-center gap-2">
+                <span className="w-8 h-8 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center font-bold">
                   <Coins className="w-4 h-4" />
                 </span>
-                นับเหรียญ (Coins ในเก๊ะ)
-              </h3>
-              <p className="text-xs font-mono font-bold text-slate-500">
-                รวมเหรียญ: <span className="text-amber-600 font-extrabold">{formatBaht(totalCoins)}</span>
-              </p>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">นับเหรียญ (Coins ในเก๊ะ)</h3>
+                  <p className="text-[10.5px] text-slate-400">เหรียญ 10, 5, 2, 1 บาท และเศษสตางค์</p>
+                </div>
+              </div>
+              <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const next = { ...counts };
+                    DENOMINATIONS.filter(d => d.type === 'coin').forEach(d => { next[d.id] = 0; });
+                    setCounts(next);
+                  }}
+                  className="text-[11px] font-bold text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
+                  title="เคลียร์จำนวนเหรียญทั้งหมด"
+                >
+                  ล้างเหรียญ
+                </button>
+                <div className="px-3 py-1 bg-amber-50 text-amber-900 rounded-xl text-xs font-mono font-black border border-amber-100">
+                  {formatBaht(totalCoins)}
+                </div>
+              </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-5 gap-3">
+            <div className="space-y-2.5">
               {DENOMINATIONS.filter(d => d.type === 'coin').map((d) => {
                 const count = counts[d.id] || 0;
                 return (
-                  <div key={d.id} className={`p-3 rounded-2xl border transition-all md:col-span-5 hover:shadow-xs flex flex-col md:flex-row items-center justify-between gap-3 ${d.colorClass}`}>
+                  <div 
+                    key={d.id} 
+                    className={`p-3 rounded-2xl border transition-all hover:shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 ${d.colorClass}`}
+                  >
                     
                     {/* Value label */}
-                    <div className="flex items-center space-x-3 w-full md:w-1/3">
-                      <div className="w-8 h-8 rounded-full border border-yellow-200 bg-amber-100/70 text-amber-800 flex items-center justify-center shrink-0 font-extrabold text-xs shadow-xs">
-                        ฿
+                    <div className="flex items-center space-x-2.5 w-full sm:w-auto shrink-0">
+                      <div className="w-9 h-9 rounded-full border border-yellow-200 bg-amber-100/80 text-amber-800 flex items-center justify-center shrink-0 font-extrabold text-xs shadow-xs">
+                        🪙
                       </div>
                       <div className="text-left">
-                        <p className="text-xs font-black text-slate-900 font-mono">{d.label}</p>
-                        <p className="text-[10px] text-slate-400 font-sans">มูลค่าเหรียญละ {d.value.toFixed(2).replace('.00', '')} บาท</p>
+                        <p className="text-sm font-black text-slate-900 font-mono leading-tight">{d.label}</p>
+                        <p className="text-[10px] text-slate-400 font-sans">เหรียญละ {d.value >= 1 ? formatBaht(d.value) : `${d.value * 100} สตางค์`}</p>
                       </div>
                     </div>
 
-                    {/* Controller Adjustment */}
-                    <div className="flex items-center space-x-2">
+                    {/* Stepper + Quick Increment Buttons */}
+                    <div className="flex items-center flex-wrap gap-1.5 justify-center">
                       <button
                         type="button"
                         onClick={() => adjustCount(d.id, -1)}
-                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition-all cursor-pointer font-extrabold text-slate-600"
+                        className="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer font-extrabold text-slate-700 active:scale-95 shadow-2xs"
+                        title="ลด 1 เหรียญ"
                       >
                         <Minus className="w-3.5 h-3.5" />
                       </button>
@@ -1004,31 +1131,68 @@ export default function CashCounterTab({
                         onChange={(e) => handleSetCount(d.id, e.target.value)}
                         onFocus={(e) => e.target.select()}
                         placeholder="0"
-                        className="w-16 h-8 text-center bg-white border border-slate-200 rounded-lg text-xs font-mono font-extrabold outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
+                        className="w-16 h-8 text-center bg-white border border-slate-200 rounded-xl text-xs font-mono font-black text-slate-900 outline-none focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500 shadow-2xs"
                       />
 
                       <button
                         type="button"
                         onClick={() => adjustCount(d.id, 1)}
-                        className="w-8 h-8 rounded-lg bg-white border border-slate-200 hover:bg-slate-50 flex items-center justify-center transition-all cursor-pointer font-extrabold text-slate-600"
+                        className="w-8 h-8 rounded-xl bg-white border border-slate-200 hover:bg-slate-100 flex items-center justify-center transition-all cursor-pointer font-extrabold text-slate-700 active:scale-95 shadow-2xs"
+                        title="เพิ่ม 1 เหรียญ"
                       >
                         <Plus className="w-3.5 h-3.5" />
                       </button>
 
-                      {/* Rapid Increment helper badges */}
-                      <button
-                        type="button"
-                        onClick={() => adjustCount(d.id, 10)}
-                        className="px-2 py-1 text-[10px] font-black bg-white/70 border border-slate-200 hover:bg-slate-100 rounded-md transition-all text-slate-500 cursor-pointer font-mono"
-                      >
-                        +10
-                      </button>
+                      {/* Rapid Multi-Increment Buttons */}
+                      <div className="flex items-center space-x-1 pl-1">
+                        <button
+                          type="button"
+                          onClick={() => adjustCount(d.id, 5)}
+                          className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
+                        >
+                          +5
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => adjustCount(d.id, 10)}
+                          className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
+                        >
+                          +10
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => adjustCount(d.id, 50)}
+                          className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-amber-50 hover:text-amber-700 hover:border-amber-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
+                        >
+                          +50
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => adjustCount(d.id, 100)}
+                          className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-amber-100 border border-amber-200 hover:bg-amber-200 text-amber-900 rounded-lg transition-all cursor-pointer shadow-2xs"
+                          title="เพิ่ม 1 ถุง (100 เหรียญ)"
+                        >
+                          +100 (ถุง)
+                        </button>
+                        {count > 0 && (
+                          <button
+                            type="button"
+                            onClick={() => handleSetCount(d.id, 0)}
+                            className="p-1 text-slate-400 hover:text-rose-500 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
+                            title="ล้างจำนวนนี้"
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </div>
 
                     {/* Line Total */}
-                    <div className="text-right w-full md:w-1/4">
-                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">รวมย่อย</p>
-                      <p className="text-xs font-extrabold text-slate-800 font-mono">
+                    <div className="text-right w-full sm:w-28 shrink-0 border-t sm:border-t-0 pt-2 sm:pt-0 flex sm:flex-col justify-between items-center sm:items-end">
+                      <p className="text-[10px] text-slate-400 font-bold uppercase tracking-wider font-mono">
+                        {count} เหรียญ =
+                      </p>
+                      <p className="text-sm font-black text-slate-900 font-mono">
                         {formatBaht(count * d.value)}
                       </p>
                     </div>
@@ -1210,11 +1374,11 @@ export default function CashCounterTab({
                 <div className="border-t border-dashed border-slate-200 py-1"></div>
 
                 {/* 3. Expected Drawer Calculation Output */}
-                <div className="flex justify-between items-center text-xs p-1">
-                  <span className="text-slate-500 font-semibold text-left">
-                    📋 ยอดเงินในบัญชีที่ควรมี [A + B - (C1 + C2)] :
+                <div className="flex justify-between items-center text-xs p-1 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
+                  <span className="text-slate-600 font-bold text-left">
+                    📋 ยอดเงินที่ควรมีในเก๊ะ [เงินทอน + ยอดขายสด - เงินถอนออก] :
                   </span>
-                  <span className="font-mono font-extrabold text-slate-900 bg-slate-100 px-2 py-0.5 rounded">
+                  <span className="font-mono font-black text-slate-950 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs text-sm">
                     {formatBaht(expectedCashInDrawer)}
                   </span>
                 </div>
