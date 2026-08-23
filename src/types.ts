@@ -197,6 +197,8 @@ export interface Payslip {
   baseSalary: number;
   overtime: number;
   positionAllowance?: number; // ค่าตำแหน่ง
+  extraIncome?: number; // รายได้อื่นๆ / พิเศษ (เช่น เบี้ยขยัน, ค่าดูแลร้าน, โบนัส)
+  extraIncomeName?: string; // ชื่อรายการรายได้อื่นที่กำหนดเอง
   deductions: number;
   socialSecurity: number;
   taxRate: number; // e.g. 3 for 3%

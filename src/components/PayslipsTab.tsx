@@ -145,6 +145,8 @@ export default function PayslipsTab({
   const [slipBaseSalary, setSlipBaseSalary] = useState<number | ''>('');
   const [slipOvertime, setSlipOvertime] = useState<number | ''>('');
   const [slipPositionAllowance, setSlipPositionAllowance] = useState<number | ''>(''); // ค่าตำแหน่ง
+  const [slipExtraIncome, setSlipExtraIncome] = useState<number | ''>(''); // รายได้เพิ่มอื่นๆ / เงินพิเศษ
+  const [slipExtraIncomeName, setSlipExtraIncomeName] = useState<string>(''); // ชื่อรายการรายได้เพิ่ม
   const [slipDeductions, setSlipDeductions] = useState<number | ''>('');
   const [slipSocialSecurity, setSlipSocialSecurity] = useState<number | ''>('');
   const [slipTaxRate, setSlipTaxRate] = useState<number>(0); // Standard 3% withholding tax in Thailand (Default to 0%)
@@ -188,6 +190,8 @@ export default function PayslipsTab({
   const [editSlipBaseSalary, setEditSlipBaseSalary] = useState<number | ''>('');
   const [editSlipOvertime, setEditSlipOvertime] = useState<number | ''>('');
   const [editSlipPositionAllowance, setEditSlipPositionAllowance] = useState<number | ''>('');
+  const [editSlipExtraIncome, setEditSlipExtraIncome] = useState<number | ''>('');
+  const [editSlipExtraIncomeName, setEditSlipExtraIncomeName] = useState<string>('');
   const [editSlipHaircutCom, setEditSlipHaircutCom] = useState<number | ''>('');
   const [editSlipChemicalCom, setEditSlipChemicalCom] = useState<number | ''>('');
   const [editSlipProductCom, setEditSlipProductCom] = useState<number | ''>('');
@@ -202,6 +206,8 @@ export default function PayslipsTab({
     setEditSlipBaseSalary(slip.baseSalary !== undefined ? slip.baseSalary : '');
     setEditSlipOvertime(slip.overtime !== undefined ? slip.overtime : '');
     setEditSlipPositionAllowance(slip.positionAllowance !== undefined ? slip.positionAllowance : '');
+    setEditSlipExtraIncome(slip.extraIncome !== undefined ? slip.extraIncome : '');
+    setEditSlipExtraIncomeName(slip.extraIncomeName || '');
     setEditSlipHaircutCom(slip.haircutCommission !== undefined ? slip.haircutCommission : '');
     setEditSlipChemicalCom(slip.chemicalCommission !== undefined ? slip.chemicalCommission : '');
     setEditSlipProductCom(slip.productCommission !== undefined ? slip.productCommission : '');
@@ -217,6 +223,7 @@ export default function PayslipsTab({
     const base = Number(editSlipBaseSalary) || 0;
     const ot = Number(editSlipOvertime) || 0;
     const posAllowance = Number(editSlipPositionAllowance) || 0;
+    const extraInc = Number(editSlipExtraIncome) || 0;
     const haircutCom = Number(editSlipHaircutCom) || 0;
     const chemCom = Number(editSlipChemicalCom) || 0;
     const prodCom = Number(editSlipProductCom) || 0;
@@ -227,7 +234,7 @@ export default function PayslipsTab({
     const topupBonus = totalSharesGenerated > base ? (totalSharesGenerated - base) : 0;
     const guaranteeSupplement = totalSharesGenerated < base ? (base - totalSharesGenerated) : 0;
 
-    const totalEarnings = earnedIncome + tip + ot + posAllowance;
+    const totalEarnings = earnedIncome + tip + ot + posAllowance + extraInc;
     const taxValue = (totalEarnings * editSlipTaxRate) / 100;
     const deductions = Number(editSlipDeductions) || 0;
     const soc = Number(editSlipSocialSecurity) || 0;
@@ -249,6 +256,7 @@ export default function PayslipsTab({
     editSlipBaseSalary,
     editSlipOvertime,
     editSlipPositionAllowance,
+    editSlipExtraIncome,
     editSlipHaircutCom,
     editSlipChemicalCom,
     editSlipProductCom,
@@ -266,6 +274,8 @@ export default function PayslipsTab({
       baseSalary: Number(editSlipBaseSalary) || 0,
       overtime: Number(editSlipOvertime) || 0,
       positionAllowance: Number(editSlipPositionAllowance) || 0,
+      extraIncome: Number(editSlipExtraIncome) || 0,
+      extraIncomeName: editSlipExtraIncomeName.trim(),
       haircutCommission: Number(editSlipHaircutCom) || 0,
       chemicalCommission: Number(editSlipChemicalCom) || 0,
       productCommission: Number(editSlipProductCom) || 0,
@@ -433,6 +443,8 @@ export default function PayslipsTab({
     setSlipTipTotal('');
     setSlipOvertime('');
     setSlipPositionAllowance('');
+    setSlipExtraIncome('');
+    setSlipExtraIncomeName('');
     setSlipDeductions('');
     setSlipSocialSecurity('');
   }, [selectedSlipBarberStats]);
@@ -444,6 +456,7 @@ export default function PayslipsTab({
     const base = Number(slipBaseSalary) || 0;
     const ot = Number(slipOvertime) || 0;
     const posAllowance = Number(slipPositionAllowance) || 0;
+    const extraInc = Number(slipExtraIncome) || 0;
     const tip = slipTipTotal === '' ? stats.tipTotal : (Number(slipTipTotal) || 0);
     const haircutCom = slipHaircutCom === '' ? stats.haircutCom : (Number(slipHaircutCom) || 0);
     const chemCom = slipChemicalCom === '' ? stats.chemicalCom : (Number(slipChemicalCom) || 0);
@@ -454,7 +467,7 @@ export default function PayslipsTab({
     const topupBonus = totalSharesGenerated > base ? (totalSharesGenerated - base) : 0;
     const guaranteeSupplement = totalSharesGenerated < base ? (base - totalSharesGenerated) : 0;
 
-    const totalEarnings = earnedIncome + tip + ot + posAllowance;
+    const totalEarnings = earnedIncome + tip + ot + posAllowance + extraInc;
     const taxValue = (totalEarnings * slipTaxRate) / 100;
     const deductions = Number(slipDeductions) || 0;
     const soc = Number(slipSocialSecurity) || 0;
@@ -473,7 +486,7 @@ export default function PayslipsTab({
       totalDeductions,
       netPayable
     };
-  }, [selectedSlipBarberStats, slipBaseSalary, slipOvertime, slipPositionAllowance, slipTaxRate, slipDeductions, slipSocialSecurity, slipHaircutCom, slipChemicalCom, slipProductCom, slipTipTotal]);
+  }, [selectedSlipBarberStats, slipBaseSalary, slipOvertime, slipPositionAllowance, slipExtraIncome, slipTaxRate, slipDeductions, slipSocialSecurity, slipHaircutCom, slipChemicalCom, slipProductCom, slipTipTotal]);
 
   // General Unified Payslip Printing Engine (Safe hex codes, no oklch to prevent PDF compiling error)
   const printPayslipData = (data: {
@@ -485,6 +498,8 @@ export default function PayslipsTab({
     baseSalary: number;
     overtime: number;
     positionAllowance?: number;
+    extraIncome?: number;
+    extraIncomeName?: string;
     haircutCom: number;
     chemicalCom: number;
     productCom: number;
@@ -503,6 +518,8 @@ export default function PayslipsTab({
       baseSalary,
       overtime,
       positionAllowance = 0,
+      extraIncome = 0,
+      extraIncomeName = '',
       haircutCom,
       chemicalCom,
       productCom,
@@ -518,8 +535,10 @@ export default function PayslipsTab({
     const topupBonus = totalSharesGenerated > baseSalary ? (totalSharesGenerated - baseSalary) : 0;
     const guaranteeSupplement = totalSharesGenerated < baseSalary ? (baseSalary - totalSharesGenerated) : 0;
     const posAllowance = positionAllowance || 0;
+    const extraInc = extraIncome || 0;
+    const resolvedExtraName = extraIncomeName.trim() || 'รายได้อื่น / เงินเพิ่มพิเศษ';
     
-    const totalEarnings = earnedIncome + tipTotal + overtime + posAllowance;
+    const totalEarnings = earnedIncome + tipTotal + overtime + posAllowance + extraInc;
     const taxValue = (totalEarnings * taxRate) / 100;
     const totalDeductions = deductions + soc + taxValue;
     const netPayable = totalEarnings - totalDeductions;
@@ -1020,6 +1039,13 @@ export default function PayslipsTab({
               </div>
               ` : ''}
 
+              ${extraInc > 0 ? `
+              <div class="row-item highlight-success">
+                <span>✨ ${resolvedExtraName}:</span>
+                <span class="font-mono-val">+${formatBaht(extraInc)}</span>
+              </div>
+              ` : ''}
+
               <div class="totals-divider">
                 <div class="column-total-row">
                   <span>รวมรายได้สะสมพึงประเมิน:</span>
@@ -1147,6 +1173,8 @@ export default function PayslipsTab({
       baseSalary: Number(slipBaseSalary) || 0,
       overtime: Number(slipOvertime) || 0,
       positionAllowance: Number(slipPositionAllowance) || 0,
+      extraIncome: Number(slipExtraIncome) || 0,
+      extraIncomeName: slipExtraIncomeName.trim(),
       haircutCom: slipHaircutCom === '' ? stats.haircutCom : (Number(slipHaircutCom) || 0),
       chemicalCom: slipChemicalCom === '' ? stats.chemicalCom : (Number(slipChemicalCom) || 0),
       productCom: slipProductCom === '' ? stats.productCom : (Number(slipProductCom) || 0),
@@ -1171,10 +1199,12 @@ export default function PayslipsTab({
     const decVal = Number(slipDeductions) || 0;
     const socVal = Number(slipSocialSecurity) || 0;
     const posAllowanceVal = Number(slipPositionAllowance) || 0;
+    const extraIncomeVal = Number(slipExtraIncome) || 0;
+    const extraIncomeNameVal = slipExtraIncomeName.trim();
 
     const totalSharesGenerated = haircutCom + chemicalCom + productCom;
     const earnedIncome = Math.max(totalSharesGenerated, baseVal);
-    const totalEarnings = earnedIncome + tipTotal + otVal + posAllowanceVal;
+    const totalEarnings = earnedIncome + tipTotal + otVal + posAllowanceVal + extraIncomeVal;
     
     const taxValue = (totalEarnings * slipTaxRate) / 100;
     const totalDeductions = decVal + socVal + taxValue;
@@ -1189,6 +1219,8 @@ export default function PayslipsTab({
       baseSalary: baseVal,
       overtime: otVal,
       positionAllowance: posAllowanceVal,
+      extraIncome: extraIncomeVal,
+      extraIncomeName: extraIncomeNameVal,
       deductions: decVal,
       socialSecurity: socVal,
       taxRate: slipTaxRate,
@@ -1218,6 +1250,8 @@ export default function PayslipsTab({
     const base = Number(slipBaseSalary) || 0;
     const ot = Number(slipOvertime) || 0;
     const posAllowance = Number(slipPositionAllowance) || 0;
+    const extraInc = Number(slipExtraIncome) || 0;
+    const extraIncName = slipExtraIncomeName.trim() || 'รายได้อื่น / เงินเพิ่มพิเศษ';
     const haircutCom = slipHaircutCom === '' ? stats.haircutCom : (Number(slipHaircutCom) || 0);
     const chemCom = slipChemicalCom === '' ? stats.chemicalCom : (Number(slipChemicalCom) || 0);
     const prodCom = slipProductCom === '' ? stats.productCom : (Number(slipProductCom) || 0);
@@ -1228,7 +1262,7 @@ export default function PayslipsTab({
     const topupBonus = totalSharesGenerated > base ? (totalSharesGenerated - base) : 0;
     const guaranteeSupplement = totalSharesGenerated < base ? (base - totalSharesGenerated) : 0;
     
-    const totalEarnings = earnedIncome + tip + ot + posAllowance;
+    const totalEarnings = earnedIncome + tip + ot + posAllowance + extraInc;
     const taxValue = (totalEarnings * slipTaxRate) / 100;
     const deductions = Number(slipDeductions) || 0;
     const soc = Number(slipSocialSecurity) || 0;
@@ -1273,7 +1307,8 @@ export default function PayslipsTab({
               ${guaranteeSupplement > 0 ? `<b>🎯 ได้รับเงินช่วยเหลือประกันเพิ่ม: +${formatBaht(guaranteeSupplement)}</b><br/>` : ''}
               ${topupBonus > 0 ? `<b>🚀 ได้รับคอมมิชชั่นส่วนเหนือประกัน: +${formatBaht(topupBonus)}</b><br/>` : ''}
               ${posAllowance > 0 ? `<b>🎖️ ค่าตำแหน่ง: +${formatBaht(posAllowance)}</b><br/>` : ''}
-              - เบี้ยพิเศษและเงินล่วงเวลา (OT): ${formatBaht(ot)}<br/>
+              ${ot > 0 ? `- เบี้ยพิเศษและเงินล่วงเวลา (OT): +${formatBaht(ot)}<br/>` : ''}
+              ${extraInc > 0 ? `<b>✨ ${extraIncName}: +${formatBaht(extraInc)}</b><br/>` : ''}
               <hr style="border-top:1px dashed #666; margin: 8px 0;"/>
               <b>รวมเงินได้ประเมินสุทธิ: ${formatBaht(totalEarnings)}</b>
             </td>
@@ -1769,6 +1804,39 @@ export default function PayslipsTab({
                 </div>
               </div>
 
+              {/* Grid: Custom Extra Income with Editable Name for this barber */}
+              <div className="p-3.5 bg-indigo-950/30 border border-indigo-500/30 rounded-2xl space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-[11px] font-extrabold text-indigo-300 flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-amber-400" />
+                    <span>เพิ่มรายได้อื่น / เงินเพิ่มพิเศษเฉพาะช่างคนนี้:</span>
+                  </label>
+                  <span className="text-[10px] text-indigo-400 font-mono">บวกเพิ่มในยอดสุทธิ</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-12 gap-2.5">
+                  <div className="sm:col-span-7">
+                    <input
+                      type="text"
+                      value={slipExtraIncomeName}
+                      onChange={(e) => setSlipExtraIncomeName(e.target.value)}
+                      className="w-full bg-slate-950 text-white text-xs px-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-sans"
+                      placeholder="ตั้งชื่อรายได้ เช่น เบี้ยขยัน, ค่าดูแลร้าน, โบนัสพิเศษ"
+                    />
+                  </div>
+                  <div className="sm:col-span-5 relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold font-mono">฿</span>
+                    <input
+                      type="number"
+                      value={slipExtraIncome}
+                      onChange={(e) => handleNumberInput(e.target.value, setSlipExtraIncome)}
+                      onFocus={(e) => e.target.select()}
+                      className="w-full bg-slate-950 text-emerald-300 text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono font-bold"
+                      placeholder="จำนวนเงิน (บาท)"
+                    />
+                  </div>
+                </div>
+              </div>
+
               {/* Grid 2: Extra benefits & Advances */}
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
@@ -2007,6 +2075,13 @@ export default function PayslipsTab({
                       </div>
                     )}
 
+                    {Number(slipExtraIncome) > 0 && (
+                      <div className="flex justify-between text-emerald-700 font-bold bg-emerald-50/60 px-1 py-0.5 rounded">
+                        <span>✨ {slipExtraIncomeName.trim() || 'รายได้อื่น / เงินเพิ่มพิเศษ'}:</span>
+                        <span className="font-mono">+{formatBaht(Number(slipExtraIncome) || 0)}</span>
+                      </div>
+                    )}
+
                     {Number(slipOvertime) > 0 && (
                       <div className="flex justify-between text-slate-600">
                         <span>เบี้ยขยันพิเศษ / เงิน OT:</span>
@@ -2196,6 +2271,8 @@ export default function PayslipsTab({
                               baseSalary: s.baseSalary,
                               overtime: s.overtime,
                               positionAllowance: s.positionAllowance,
+                              extraIncome: s.extraIncome,
+                              extraIncomeName: s.extraIncomeName,
                               haircutCom: s.haircutCommission,
                               chemicalCom: s.chemicalCommission,
                               productCom: s.productCommission,
@@ -2362,6 +2439,32 @@ export default function PayslipsTab({
                         onChange={(e) => handleNumberInput(e.target.value, setEditSlipPositionAllowance)}
                         onFocus={(e) => e.target.select()}
                         className="w-full bg-slate-950 text-white text-xs pl-7 pr-3 py-2 border border-slate-800 rounded-xl focus:border-indigo-500 outline-none transition-all font-mono"
+                        placeholder="0"
+                      />
+                    </div>
+                  </div>
+
+                  {/* Extra Income in Edit Modal */}
+                  <div className="p-3 bg-indigo-950/40 border border-indigo-500/30 rounded-xl space-y-2">
+                    <label className="block text-[11px] font-bold text-indigo-300 flex items-center gap-1">
+                      <Sparkles className="w-3 h-3 text-amber-400" />
+                      <span>รายได้อื่น / เงินเพิ่มพิเศษเฉพาะช่างคนนี้:</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={editSlipExtraIncomeName}
+                      onChange={(e) => setEditSlipExtraIncomeName(e.target.value)}
+                      className="w-full bg-slate-950 text-white text-xs px-2.5 py-1.5 border border-slate-800 rounded-lg focus:border-indigo-500 outline-none transition-all font-sans"
+                      placeholder="ชื่อรายได้ เช่น เบี้ยขยัน, ค่าดูแลร้าน"
+                    />
+                    <div className="relative">
+                      <span className="absolute left-2.5 top-1/2 -translate-y-1/2 text-indigo-400 text-xs font-bold font-mono">฿</span>
+                      <input
+                        type="number"
+                        value={editSlipExtraIncome}
+                        onChange={(e) => handleNumberInput(e.target.value, setEditSlipExtraIncome)}
+                        onFocus={(e) => e.target.select()}
+                        className="w-full bg-slate-950 text-emerald-300 text-xs pl-6 pr-2.5 py-1.5 border border-slate-800 rounded-lg focus:border-indigo-500 outline-none transition-all font-mono font-bold"
                         placeholder="0"
                       />
                     </div>

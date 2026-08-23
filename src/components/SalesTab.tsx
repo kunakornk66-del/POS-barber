@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Barber, Product, ShareConfig, SaleRecord, Voucher, ChemicalPromo, Member, MemberPackage, formatMemberDisplayName } from '../types';
-import { formatBaht } from '../utils';
-import { Check, ClipboardList, Scissors, Sparkles, ShoppingBag, Gift, Heart, CreditCard, Landmark, Percent, Calendar, Clock, Coins, Link as LinkIcon, Crown, User, X, Plus } from 'lucide-react';
+import { formatBaht, getBarberTheme } from '../utils';
+import { Check, ClipboardList, Scissors, Sparkles, ShoppingBag, Gift, Heart, CreditCard, Landmark, Percent, Calendar, Clock, Coins, Link as LinkIcon, Crown, User, X, Plus, Zap, Award, Star } from 'lucide-react';
 
 interface SalesTabProps {
   sales?: SaleRecord[];
@@ -456,63 +456,102 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
         <div className={`space-y-6 ${mobileTab === 'items' ? 'block' : 'hidden md:block'}`}>
           {/* 1. Barber Selection */}
           <div className="space-y-3">
-            <label className="block text-sm font-semibold text-slate-700">ช่างผู้ให้บริการ</label>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                <span className="text-base">💈</span>
+                <span>เลือกช่างผู้ให้บริการ</span>
+              </label>
+              <span className="text-[11px] font-semibold text-slate-500 bg-slate-100 px-2.5 py-0.5 rounded-full">
+                พร้อมบริการ {activeBarbers.length} ท่าน
+              </span>
+            </div>
+
             {activeBarbers.length === 0 ? (
-              <div className="p-4 bg-amber-50 text-amber-700 rounded-xl border border-amber-200 text-sm">
-                ขณะนี้ไม่มีช่างลงทะเบียนเข้าทำงาน กรุณาไปที่แท็บ 'ตั้งค่า Config' เพื่อตั้งค่าสถานะมาทำงาน
+              <div className="p-4 bg-amber-50 text-amber-800 rounded-2xl border border-amber-200 text-xs flex items-center gap-2">
+                <span>⚠️</span>
+                <span>ขณะนี้ไม่มีช่างลงทะเบียนเข้าทำงาน กรุณาไปที่แท็บ 'ตั้งค่า Config' เพื่อเปิดสถานะมาทำงาน</span>
               </div>
             ) : (
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-                {activeBarbers.map((barber) => (
-                  <button
-                    key={barber.id}
-                    type="button"
-                    onClick={() => setSelectedBarberId(barber.id)}
-                    className={`flex items-center justify-between p-4 rounded-xl border-2 transition-all cursor-pointer ${
-                      selectedBarberId === barber.id
-                        ? 'border-slate-800 bg-slate-50 text-slate-900 shadow-sm font-semibold'
-                        : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300 hover:bg-slate-50'
-                    }`}
-                  >
-                    <div className="flex items-center space-x-2">
-                      <div className={`p-1.5 rounded-full ${selectedBarberId === barber.id ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-600'}`}>
-                        <Scissors className="w-4 h-4" />
+                {activeBarbers.map((barber, bIdx) => {
+                  const theme = getBarberTheme(barber.id || barber.name, bIdx);
+                  const isSelected = selectedBarberId === barber.id;
+                  
+                  return (
+                    <button
+                      key={barber.id}
+                      type="button"
+                      onClick={() => setSelectedBarberId(barber.id)}
+                      className={`relative flex items-center justify-between p-3.5 rounded-2xl border-2 transition-all duration-200 cursor-pointer text-left select-none group ${
+                        isSelected
+                          ? `${theme.activeBorder} ${theme.activeBg} shadow-md ${theme.glow} scale-[1.02]`
+                          : `${theme.inactiveBorder} ${theme.inactiveBg} hover:shadow-sm hover:scale-[1.01]`
+                      }`}
+                    >
+                      <div className="flex items-center space-x-2.5 min-w-0">
+                        {/* Barber Vibrant Avatar */}
+                        <div className={`w-9 h-9 rounded-xl flex items-center justify-center text-sm font-black shadow-xs shrink-0 transition-transform group-hover:scale-105 ${theme.avatarBg}`}>
+                          <span>{theme.emoji}</span>
+                        </div>
+                        
+                        <div className="min-w-0">
+                          <p className={`text-xs font-black truncate ${isSelected ? 'text-slate-900' : 'text-slate-700'}`}>
+                            ช่าง{barber.name}
+                          </p>
+                          <span className={`text-[10px] font-semibold flex items-center gap-1 ${isSelected ? theme.accentText : 'text-slate-400'}`}>
+                            <span className={`w-1.5 h-1.5 rounded-full ${isSelected ? 'bg-emerald-500 animate-ping' : 'bg-emerald-400'}`}></span>
+                            <span>พร้อมตัด</span>
+                          </span>
+                        </div>
                       </div>
-                      <span className="text-sm">ช่าง{barber.name}</span>
-                    </div>
-                    {selectedBarberId === barber.id && (
-                      <div className="w-5 h-5 rounded-full bg-slate-800 text-white flex items-center justify-center">
-                        <Check className="w-3.5 h-3.5" />
-                      </div>
-                    )}
-                  </button>
-                ))}
+
+                      {/* Selected Badge Check */}
+                      {isSelected && (
+                        <div className="w-6 h-6 rounded-full bg-slate-900 text-amber-300 flex items-center justify-center shadow-xs shrink-0 animate-in zoom-in-50 duration-150">
+                          <Check className="w-3.5 h-3.5 stroke-[3]" />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
               </div>
             )}
           </div>
 
           {/* Customer Name */}
           <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">ชื่อลูกค้า (ถ้ามี)</label>
+            <label className="block text-sm font-bold text-slate-800 flex items-center gap-1.5">
+              <span>👤</span>
+              <span>ชื่อลูกค้า / เบอร์โทร (ถ้ามี)</span>
+            </label>
             <div className="relative">
-              <span className="absolute left-3 top-2.5 text-slate-400 font-medium text-sm">👤</span>
+              <span className="absolute left-3.5 top-2.5 text-slate-400 font-medium text-sm">👤</span>
               <input
                 id="pos-customer-name-field"
                 type="text"
-                placeholder="ระบุชื่อลูกค้าทั่วไป"
+                placeholder="ระบุชื่อลูกค้าทั่วไป เช่น คุณกิตติ หรือ ลูกค้าประจำ"
                 value={customerNameInput}
                 onChange={(e) => setCustomerNameInput(e.target.value)}
-                className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all text-sm font-sans"
+                className="w-full pl-9 pr-3 py-2.5 border-2 border-slate-200 hover:border-slate-300 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all text-sm font-sans bg-white"
               />
             </div>
           </div>
 
           {/* 2. Prices & Chemical Work */}
           <div className={`grid grid-cols-1 ${shareConfig.enableChemicalService !== false ? 'sm:grid-cols-2' : ''} gap-4`}>
-            <div className="space-y-2">
-              <label className="block text-sm font-semibold text-slate-700">ค่าบริการตัดผม (บาท)</label>
+            {/* Haircut Service Card */}
+            <div className="space-y-2.5 bg-gradient-to-b from-sky-50/40 to-white p-3.5 rounded-2xl border-2 border-sky-100/80 hover:border-sky-200 transition-all">
+              <div className="flex items-center justify-between">
+                <label className="text-sm font-bold text-sky-950 flex items-center gap-1.5">
+                  <span className="text-base">✂️</span>
+                  <span>ค่าบริการตัดผม (บาท)</span>
+                </label>
+                <span className="text-[10px] font-bold bg-sky-100 text-sky-800 px-2 py-0.5 rounded-full">
+                  Haircut
+                </span>
+              </div>
               <div className="relative">
-                <span className="absolute left-3 top-2.5 text-slate-400 font-medium text-sm">฿</span>
+                <span className="absolute left-3.5 top-2.5 text-sky-600 font-bold text-sm">฿</span>
                 <input
                   type="number"
                   min="0"
@@ -520,16 +559,24 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                   value={haircutInput}
                   onChange={(e) => setHaircutInput(e.target.value)}
                   onFocus={(e) => e.target.select()}
-                  className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all font-mono"
+                  className="w-full pl-9 pr-3 py-2 border-2 border-sky-200/80 rounded-xl outline-none focus:ring-2 focus:ring-sky-500 focus:border-transparent transition-all font-mono font-bold text-slate-800 bg-white shadow-2xs"
                 />
               </div>
             </div>
 
             {shareConfig.enableChemicalService !== false && (
-              <div className="space-y-2">
-                <label className="block text-sm font-semibold text-slate-700 font-sans">ค่าบริการเคมี (ยืด,ดัด,ทำสี) (บาท)</label>
+              <div className="space-y-2.5 bg-gradient-to-b from-purple-50/40 to-white p-3.5 rounded-2xl border-2 border-purple-100/80 hover:border-purple-200 transition-all">
+                <div className="flex items-center justify-between">
+                  <label className="text-sm font-bold text-purple-950 flex items-center gap-1.5">
+                    <span className="text-base">🧪</span>
+                    <span>งานเคมี (ยืด/ดัด/ทำสี)</span>
+                  </label>
+                  <span className="text-[10px] font-bold bg-purple-100 text-purple-800 px-2 py-0.5 rounded-full">
+                    Chemical
+                  </span>
+                </div>
                 <div className="relative">
-                  <span className="absolute left-3 top-2.5 text-slate-400 font-medium text-sm">฿</span>
+                  <span className="absolute left-3.5 top-2.5 text-purple-600 font-bold text-sm">฿</span>
                   <input
                     type="number"
                     min="0"
@@ -540,7 +587,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                       setSelectedChemicalPromoId('');
                     }}
                     onFocus={(e) => e.target.select()}
-                    className="w-full pl-8 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all font-mono"
+                    className="w-full pl-9 pr-3 py-2 border-2 border-purple-200/80 rounded-xl outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all font-mono font-bold text-slate-800 bg-white shadow-2xs"
                   />
                 </div>
 
@@ -716,10 +763,13 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
           )}
 
           {/* 4. Tips */}
-          <div className="space-y-2">
-            <label className="block text-sm font-semibold text-slate-700">ค่าทิปให้ช่างเป็นพิเศษ (บาท)</label>
+          <div className="space-y-2.5 bg-gradient-to-b from-rose-50/40 to-white p-3.5 rounded-2xl border-2 border-rose-100/80 hover:border-rose-200 transition-all">
+            <label className="block text-sm font-bold text-rose-950 flex items-center gap-1.5">
+              <span className="text-base">💖</span>
+              <span>ค่าทิปให้ช่างเป็นพิเศษ (บาท)</span>
+            </label>
             <div className="relative">
-              <Heart className="absolute left-3 top-2.5 text-red-400 w-5 h-5 fill-red-100" />
+              <Heart className="absolute left-3.5 top-2.5 text-rose-500 w-5 h-5 fill-rose-100" />
               <input
                 type="number"
                 min="0"
@@ -727,7 +777,7 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                 value={tipInput}
                 onChange={(e) => setTipInput(e.target.value)}
                 onFocus={(e) => e.target.select()}
-                className="w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all font-mono"
+                className="w-full pl-10 pr-3 py-2 border-2 border-rose-200/80 rounded-xl outline-none focus:ring-2 focus:ring-rose-500 focus:border-transparent transition-all font-mono font-bold text-slate-800 bg-white shadow-2xs"
               />
             </div>
           </div>
@@ -838,39 +888,69 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
 
           {/* 6. Payment method */}
           <div className="space-y-3">
-            <label className="block text-sm font-semibold text-slate-700">ช่องทางการชำระเงิน</label>
-            <div className={`grid gap-2 sm:gap-3 ${shareConfig?.enableMemberSystem !== false ? 'grid-cols-2 sm:grid-cols-4' : 'grid-cols-3'}`}>
+            <div className="flex items-center justify-between">
+              <label className="text-sm font-bold text-slate-800 flex items-center gap-1.5">
+                <span className="text-base">💳</span>
+                <span>ช่องทางการชำระเงิน</span>
+              </label>
+              <span className="text-[11px] font-semibold text-slate-500">เลือกประเภทการรับเงิน</span>
+            </div>
+
+            <div className="grid grid-cols-3 gap-2.5 sm:gap-3">
+              {/* Transfer */}
               <button
                 type="button"
                 onClick={() => {
                   setPaymentMethod('transfer');
                 }}
-                className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
+                className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all cursor-pointer select-none group ${
                   paymentMethod === 'transfer'
-                    ? 'border-sky-600 bg-sky-50/50 text-sky-950 shadow-xs font-bold'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    ? 'border-sky-500 bg-sky-50 text-sky-950 shadow-md shadow-sky-500/10 font-bold scale-[1.02]'
+                    : 'border-sky-200/60 bg-white text-slate-600 hover:border-sky-300 hover:bg-sky-50/40 hover:scale-[1.01]'
                 }`}
               >
-                <Landmark className="w-4 h-4 text-sky-600 shrink-0" />
-                <span className="mt-1 sm:mt-0">เงินโอน</span>
+                <div className={`p-2 rounded-xl mb-1.5 transition-transform group-hover:scale-110 ${
+                  paymentMethod === 'transfer' ? 'bg-sky-600 text-white shadow-xs' : 'bg-sky-100 text-sky-700'
+                }`}>
+                  <Landmark className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-black">📲 เงินโอน (QR)</span>
+                <span className="text-[10px] text-slate-400 font-sans mt-0.5">เข้าบัญชีร้าน</span>
+                {paymentMethod === 'transfer' && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-sky-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs">
+                    ✓
+                  </span>
+                )}
               </button>
 
+              {/* Cash */}
               <button
                 type="button"
                 onClick={() => {
                   setPaymentMethod('cash');
                   setIsGroupPayment(false);
                 }}
-                className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
+                className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all cursor-pointer select-none group ${
                   paymentMethod === 'cash'
-                    ? 'border-emerald-600 bg-emerald-50/50 text-emerald-950 shadow-xs font-bold'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    ? 'border-emerald-500 bg-emerald-50 text-emerald-950 shadow-md shadow-emerald-500/10 font-bold scale-[1.02]'
+                    : 'border-emerald-200/60 bg-white text-slate-600 hover:border-emerald-300 hover:bg-emerald-50/40 hover:scale-[1.01]'
                 }`}
               >
-                <CreditCard className="w-4 h-4 text-emerald-600 shrink-0" />
-                <span className="mt-1 sm:mt-0">เงินสด</span>
+                <div className={`p-2 rounded-xl mb-1.5 transition-transform group-hover:scale-110 ${
+                  paymentMethod === 'cash' ? 'bg-emerald-600 text-white shadow-xs' : 'bg-emerald-100 text-emerald-700'
+                }`}>
+                  <CreditCard className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-black">💵 เงินสด</span>
+                <span className="text-[10px] text-slate-400 font-sans mt-0.5">รับเงินหน้าโต๊ะ</span>
+                {paymentMethod === 'cash' && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-emerald-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs">
+                    ✓
+                  </span>
+                )}
               </button>
 
+              {/* Split */}
               <button
                 type="button"
                 onClick={() => {
@@ -882,14 +962,24 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                     setSplitTransferInput((payableAmount - defaultCash).toString());
                   }
                 }}
-                className={`flex flex-col sm:flex-row items-center justify-center space-x-0 sm:space-x-1.5 py-2.5 px-2 rounded-xl border-2 transition-all cursor-pointer text-xs ${
+                className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all cursor-pointer select-none group ${
                   paymentMethod === 'split'
-                    ? 'border-indigo-600 bg-indigo-50/80 text-indigo-950 shadow-xs font-bold'
-                    : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
+                    ? 'border-purple-500 bg-purple-50 text-purple-950 shadow-md shadow-purple-500/10 font-bold scale-[1.02]'
+                    : 'border-purple-200/60 bg-white text-slate-600 hover:border-purple-300 hover:bg-purple-50/40 hover:scale-[1.01]'
                 }`}
               >
-                <Coins className="w-4 h-4 text-indigo-600 shrink-0" />
-                <span className="mt-1 sm:mt-0">⚡ ผสม (สด+โอน)</span>
+                <div className={`p-2 rounded-xl mb-1.5 transition-transform group-hover:scale-110 ${
+                  paymentMethod === 'split' ? 'bg-purple-600 text-white shadow-xs' : 'bg-purple-100 text-purple-700'
+                }`}>
+                  <Coins className="w-5 h-5" />
+                </div>
+                <span className="text-xs font-black">⚡ ผสม (สด+โอน)</span>
+                <span className="text-[10px] text-slate-400 font-sans mt-0.5">แบ่งจ่าย 2 แบบ</span>
+                {paymentMethod === 'split' && (
+                  <span className="absolute -top-1.5 -right-1.5 w-5 h-5 bg-purple-600 text-white rounded-full flex items-center justify-center text-[10px] font-bold shadow-xs">
+                    ✓
+                  </span>
+                )}
               </button>
             </div>
 

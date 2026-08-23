@@ -1437,3 +1437,140 @@ export async function exportAsyncMonthlyPdfReport(
   }
 }
 
+// Barber Visual Palette & Emojis
+export interface BarberTheme {
+  emoji: string;
+  avatarBg: string;
+  badgeBg: string;
+  badgeText: string;
+  activeBorder: string;
+  activeBg: string;
+  inactiveBorder: string;
+  inactiveBg: string;
+  accentText: string;
+  glow: string;
+  ring: string;
+}
+
+const BARBER_THEMES: BarberTheme[] = [
+  {
+    emoji: '💈',
+    avatarBg: 'bg-gradient-to-br from-indigo-500 to-blue-600 text-white',
+    badgeBg: 'bg-indigo-100 text-indigo-800 border-indigo-200',
+    badgeText: 'text-indigo-600',
+    activeBorder: 'border-indigo-500 shadow-md shadow-indigo-500/20 ring-2 ring-indigo-400/70',
+    activeBg: 'bg-gradient-to-b from-indigo-50/80 to-white text-indigo-950',
+    inactiveBorder: 'border-indigo-100 hover:border-indigo-300',
+    inactiveBg: 'bg-white hover:bg-indigo-50/30 text-slate-700',
+    accentText: 'text-indigo-600',
+    glow: 'shadow-indigo-500/25',
+    ring: 'ring-indigo-400'
+  },
+  {
+    emoji: '✂️',
+    avatarBg: 'bg-gradient-to-br from-emerald-500 to-teal-600 text-white',
+    badgeBg: 'bg-emerald-100 text-emerald-800 border-emerald-200',
+    badgeText: 'text-emerald-600',
+    activeBorder: 'border-emerald-500 shadow-md shadow-emerald-500/20 ring-2 ring-emerald-400/70',
+    activeBg: 'bg-gradient-to-b from-emerald-50/80 to-white text-emerald-950',
+    inactiveBorder: 'border-emerald-100 hover:border-emerald-300',
+    inactiveBg: 'bg-white hover:bg-emerald-50/30 text-slate-700',
+    accentText: 'text-emerald-600',
+    glow: 'shadow-emerald-500/25',
+    ring: 'ring-emerald-400'
+  },
+  {
+    emoji: '💇‍♂️',
+    avatarBg: 'bg-gradient-to-br from-sky-500 to-cyan-600 text-white',
+    badgeBg: 'bg-sky-100 text-sky-800 border-sky-200',
+    badgeText: 'text-sky-600',
+    activeBorder: 'border-sky-500 shadow-md shadow-sky-500/20 ring-2 ring-sky-400/70',
+    activeBg: 'bg-gradient-to-b from-sky-50/80 to-white text-sky-950',
+    inactiveBorder: 'border-sky-100 hover:border-sky-300',
+    inactiveBg: 'bg-white hover:bg-sky-50/30 text-slate-700',
+    accentText: 'text-sky-600',
+    glow: 'shadow-sky-500/25',
+    ring: 'ring-sky-400'
+  },
+  {
+    emoji: '🧔',
+    avatarBg: 'bg-gradient-to-br from-amber-500 to-orange-600 text-white',
+    badgeBg: 'bg-amber-100 text-amber-800 border-amber-200',
+    badgeText: 'text-amber-600',
+    activeBorder: 'border-amber-500 shadow-md shadow-amber-500/20 ring-2 ring-amber-400/70',
+    activeBg: 'bg-gradient-to-b from-amber-50/80 to-white text-amber-950',
+    inactiveBorder: 'border-amber-100 hover:border-amber-300',
+    inactiveBg: 'bg-white hover:bg-amber-50/30 text-slate-700',
+    accentText: 'text-amber-600',
+    glow: 'shadow-amber-500/25',
+    ring: 'ring-amber-400'
+  },
+  {
+    emoji: '👑',
+    avatarBg: 'bg-gradient-to-br from-purple-500 to-fuchsia-600 text-white',
+    badgeBg: 'bg-purple-100 text-purple-800 border-purple-200',
+    badgeText: 'text-purple-600',
+    activeBorder: 'border-purple-500 shadow-md shadow-purple-500/20 ring-2 ring-purple-400/70',
+    activeBg: 'bg-gradient-to-b from-purple-50/80 to-white text-purple-950',
+    inactiveBorder: 'border-purple-100 hover:border-purple-300',
+    inactiveBg: 'bg-white hover:bg-purple-50/30 text-slate-700',
+    accentText: 'text-purple-600',
+    glow: 'shadow-purple-500/25',
+    ring: 'ring-purple-400'
+  },
+  {
+    emoji: '🌟',
+    avatarBg: 'bg-gradient-to-br from-rose-500 to-pink-600 text-white',
+    badgeBg: 'bg-rose-100 text-rose-800 border-rose-200',
+    badgeText: 'text-rose-600',
+    activeBorder: 'border-rose-500 shadow-md shadow-rose-500/20 ring-2 ring-rose-400/70',
+    activeBg: 'bg-gradient-to-b from-rose-50/80 to-white text-rose-950',
+    inactiveBorder: 'border-rose-100 hover:border-rose-300',
+    inactiveBg: 'bg-white hover:bg-rose-50/30 text-slate-700',
+    accentText: 'text-rose-600',
+    glow: 'shadow-rose-500/25',
+    ring: 'ring-rose-400'
+  },
+  {
+    emoji: '✨',
+    avatarBg: 'bg-gradient-to-br from-teal-500 to-emerald-600 text-white',
+    badgeBg: 'bg-teal-100 text-teal-800 border-teal-200',
+    badgeText: 'text-teal-600',
+    activeBorder: 'border-teal-500 shadow-md shadow-teal-500/20 ring-2 ring-teal-400/70',
+    activeBg: 'bg-gradient-to-b from-teal-50/80 to-white text-teal-950',
+    inactiveBorder: 'border-teal-100 hover:border-teal-300',
+    inactiveBg: 'bg-white hover:bg-teal-50/30 text-slate-700',
+    accentText: 'text-teal-600',
+    glow: 'shadow-teal-500/25',
+    ring: 'ring-teal-400'
+  },
+  {
+    emoji: '🎩',
+    avatarBg: 'bg-gradient-to-br from-violet-600 to-indigo-800 text-white',
+    badgeBg: 'bg-violet-100 text-violet-800 border-violet-200',
+    badgeText: 'text-violet-600',
+    activeBorder: 'border-violet-500 shadow-md shadow-violet-500/20 ring-2 ring-violet-400/70',
+    activeBg: 'bg-gradient-to-b from-violet-50/80 to-white text-violet-950',
+    inactiveBorder: 'border-violet-100 hover:border-violet-300',
+    inactiveBg: 'bg-white hover:bg-violet-50/30 text-slate-700',
+    accentText: 'text-violet-600',
+    glow: 'shadow-violet-500/25',
+    ring: 'ring-violet-400'
+  }
+];
+
+export function getBarberTheme(barberIdOrName: string | number, index?: number): BarberTheme {
+  if (typeof index === 'number' && index >= 0) {
+    return BARBER_THEMES[index % BARBER_THEMES.length];
+  }
+  const str = String(barberIdOrName || 'barber');
+  let hash = 0;
+  for (let i = 0; i < str.length; i++) {
+    hash = (hash << 5) - hash + str.charCodeAt(i);
+    hash |= 0;
+  }
+  const idx = Math.abs(hash) % BARBER_THEMES.length;
+  return BARBER_THEMES[idx];
+}
+
+
