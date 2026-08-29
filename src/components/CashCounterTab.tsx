@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { motion } from 'motion/react';
 import { jsPDF } from 'jspdf';
-import html2canvas from 'html2canvas';
-import { formatBaht, getSalePaymentBreakdown } from '../utils';
+import { formatBaht, getSalePaymentBreakdown, renderHtml2CanvasSafely } from '../utils';
 import { SaleRecord, Expense, CashCounterState } from '../types';
 import { 
   Banknote, 
@@ -700,19 +699,9 @@ export default function CashCounterTab({
 
     document.body.appendChild(printContainer);
 
-    // Backup document.styleSheets
-    const originalStyleSheets = document.styleSheets;
-    
-    // Temporarily mock styleSheets property on document so html2canvas doesn't crash on OKLCH definitions in styles
-    Object.defineProperty(document, 'styleSheets', {
-      value: [],
-      writable: true,
-      configurable: true
-    });
-
     try {
       // 1. Snapshot the dynamic clean HTML element into a canvas
-      const canvas = await html2canvas(printContainer, {
+      const canvas = await renderHtml2CanvasSafely(printContainer, {
         scale: 2, // Gorgeous retina resolution
         useCORS: true,
         backgroundColor: '#ffffff',
@@ -755,19 +744,9 @@ export default function CashCounterTab({
       console.error('Error generating PDF:', error);
       alert('⚠️ เกิดข้อผิดพลาดทางเทคนิคในการดาวน์โหลด PDF โปรดลองอีกครั้ง');
     } finally {
-      // Restore document.styleSheets
-      try {
-        Object.defineProperty(document, 'styleSheets', {
-          value: originalStyleSheets,
-          configurable: true,
-          writable: true
-        });
-      } catch (e) {
-        console.error(e);
+      if (document.body.contains(printContainer)) {
+        document.body.removeChild(printContainer);
       }
-
-      // Clean up DOM!
-      document.body.removeChild(printContainer);
       setIsGeneratingPdf(false);
     }
   };

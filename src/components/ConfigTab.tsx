@@ -1,13 +1,11 @@
-import React, { useState } from 'react';
-import { Barber, Product, ShareConfig, ShopConfig, Voucher, ChemicalPromo, SaleRecord } from '../types';
+import React, { useState, useEffect } from 'react';
+import { Barber, Product, ShareConfig, ShopConfig, Voucher, ChemicalPromo } from '../types';
 import { formatBaht, formatThaiDate } from '../utils';
 import { 
   THEME_PRESETS, 
-  getThemePreset, 
   generateShade, 
   getShadePalette, 
-  QUICK_BRAND_COLORS, 
-  BrandColorOption 
+  QUICK_BRAND_COLORS 
 } from '../themes';
 import { 
   Users, 
@@ -22,69 +20,69 @@ import {
   X, 
   Edit3, 
   Power,
-  ToggleLeft,
-  ToggleRight,
-  Lock,
-  Unlock,
-  KeyRound,
   AlertCircle,
   AlertTriangle,
-  Zap,
   ChevronUp,
   ChevronDown,
   Sparkles,
   Upload,
-  Image,
-  Clock,
   Mail,
-  ShieldCheck,
   Briefcase,
   DollarSign,
   Palette,
   Pipette,
   Copy,
   Eye,
+  Sliders,
+  CheckCircle2,
+  Tag,
+  RotateCcw,
   RefreshCw,
-  Sliders
+  Clock,
+  ShieldAlert,
+  Download,
+  FileText,
+  Package,
+  Database
 } from 'lucide-react';
 
 interface ConfigTabProps {
   userEmail?: string | null;
-  sales?: SaleRecord[];
   barbers: Barber[];
   products: Product[];
-  chemicalPromos: ChemicalPromo[];
+  chemicalPromos?: ChemicalPromo[];
   shareConfig: ShareConfig;
   shopConfig: ShopConfig;
   vouchers: Voucher[];
-  salesCount: number;
   firstLoginDate?: string;
   annualDaysElapsed?: number;
+  annualDaysRemaining?: number;
   onOpenAnnualModal?: () => void;
+  onDownloadFullBackup?: () => void;
   onUpdateBarbers: (barbers: Barber[]) => void;
   onUpdateProducts: (products: Product[]) => void;
-  onUpdateChemicalPromos: (promos: ChemicalPromo[]) => void;
+  onUpdateChemicalPromos?: (promos: ChemicalPromo[]) => void;
   onUpdateShareConfig: (config: ShareConfig) => void;
   onUpdateShopConfig: (config: ShopConfig) => void;
   onUpdateVouchers: (vouchers: Voucher[]) => void;
-  onClearSales: () => void;
+  onClearSales?: () => void;
   onClearSalesOlderThanOneYear?: () => Promise<number>;
-  onFullReset: () => void;
+  onFullReset?: () => void;
 }
 
 export default function ConfigTab({
   userEmail,
-  sales = [],
   barbers,
   products,
   chemicalPromos,
   shareConfig,
   shopConfig,
   vouchers,
-  salesCount,
   firstLoginDate,
   annualDaysElapsed = 0,
+  annualDaysRemaining = 30,
   onOpenAnnualModal,
+  onDownloadFullBackup,
   onUpdateBarbers,
   onUpdateProducts,
   onUpdateChemicalPromos,
@@ -122,82 +120,7 @@ export default function ConfigTab({
     message: ''
   });
 
-  // ==========================================
-  // PIN LOCK SECURITY ENGINE
-  // ==========================================
-  const [isUnlocked, setIsUnlocked] = useState<boolean>(false);
-  const [enteredPin, setEnteredPin] = useState<string>('');
-  const [pinError, setPinError] = useState<string>('');
-
-  // Security config states inside the rendered tab
-  const [isPinLockedInput, setIsPinLockedInput] = useState<boolean>(shopConfig.isPinLocked || false);
-  const [pinCodeInput, setPinCodeInput] = useState<string>(shopConfig.pinCode || '');
-  const [showPinInput, setShowPinInput] = useState<boolean>(false);
-
-  // Sync state values on shopConfig update from props
-  React.useEffect(() => {
-    setIsPinLockedInput(shopConfig.isPinLocked || false);
-    setPinCodeInput(shopConfig.pinCode || '');
-  }, [shopConfig]);
-
-  const handlePinKeyPress = (num: string) => {
-    const targetLength = shopConfig.pinCode?.length || 4;
-    if (enteredPin.length >= targetLength) return;
-    
-    const nextPin = enteredPin + num;
-    setEnteredPin(nextPin);
-    setPinError('');
-    
-    if (nextPin.length === targetLength) {
-      if (nextPin === shopConfig.pinCode) {
-        setIsUnlocked(true);
-        setPinError('');
-      } else {
-        setTimeout(() => {
-          setPinError('รหัส PIN ไม่ถูกต้อง พยายามอีกครั้ง');
-          setEnteredPin('');
-        }, 150);
-      }
-    }
-  };
-
-  const handlePinDelete = () => {
-    setEnteredPin(prev => prev.slice(0, -1));
-    setPinError('');
-  };
-
-  const handlePinClear = () => {
-    setEnteredPin('');
-    setPinError('');
-  };
-
-  // Physical Keyboard listener for interactive touch/typing UX
-  React.useEffect(() => {
-    if (!shopConfig.isPinLocked || isUnlocked) return;
-    
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key >= '0' && e.key <= '9') {
-        handlePinKeyPress(e.key);
-      } else if (e.key === 'Backspace') {
-        handlePinDelete();
-      } else if (e.key === 'Escape' || e.key === 'Delete') {
-        handlePinClear();
-      }
-    };
-    
-    window.addEventListener('keydown', handleKeyDown);
-    return () => {
-      window.removeEventListener('keydown', handleKeyDown);
-    };
-  }, [enteredPin, shopConfig.isPinLocked, isUnlocked, shopConfig.pinCode]);
-
-  // Confirmation popup states for safe deletion & systems resets
-  const [showClearSalesConfirm, setShowClearSalesConfirm] = useState<boolean>(false);
-  const [showClearOldSalesConfirm, setShowClearOldSalesConfirm] = useState<boolean>(false);
-  const [isClearingOldSales, setIsClearingOldSales] = useState<boolean>(false);
-  const [showFullResetConfirm, setShowFullResetConfirm] = useState<boolean>(false);
-
-  // Re-ordering and sorting rank list assistants
+  // Re-ordering barbers
   const handleMoveBarberUp = (index: number) => {
     if (index === 0) return;
     const updated = [...barbers];
@@ -216,6 +139,7 @@ export default function ConfigTab({
     onUpdateBarbers(updated);
   };
 
+  // Re-ordering products
   const handleMoveProductUp = (index: number) => {
     if (index === 0) return;
     const updated = [...products];
@@ -235,221 +159,9 @@ export default function ConfigTab({
   };
 
   // ==========================================
-  // BARBERS MANAGEMENT
+  // 1. SHOP IDENTITY & COLOR CONFIG
   // ==========================================
-  const [newBarberName, setNewBarberName] = useState<string>('');
-  const [newBarberRealName, setNewBarberRealName] = useState<string>('');
-  const [newBarberPosition, setNewBarberPosition] = useState<string>('Hairdresser');
-  const [newBarberBaseSalary, setNewBarberBaseSalary] = useState<string>('');
-
-  // Edit Barber States
-  const [editingBarberId, setEditingBarberId] = useState<string | null>(null);
-  const [editNickname, setEditNickname] = useState<string>('');
-  const [editRealName, setEditRealName] = useState<string>('');
-  const [editPosition, setEditPosition] = useState<string>('Hairdresser');
-  const [editBaseSalary, setEditBaseSalary] = useState<string>('');
-  
-  const handleAddBarber = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newBarberName.trim()) return;
-    
-    const newBarber: Barber = {
-      id: `barber-${Date.now()}`,
-      name: newBarberName.trim(),
-      realName: newBarberRealName.trim() || undefined,
-      position: newBarberPosition || 'Hairdresser',
-      baseSalary: newBarberBaseSalary.trim() ? parseFloat(newBarberBaseSalary) || undefined : undefined,
-      isWorking: true // comes in active by default
-    };
-    
-    onUpdateBarbers([...barbers, newBarber]);
-    setNewBarberName('');
-    setNewBarberRealName('');
-    setNewBarberPosition('Hairdresser');
-    setNewBarberBaseSalary('');
-  };
-
-  const handleStartEditBarber = (b: Barber) => {
-    setEditingBarberId(b.id);
-    setEditNickname(b.name);
-    setEditRealName(b.realName || '');
-    setEditPosition(b.position || 'Hairdresser');
-    setEditBaseSalary(b.baseSalary !== undefined ? b.baseSalary.toString() : '');
-  };
-
-  const handleCancelEditBarber = () => {
-    setEditingBarberId(null);
-  };
-
-  const handleSaveEditBarber = (id: string) => {
-    if (!editNickname.trim()) return;
-    const updated = barbers.map(b => b.id === id ? {
-      ...b,
-      name: editNickname.trim(),
-      realName: editRealName.trim() || undefined,
-      position: editPosition,
-      baseSalary: editBaseSalary.trim() ? parseFloat(editBaseSalary) || undefined : undefined
-    } : b);
-    onUpdateBarbers(updated);
-    setEditingBarberId(null);
-  };
-
-  const handleToggleWorking = (id: string) => {
-    const updated = barbers.map(b => b.id === id ? { ...b, isWorking: !b.isWorking } : b);
-    onUpdateBarbers(updated);
-  };
-
-  const handleDeleteBarber = (id: string) => {
-    const barberName = barbers.find(b => b.id === id)?.name || '';
-    setConfirmDialog({
-      isOpen: true,
-      title: 'ยืนยันการลบรายชื่อช่าง',
-      message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายชื่อ "ช่าง${barberName}" ออกจากระบบอย่างถาวร? การลบนี้ไม่สามารถย้อนกลับได้`,
-      type: 'danger',
-      onConfirm: () => {
-        const updated = barbers.filter(b => b.id !== id);
-        onUpdateBarbers(updated);
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      }
-    });
-  };
-
-
-  // ==========================================
-  // SHARE CONFIGS (%)
-  // ==========================================
-  const [haircutPct, setHaircutPct] = useState<number>(shareConfig.haircutBarberPct);
-  const [chemicalPct, setChemicalPct] = useState<number>(shareConfig.chemicalBarberPct);
-  const [productPct, setProductPct] = useState<number>(shareConfig.productBarberPct);
-  const [showPromoDiscount, setShowPromoDiscount] = useState<boolean>(shareConfig.showPromoDiscount !== false);
-  const [promoDiscountPct, setPromoDiscountPct] = useState<number>(shareConfig.promoDiscountPct ?? 10);
-  const [defaultChemDiscountValue, setDefaultChemDiscountValue] = useState<string>(shareConfig.defaultChemicalDiscountValue?.toString() || '');
-  const [defaultChemDiscountType, setDefaultChemDiscountType] = useState<'fixed' | 'percentage'>(shareConfig.defaultChemicalDiscountType || 'percentage');
-  const [showChemicalDiscountInPos, setShowChemicalDiscountInPos] = useState<boolean>(shareConfig.showChemicalDiscountInPos !== false);
-  const [enableChemicalService, setEnableChemicalService] = useState<boolean>(shareConfig.enableChemicalService !== false);
-  const [enableProductSales, setEnableProductSales] = useState<boolean>(shareConfig.enableProductSales !== false);
-  const [enableMemberSystem, setEnableMemberSystem] = useState<boolean>(shareConfig.enableMemberSystem !== false);
-  const [isShareSaved, setIsShareSaved] = useState<boolean>(false);
-
-  // Synchronize local states when the fetched shareConfig props change
-  React.useEffect(() => {
-    setHaircutPct(shareConfig.haircutBarberPct);
-    setChemicalPct(shareConfig.chemicalBarberPct);
-    setProductPct(shareConfig.productBarberPct);
-    setShowPromoDiscount(shareConfig.showPromoDiscount !== false);
-    setPromoDiscountPct(shareConfig.promoDiscountPct ?? 10);
-    setDefaultChemDiscountValue(shareConfig.defaultChemicalDiscountValue?.toString() || '');
-    setDefaultChemDiscountType(shareConfig.defaultChemicalDiscountType || 'percentage');
-    setShowChemicalDiscountInPos(shareConfig.showChemicalDiscountInPos !== false);
-    setEnableChemicalService(shareConfig.enableChemicalService !== false);
-    setEnableProductSales(shareConfig.enableProductSales !== false);
-    setEnableMemberSystem(shareConfig.enableMemberSystem !== false);
-  }, [shareConfig]);
-
-  const handleSaveShareConfig = (e: React.FormEvent) => {
-    e.preventDefault();
-    const cleanHaircut = Math.min(100, Math.max(0, haircutPct));
-    const cleanChemical = Math.min(100, Math.max(0, chemicalPct));
-    const cleanProduct = Math.min(100, Math.max(0, productPct));
-    const cleanPromo = Math.min(100, Math.max(0, promoDiscountPct));
-    const cleanChemVal = defaultChemDiscountValue === '' ? undefined : Math.max(0, parseFloat(defaultChemDiscountValue) || 0);
-
-    setHaircutPct(cleanHaircut);
-    setChemicalPct(cleanChemical);
-    setProductPct(cleanProduct);
-    setPromoDiscountPct(cleanPromo);
-
-    onUpdateShareConfig({
-      haircutBarberPct: cleanHaircut,
-      chemicalBarberPct: cleanChemical,
-      productBarberPct: cleanProduct,
-      showPromoDiscount,
-      promoDiscountPct: cleanPromo,
-      defaultChemicalDiscountValue: cleanChemVal,
-      defaultChemicalDiscountType: defaultChemDiscountType,
-      showChemicalDiscountInPos: showChemicalDiscountInPos,
-      enableChemicalService: enableChemicalService,
-      enableProductSales: enableProductSales,
-      enableMemberSystem: enableMemberSystem
-    });
-    setIsShareSaved(true);
-    setTimeout(() => setIsShareSaved(false), 3000);
-  };
-
-
-  // ==========================================
-  // PRODUCTS MANAGEMENT
-  // ==========================================
-  const [newProductName, setNewProductName] = useState<string>('');
-  const [newProductPrice, setNewProductPrice] = useState<string>('');
-
-  // Edit Product States
-  const [editingProductId, setEditingProductId] = useState<string | null>(null);
-  const [editProductName, setEditProductName] = useState<string>('');
-  const [editProductPrice, setEditProductPrice] = useState<string>('');
-
-  const handleStartEditProduct = (p: Product) => {
-    setEditingProductId(p.id);
-    setEditProductName(p.name);
-    setEditProductPrice(p.price.toString());
-  };
-
-  const handleCancelEditProduct = () => {
-    setEditingProductId(null);
-  };
-
-  const handleSaveEditProduct = (id: string) => {
-    if (!editProductName.trim() || !editProductPrice) return;
-    const updated = products.map(p => p.id === id ? {
-      ...p,
-      name: editProductName.trim(),
-      price: Math.max(0, parseFloat(editProductPrice) || 0)
-    } : p);
-    onUpdateProducts(updated);
-    setEditingProductId(null);
-  };
-
-  const handleAddProduct = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newProductName.trim() || !newProductPrice) return;
-    
-    const newProd: Product = {
-      id: `prod-${Date.now()}`,
-      name: newProductName.trim(),
-      price: Math.max(0, parseFloat(newProductPrice) || 0),
-      isActive: true
-    };
-
-    onUpdateProducts([...products, newProd]);
-    setNewProductName('');
-    setNewProductPrice('');
-  };
-
-  const handleToggleProductActive = (id: string) => {
-    const updated = products.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p);
-    onUpdateProducts(updated);
-  };
-
-  const handleDeleteProduct = (id: string) => {
-    const productName = products.find(p => p.id === id)?.name || '';
-    setConfirmDialog({
-      isOpen: true,
-      title: 'ยืนยันการลบสินค้า/บริการ',
-      message: `คุณต้องการลบรายการสินค้า/บริการ "${productName}" ออกจากระบบอย่างถาวรใช่หรือไม่?`,
-      type: 'danger',
-      onConfirm: () => {
-        const updated = products.filter(p => p.id !== id);
-        onUpdateProducts(updated);
-        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
-      }
-    });
-  };
-
-
-  // ==========================================
-  // SHOP GENERAL CONFIG
-  // ==========================================
-  const [shopNameInput, setShopNameInput] = useState<string>(shopConfig.shopName);
+  const [shopNameInput, setShopNameInput] = useState<string>(shopConfig.shopName || 'ร้านบาร์เบอร์ของฉัน');
   const [shopLogoUrl, setShopLogoUrl] = useState<string>(shopConfig.logoUrl || '');
   const [billingCutoffDayInput, setBillingCutoffDayInput] = useState<number>(shopConfig.billingCutoffDay || 1);
   const [primaryColorInput, setPrimaryColorInput] = useState<string>(shopConfig.primaryColor || '#6366f1');
@@ -458,11 +170,9 @@ export default function ConfigTab({
   const [enablePayslipsInput, setEnablePayslipsInput] = useState<boolean>(shopConfig.enablePayslips !== false);
   const [isShopSaved, setIsShopSaved] = useState<boolean>(false);
   const [copiedHex, setCopiedHex] = useState<boolean>(false);
-  const [activePreviewShade, setActivePreviewShade] = useState<number | null>(null);
 
-  // Synchronize local states when the fetched shopConfig props change
-  React.useEffect(() => {
-    setShopNameInput(shopConfig.shopName);
+  useEffect(() => {
+    setShopNameInput(shopConfig.shopName || 'ร้านบาร์เบอร์ของฉัน');
     setShopLogoUrl(shopConfig.logoUrl || '');
     setBillingCutoffDayInput(shopConfig.billingCutoffDay || 1);
     setPrimaryColorInput(shopConfig.primaryColor || '#6366f1');
@@ -524,20 +234,25 @@ export default function ConfigTab({
     });
   };
 
+  const handleResetThemeDefault = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'รีเซ็ตธีมและโทนสีเป็นค่าเริ่มต้น?',
+      message: 'คุณต้องการรีเซ็ตโทนสีและธีมของร้านกลับเป็นสีคราม (Indigo #6366f1) ค่าเริ่มต้นใช่หรือไม่?',
+      type: 'warning',
+      onConfirm: () => {
+        setPrimaryColorInput('#6366f1');
+        setThemeInput('indigo');
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
   const handleSaveShopConfig = (e: React.FormEvent) => {
     e.preventDefault();
-    if (isPinLockedInput && (!pinCodeInput || pinCodeInput.length < 4)) {
-      setAlertDialog({
-        isOpen: true,
-        title: 'รหัสผ่านสั้นเกินไป',
-        message: 'รหัส PIN จะต้องมีตัวเลขอย่างน้อย 4 หลัก เพื่อความปลอดภัยที่เพียงพอ'
-      });
-      return;
-    }
     onUpdateShopConfig({ 
-      shopName: shopNameInput.trim(),
-      isPinLocked: isPinLockedInput,
-      pinCode: pinCodeInput,
+      ...shopConfig,
+      shopName: shopNameInput.trim() || 'ร้านบาร์เบอร์ของฉัน',
       logoUrl: shopLogoUrl,
       billingCutoffDay: billingCutoffDayInput,
       primaryColor: primaryColorInput,
@@ -549,9 +264,223 @@ export default function ConfigTab({
     setTimeout(() => setIsShopSaved(false), 3000);
   };
 
+  // ==========================================
+  // 2. COMMISSION SHARES (%)
+  // ==========================================
+  const [haircutPct, setHaircutPct] = useState<number>(shareConfig.haircutBarberPct);
+  const [chemicalPct, setChemicalPct] = useState<number>(shareConfig.chemicalBarberPct);
+  const [productPct, setProductPct] = useState<number>(shareConfig.productBarberPct);
+  const [showPromoDiscount, setShowPromoDiscount] = useState<boolean>(shareConfig.showPromoDiscount !== false);
+  const [promoDiscountPct, setPromoDiscountPct] = useState<number>(shareConfig.promoDiscountPct ?? 10);
+  const [enableChemicalService, setEnableChemicalService] = useState<boolean>(shareConfig.enableChemicalService !== false);
+  const [enableProductSales, setEnableProductSales] = useState<boolean>(shareConfig.enableProductSales !== false);
+  const [isShareSaved, setIsShareSaved] = useState<boolean>(false);
+
+  useEffect(() => {
+    setHaircutPct(shareConfig.haircutBarberPct);
+    setChemicalPct(shareConfig.chemicalBarberPct);
+    setProductPct(shareConfig.productBarberPct);
+    setShowPromoDiscount(shareConfig.showPromoDiscount !== false);
+    setPromoDiscountPct(shareConfig.promoDiscountPct ?? 10);
+    setEnableChemicalService(shareConfig.enableChemicalService !== false);
+    setEnableProductSales(shareConfig.enableProductSales !== false);
+  }, [shareConfig]);
+
+  const handleResetShareToDefault = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'รีเซ็ตส่วนแบ่ง % เป็นค่าเริ่มต้น?',
+      message: 'คุณต้องการรีเซ็ตเปอร์เซ็นต์ส่วนแบ่งช่าง (ตัดผม 50%, เคมี 40%, สินค้า 10%) กลับเป็นค่าเริ่มต้นมาตรฐานใช่หรือไม่?',
+      type: 'warning',
+      onConfirm: () => {
+        setHaircutPct(50);
+        setChemicalPct(40);
+        setProductPct(10);
+        setShowPromoDiscount(true);
+        setPromoDiscountPct(10);
+        setEnableChemicalService(true);
+        setEnableProductSales(true);
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  const handleSaveShareConfig = (e: React.FormEvent) => {
+    e.preventDefault();
+    const cleanHaircut = Math.min(100, Math.max(0, haircutPct));
+    const cleanChemical = Math.min(100, Math.max(0, chemicalPct));
+    const cleanProduct = Math.min(100, Math.max(0, productPct));
+    const cleanPromo = Math.min(100, Math.max(0, promoDiscountPct));
+
+    setHaircutPct(cleanHaircut);
+    setChemicalPct(cleanChemical);
+    setProductPct(cleanProduct);
+    setPromoDiscountPct(cleanPromo);
+
+    onUpdateShareConfig({
+      ...shareConfig,
+      haircutBarberPct: cleanHaircut,
+      chemicalBarberPct: cleanChemical,
+      productBarberPct: cleanProduct,
+      showPromoDiscount,
+      promoDiscountPct: cleanPromo,
+      enableChemicalService,
+      enableProductSales
+    });
+    setIsShareSaved(true);
+    setTimeout(() => setIsShareSaved(false), 3000);
+  };
 
   // ==========================================
-  // GIFT VOUCHERS MANAGEMENT
+  // 3. BARBERS MANAGEMENT
+  // ==========================================
+  const [newBarberName, setNewBarberName] = useState<string>('');
+  const [newBarberRealName, setNewBarberRealName] = useState<string>('');
+  const [newBarberPosition, setNewBarberPosition] = useState<string>('Hairdresser');
+  const [newBarberBaseSalary, setNewBarberBaseSalary] = useState<string>('');
+
+  // Edit Barber States
+  const [editingBarberId, setEditingBarberId] = useState<string | null>(null);
+  const [editNickname, setEditNickname] = useState<string>('');
+  const [editRealName, setEditRealName] = useState<string>('');
+  const [editPosition, setEditPosition] = useState<string>('Hairdresser');
+  const [editBaseSalary, setEditBaseSalary] = useState<string>('');
+  
+  const handleAddBarber = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newBarberName.trim()) return;
+    
+    const newBarber: Barber = {
+      id: `barber-${Date.now()}`,
+      name: newBarberName.trim(),
+      realName: newBarberRealName.trim() || undefined,
+      position: newBarberPosition || 'Hairdresser',
+      baseSalary: newBarberBaseSalary.trim() ? parseFloat(newBarberBaseSalary) || undefined : undefined,
+      isWorking: true
+    };
+    
+    onUpdateBarbers([...barbers, newBarber]);
+    setNewBarberName('');
+    setNewBarberRealName('');
+    setNewBarberPosition('Hairdresser');
+    setNewBarberBaseSalary('');
+  };
+
+  const handleStartEditBarber = (b: Barber) => {
+    setEditingBarberId(b.id);
+    setEditNickname(b.name);
+    setEditRealName(b.realName || '');
+    setEditPosition(b.position || 'Hairdresser');
+    setEditBaseSalary(b.baseSalary !== undefined ? b.baseSalary.toString() : '');
+  };
+
+  const handleCancelEditBarber = () => {
+    setEditingBarberId(null);
+  };
+
+  const handleSaveEditBarber = (id: string) => {
+    if (!editNickname.trim()) return;
+    const updated = barbers.map(b => b.id === id ? {
+      ...b,
+      name: editNickname.trim(),
+      realName: editRealName.trim() || undefined,
+      position: editPosition,
+      baseSalary: editBaseSalary.trim() ? parseFloat(editBaseSalary) || undefined : undefined
+    } : b);
+    onUpdateBarbers(updated);
+    setEditingBarberId(null);
+  };
+
+  const handleToggleWorking = (id: string) => {
+    const updated = barbers.map(b => b.id === id ? { ...b, isWorking: !b.isWorking } : b);
+    onUpdateBarbers(updated);
+  };
+
+  const handleDeleteBarber = (id: string) => {
+    const barberName = barbers.find(b => b.id === id)?.name || '';
+    setConfirmDialog({
+      isOpen: true,
+      title: 'ยืนยันการลบรายชื่อช่าง',
+      message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายชื่อ "ช่าง${barberName}" ออกจากระบบ?`,
+      type: 'danger',
+      onConfirm: () => {
+        const updated = barbers.filter(b => b.id !== id);
+        onUpdateBarbers(updated);
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  // ==========================================
+  // 4. PRODUCTS MANAGEMENT
+  // ==========================================
+  const [newProductName, setNewProductName] = useState<string>('');
+  const [newProductPrice, setNewProductPrice] = useState<string>('');
+
+  // Edit Product States
+  const [editingProductId, setEditingProductId] = useState<string | null>(null);
+  const [editProductName, setEditProductName] = useState<string>('');
+  const [editProductPrice, setEditProductPrice] = useState<string>('');
+
+  const handleStartEditProduct = (p: Product) => {
+    setEditingProductId(p.id);
+    setEditProductName(p.name);
+    setEditProductPrice(p.price.toString());
+  };
+
+  const handleCancelEditProduct = () => {
+    setEditingProductId(null);
+  };
+
+  const handleSaveEditProduct = (id: string) => {
+    if (!editProductName.trim() || !editProductPrice) return;
+    const updated = products.map(p => p.id === id ? {
+      ...p,
+      name: editProductName.trim(),
+      price: Math.max(0, parseFloat(editProductPrice) || 0)
+    } : p);
+    onUpdateProducts(updated);
+    setEditingProductId(null);
+  };
+
+  const handleAddProduct = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newProductName.trim() || !newProductPrice) return;
+    
+    const newProd: Product = {
+      id: `prod-${Date.now()}`,
+      name: newProductName.trim(),
+      price: Math.max(0, parseFloat(newProductPrice) || 0),
+      isActive: true
+    };
+
+    onUpdateProducts([...products, newProd]);
+    setNewProductName('');
+    setNewProductPrice('');
+  };
+
+  const handleToggleProductActive = (id: string) => {
+    const updated = products.map(p => p.id === id ? { ...p, isActive: !p.isActive } : p);
+    onUpdateProducts(updated);
+  };
+
+  const handleDeleteProduct = (id: string) => {
+    const productName = products.find(p => p.id === id)?.name || '';
+    setConfirmDialog({
+      isOpen: true,
+      title: 'ยืนยันการลบสินค้า/บริการ',
+      message: `คุณต้องการลบรายการสินค้า "${productName}" ออกจากระบบใช่หรือไม่?`,
+      type: 'danger',
+      onConfirm: () => {
+        const updated = products.filter(p => p.id !== id);
+        onUpdateProducts(updated);
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+      }
+    });
+  };
+
+  // ==========================================
+  // 5. GIFT VOUCHERS MANAGEMENT
   // ==========================================
   const [newVoucherValue, setNewVoucherValue] = useState<string>('');
 
@@ -560,12 +489,11 @@ export default function ConfigTab({
     if (!newVoucherValue) return;
     
     const newValue = Math.max(0, parseInt(newVoucherValue, 10) || 0);
-    // Avoid duplicates
     if (vouchers.some(v => v.value === newValue)) {
       setAlertDialog({
         isOpen: true,
         title: 'ข้อมูลซ้ำซ้อน',
-        message: 'บัตรของขวัญ/Voucher มูลค่านี้มีอยู่แล้วในระบบ'
+        message: 'บัตรของขวัญ / Voucher มูลค่านี้มีอยู่แล้วในระบบ'
       });
       return;
     }
@@ -590,163 +518,147 @@ export default function ConfigTab({
     onUpdateVouchers(updated);
   };
 
+  // ==========================================
+  // 6. SYSTEM RESET & CLEAR DATA HANDLERS
+  // ==========================================
+  const [isClearingOldSales, setIsClearingOldSales] = useState<boolean>(false);
 
+  const handleClearOldSalesClick = async () => {
+    if (!onClearSalesOlderThanOneYear) return;
+    setConfirmDialog({
+      isOpen: true,
+      title: 'ยืนยันล้างประวัติบิลที่เก่ากว่า 1 ปี?',
+      message: 'ระบบจะทำการค้นหาและลบบิลยอดขายที่มีอายุมากกว่า 365 วันออกอย่างถาวร เพื่อเพิ่มความเร็วและการประมวลผลของระบบ',
+      type: 'warning',
+      onConfirm: async () => {
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        try {
+          setIsClearingOldSales(true);
+          const count = await onClearSalesOlderThanOneYear();
+          setAlertDialog({
+            isOpen: true,
+            title: 'ล้างข้อมูลสำเร็จ',
+            message: count > 0 ? `ทำการลบบิลเก่ากว่า 1 ปีเรียบร้อยแล้ว จำนวน ${count} รายการ` : 'ไม่พบบิลยอดขายที่เก่ากว่า 1 ปีในระบบ'
+          });
+        } catch (err: any) {
+          setAlertDialog({
+            isOpen: true,
+            title: 'เกิดข้อผิดพลาด',
+            message: err?.message || 'ไม่สามารถล้างข้อมูลบิลเก่าได้'
+          });
+        } finally {
+          setIsClearingOldSales(false);
+        }
+      }
+    });
+  };
 
-  if (shopConfig.isPinLocked && !isUnlocked && shopConfig.pinCode) {
-    const targetLen = shopConfig.pinCode.length;
-    return (
-      <div className="max-w-md mx-auto bg-white rounded-3xl border border-slate-100 p-8 shadow-md space-y-6 text-center py-12" id="pin-lock-screen">
-        <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 mx-auto shadow-inner">
-          <Lock className="w-6 h-6" />
-        </div>
-        
-        <div className="space-y-1.5">
-          <h2 className="text-base font-extrabold text-slate-900">ระบุรหัส PIN เพื่อแยกสิทธิ์ความปลอดภัย</h2>
-          <p className="text-xs text-slate-500 leading-relaxed max-w-sm mx-auto px-4">
-            หน้าจอนี้ถูกจำกัดการเข้าถึงเฉพาะผู้จัดการร้าน กรุณาระบุรหัส PIN {targetLen} หลักเพื่อควบคุมการตั้งค่า
-          </p>
-        </div>
-
-        {/* PIN Indicators Dots */}
-        <div className="flex justify-center items-center space-x-3.5 py-1">
-          {Array.from({ length: targetLen }).map((_, idx) => (
-            <div
-              key={idx}
-              className={`w-3.5 h-3.5 rounded-full border-2 transition-all duration-150 ${
-                idx < enteredPin.length
-                  ? 'bg-indigo-600 border-indigo-600 scale-110 shadow-sm'
-                  : 'bg-slate-50 border-slate-300'
-              }`}
-            />
-          ))}
-        </div>
-
-        {pinError ? (
-          <p className="text-xs text-rose-600 font-extrabold flex items-center justify-center space-x-1 animate-bounce">
-            <AlertCircle className="w-3.5 h-3.5" />
-            <span>{pinError}</span>
-          </p>
-        ) : (
-          <p className="text-[10px] text-slate-400 font-mono tracking-wider">PROTECTED SYSTEM BLOCK</p>
-        )}
-
-        {/* On-screen Keypad */}
-        <div className="grid grid-cols-3 gap-3.5 max-w-[210px] mx-auto pt-2">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map(num => (
-            <button
-              key={num}
-              type="button"
-              onClick={() => handlePinKeyPress(num)}
-              className="w-12 h-12 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-800 text-sm font-black transition-all border border-slate-100 flex items-center justify-center active:scale-95 cursor-pointer select-none"
-            >
-              {num}
-            </button>
-          ))}
-          <button
-            type="button"
-            onClick={handlePinClear}
-            className="w-12 h-12 rounded-full bg-slate-100 hover:bg-slate-200 text-slate-600 text-xs font-bold transition-all flex items-center justify-center active:scale-95 cursor-pointer select-none"
-          >
-            ล้าง
-          </button>
-          <button
-            type="button"
-            onClick={() => handlePinKeyPress('0')}
-            className="w-12 h-12 rounded-full bg-slate-50 hover:bg-slate-100 text-slate-800 text-sm font-black transition-all border border-slate-100 flex items-center justify-center active:scale-95 cursor-pointer select-none"
-          >
-            0
-          </button>
-          <button
-            type="button"
-            onClick={handlePinDelete}
-            className="w-12 h-12 rounded-full bg-rose-50 hover:bg-rose-100 text-rose-600 text-xs font-bold transition-all flex items-center justify-center active:scale-95 cursor-pointer select-none"
-          >
-            ลบ
-          </button>
-        </div>
-      </div>
-    );
-  }
+  // Active Theme Primary Color Variable
+  const currentPrimaryColor = primaryColorInput || '#6366f1';
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto" id="config-settings">
+    <div className="space-y-6 max-w-5xl mx-auto pb-12 font-sans" id="config-settings">
       
-      {/* 0. ACCOUNT INFO CARD (SECURE INSIDE SETTINGS TAB) */}
-      <div className="bg-slate-900 text-white rounded-2xl p-5 shadow-sm border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+      {/* 0. ACCOUNT INFO BANNER */}
+      <div className="bg-slate-900 text-white rounded-3xl p-5 sm:p-6 shadow-md border border-slate-800 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div className="flex items-center space-x-3.5">
-          <div className="w-10 h-10 rounded-xl bg-indigo-500/20 border border-indigo-400/30 flex items-center justify-center text-indigo-400 shrink-0">
-            <Mail className="w-5 h-5" />
+          <div 
+            className="w-12 h-12 rounded-2xl flex items-center justify-center text-white shadow-md shrink-0 transition-transform"
+            style={{ backgroundColor: currentPrimaryColor }}
+          >
+            <Store className="w-6 h-6" />
           </div>
           <div>
             <div className="flex items-center space-x-2">
-              <span className="text-xs font-semibold text-slate-400">ข้อมูลบัญชีผู้ใช้งานระบบ (Cloud Account)</span>
-              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2 py-0.5 rounded-full border border-emerald-500/30 font-bold flex items-center gap-1">
-                <ShieldCheck className="w-3 h-3" />
-                <span>ยืนยันสิทธิ์เรียบร้อย</span>
+              <span className="text-xs font-bold text-slate-400">ระบบตั้งค่าและการจัดการร้านค้า</span>
+              <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-2.5 py-0.5 rounded-full border border-emerald-500/30 font-bold flex items-center gap-1">
+                <CheckCircle2 className="w-3 h-3" />
+                <span>เชื่อมต่อฐานข้อมูลเรียบร้อย</span>
               </span>
             </div>
-            <p className="text-sm font-extrabold text-amber-300 font-mono mt-0.5">
-              {userEmail || 'guest@gmail.com'}
+            <p className="text-sm sm:text-base font-black text-amber-300 font-mono mt-0.5">
+              {shopConfig.shopName || 'ร้านบาร์เบอร์ของฉัน'}
             </p>
           </div>
         </div>
-        <div className="text-[11px] text-slate-300 bg-slate-800/90 px-3.5 py-2.5 rounded-xl border border-slate-700/80 max-w-sm">
-          <span className="font-bold text-amber-400 block mb-0.5">🔒 รักษาความเป็นส่วนตัวของบัญชี</span>
-          ข้อมูลอีเมลเจ้าของระบบจะแสดงเฉพาะในหน้าระดับผู้ดูแล (ตั้งค่า) นี้เท่านั้น เพื่อป้องกันไม่ให้พนักงานในร้านเห็นอีเมลเจ้าของบัญชี
+
+        <div className="flex items-center space-x-2 text-xs text-slate-400 bg-slate-800/80 px-3.5 py-2 rounded-2xl border border-slate-700/80">
+          <Mail className="w-4 h-4 text-amber-400 shrink-0" />
+          <span className="font-semibold text-slate-300">บัญชี:</span>
+          <span className="font-bold text-white font-mono">{userEmail || 'guest@gmail.com'}</span>
         </div>
       </div>
 
-      {/* 1. GENERAL SHOP SETTINGS & SECURITY */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-            <Store className="w-5 h-5 text-indigo-500" />
-            <span>แก้ไขตั้งค่าทั่วไปและรหัสความปลอดภัย</span>
-          </h3>
-          {shopConfig.isPinLocked && (
-            <span className="flex items-center space-x-1 text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-100">
-              <Unlock className="w-3.5 h-3.5" />
-              <span>รหัสผ่านถูกต้อง ( unlocked )</span>
-            </span>
-          )}
+      {/* 1. GENERAL SHOP SETTINGS */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center space-x-3">
+            <div 
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
+              style={{ backgroundColor: currentPrimaryColor }}
+            >
+              <Store className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                1. ข้อมูลร้านค้า & สีประจำร้าน (Shop Identity & Color Tone)
+              </h3>
+              <p className="text-xs text-slate-500">
+                ตั้งค่าชื่อร้าน โลโก้ สีหลักประจำร้าน และการเปิด/ปิดแท็บเมนูการทำงาน
+              </p>
+            </div>
+          </div>
+
+          <button
+            type="button"
+            onClick={handleResetThemeDefault}
+            className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="คืนค่าสีและธีมเริ่มต้น"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+            <span>คืนค่าสีเริ่มต้น</span>
+          </button>
         </div>
         
-        <form onSubmit={handleSaveShopConfig} className="space-y-4">
-          {/* Shop Logo upload segment */}
-          <div className="border-b border-dashed border-slate-100 pb-4 space-y-2">
-            <span className="block text-xs font-semibold text-slate-700">โลโก้หรือรูปโปรไฟล์ประจำร้าน (Shop Logo):</span>
-            <div className="flex flex-col sm:flex-row items-center gap-5 bg-slate-50/50 p-4 rounded-2xl border border-slate-100">
-              {/* Avatar Preview */}
-              <div className="relative group shrink-0">
-                <div className="w-16 h-16 rounded-2xl bg-slate-100 border-2 border-slate-200 overflow-hidden flex items-center justify-center text-slate-400 shadow-inner">
-                  {shopLogoUrl ? (
-                    <img 
-                      src={shopLogoUrl} 
-                      alt="Shop Logo Preview" 
-                      className="w-full h-full object-cover" 
-                      referrerPolicy="no-referrer" 
-                    />
-                  ) : (
-                    <Store className="w-7 h-7 text-slate-400" />
+        <form onSubmit={handleSaveShopConfig} className="space-y-6">
+          
+          {/* Logo & Shop Name Section */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-start">
+            
+            {/* Logo Upload Card */}
+            <div className="space-y-2">
+              <label className="block text-xs font-extrabold text-slate-700">
+                โลโก้ประจำร้าน (Shop Logo):
+              </label>
+              <div className="flex flex-col items-center justify-center p-4 bg-slate-50 rounded-2xl border border-slate-200 text-center space-y-3">
+                <div className="relative group">
+                  <div className="w-20 h-20 rounded-2xl bg-white border-2 border-slate-200 overflow-hidden flex items-center justify-center text-slate-400 shadow-inner">
+                    {shopLogoUrl ? (
+                      <img 
+                        src={shopLogoUrl} 
+                        alt="Shop Logo" 
+                        className="w-full h-full object-cover" 
+                        referrerPolicy="no-referrer" 
+                      />
+                    ) : (
+                      <Store className="w-8 h-8 text-slate-300" />
+                    )}
+                  </div>
+                  {shopLogoUrl && (
+                    <button
+                      type="button"
+                      onClick={handleClearLogo}
+                      className="absolute -top-2 -right-2 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1.5 shadow-md transition-all cursor-pointer"
+                      title="ลบโลโก้ร้าน"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
                   )}
                 </div>
-                {shopLogoUrl && (
-                  <button
-                    type="button"
-                    onClick={handleClearLogo}
-                    className="absolute -top-1.5 -right-1.5 bg-rose-500 hover:bg-rose-600 text-white rounded-full p-1 shadow-md transition-all duration-150 cursor-pointer"
-                    title="ลบโลโก้ร้าน"
-                  >
-                    <X className="w-3 h-3" />
-                  </button>
-                )}
-              </div>
 
-              {/* Upload interface */}
-              <div className="text-left space-y-1 w-full max-w-sm">
-                <label className="inline-flex items-center space-x-2 px-4 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl shadow-xs cursor-pointer transition-all active:scale-95">
-                  <Upload className="w-3.5 h-3.5 text-indigo-500" />
-                  <span>เลือกไฟล์รูปภาพ (.jpg, .png)</span>
+                <label className="inline-flex items-center space-x-2 px-3.5 py-2 bg-white border border-slate-200 hover:bg-slate-50 text-slate-700 text-xs font-bold rounded-xl shadow-2xs cursor-pointer transition-all active:scale-95">
+                  <Upload className="w-3.5 h-3.5" style={{ color: currentPrimaryColor }} />
+                  <span>{shopLogoUrl ? 'เปลี่ยนรูปภาพ' : 'อัปโหลดรูปภาพ'}</span>
                   <input 
                     type="file" 
                     accept="image/*" 
@@ -754,276 +666,180 @@ export default function ConfigTab({
                     className="hidden" 
                   />
                 </label>
-                <p className="text-[10px] text-slate-400 font-sans">
-                  * แนะนำรูปภาพสี่เหลี่ยมด้านเท่า ระบบจะช่วยจัดขนาดและย่อไฟล์รูปภาพให้อัตโนมัติ (ขนาดเล็ก คุ้มค่า ปลอดภัยต่อฐานข้อมูล)
-                </p>
+                <span className="text-[10.5px] text-slate-400 leading-tight">
+                  รองรับไฟล์ .jpg, .png (ย่อขนาดอัตโนมัติ)
+                </span>
               </div>
             </div>
-          </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            <div className="space-y-1.5 w-full">
-              <span className="block text-xs font-semibold text-slate-600">ชื่อร้านบาร์เบอร์แต่งทรงผม:</span>
-              <input
-                type="text"
-                value={shopNameInput}
-                onChange={(e) => setShopNameInput(e.target.value)}
-                placeholder="กรุณากรอกชื่อร้าน..."
-                className="w-full px-3.5 py-2 border border-slate-200 rounded-xl outline-none text-sm focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-medium"
-              />
-            </div>
-
-            {/* PIN Settings Panel */}
-            <div className="space-y-1.5 w-full">
-              <span className="block text-xs font-semibold text-slate-600">สิทธิ์พนักงาน (PIN ล็อคป้องกันหน้านี้):</span>
-              <div className="flex items-center space-x-4 bg-slate-50 p-2 rounded-xl border border-slate-200 h-[38px]">
-                <label className="flex items-center space-x-2 cursor-pointer w-full">
-                  <input
-                    type="checkbox"
-                    checked={isPinLockedInput}
-                    onChange={(e) => {
-                      setIsPinLockedInput(e.target.checked);
-                      if (e.target.checked && !pinCodeInput) {
-                        setPinCodeInput('1234'); // Default PIN
-                      }
-                    }}
-                    className="w-4 h-4 text-indigo-600 rounded bg-white"
-                  />
-                  <span className="text-xs font-bold text-slate-700">เปิดใช้งานรหัสผ่าน PIN เพื่อเข้าแก้ไขตั้งค่า</span>
+            {/* Shop Name & Billing Cutoff */}
+            <div className="md:col-span-2 space-y-4">
+              <div className="space-y-1.5">
+                <label className="block text-xs font-extrabold text-slate-700">
+                  ชื่อร้านบาร์เบอร์ / ซาลอนแต่งทรงผม <span className="text-rose-500">*</span>:
                 </label>
+                <input
+                  type="text"
+                  required
+                  value={shopNameInput}
+                  onChange={(e) => setShopNameInput(e.target.value)}
+                  placeholder="กรุณากรอกชื่อร้าน..."
+                  className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl outline-none text-sm text-slate-900 font-semibold focus:border-slate-400 focus:ring-2 focus:ring-slate-200 shadow-2xs transition-all"
+                />
+                <span className="text-[11px] text-slate-400">
+                  ชื่อนี้จะปรากฏที่หัวบิลสลิปใบเสร็จ, รายงานเงินเดือน และแถบเมนูด้านบน
+                </span>
               </div>
-            </div>
 
-            {/* Shop Theme & Primary Color Selection with generateShade */}
-            <div className="space-y-4 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-5 mt-2">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                <div className="space-y-0.5">
-                  <span className="block text-sm font-black text-slate-900 flex items-center space-x-2">
-                    <Palette className="w-4 h-4 text-indigo-600" />
-                    <span>สีหลักประจำร้าน (Primary Brand Color) & ปรับแต่งโทนสี UI อัตโนมัติ</span>
-                  </span>
-                  <p className="text-xs text-slate-500">
-                    เลือกสีหลักของร้าน จากนั้นฟังก์ชัน <code className="px-1.5 py-0.5 rounded bg-slate-100 font-mono text-indigo-600 font-bold text-[11px]">generateShade()</code> จะคำนวณและปรับโทนสีพื้นหลัง ปุ่ม ป้ายกำกับ เส้นขอบ และการ์ดทั้งแอปให้สอดคล้องกันทันที
+              {/* Billing Cycle Cutoff Day Input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-extrabold text-slate-700">
+                  รอบวันตัดยอดบัญชีรายเดือน (วันสิ้นสุดของรอบบิล):
+                </label>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-slate-50 p-3.5 rounded-2xl border border-slate-200">
+                  <select
+                    value={billingCutoffDayInput}
+                    onChange={(e) => setBillingCutoffDayInput(parseInt(e.target.value, 10))}
+                    className="h-10 px-3 pr-8 border border-slate-200 rounded-xl bg-white font-mono text-xs font-bold focus:outline-none cursor-pointer shadow-2xs"
+                  >
+                    <option value={1}>วันที่ 1 ของเดือน (เริ่มนับวันที่ 1 ของเดือน)</option>
+                    {[...Array(27)].map((_, i) => (
+                      <option key={i + 2} value={i + 2}>ทุกวันที่ {i + 2} ของเดือน (รอบเริ่มวันที่ {i + 3})</option>
+                    ))}
+                  </select>
+                  <p className="text-[11px] text-slate-600 leading-relaxed font-medium">
+                    * เช่น หากตั้งเป็น <strong>ทุกวันที่ 25</strong> รอบบัญชีเดือนนี้จะเริ่มนับยอดตั้งแต่ 26 เดือนก่อนหน้า จนถึง 25 เดือนปัจจุบัน
                   </p>
                 </div>
-                <div className="flex items-center space-x-2 shrink-0">
-                  <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-slate-100 text-slate-700 font-mono flex items-center space-x-1.5 border border-slate-200">
-                    <span className="w-2.5 h-2.5 rounded-full border border-black/10 shadow-2xs" style={{ backgroundColor: primaryColorInput }} />
-                    <span>{primaryColorInput.toUpperCase()}</span>
-                  </span>
-                </div>
               </div>
+            </div>
 
-              {/* Color Picker Controls & Quick Palette */}
-              <div className="bg-slate-50/80 p-4 rounded-2xl border border-slate-200/90 space-y-4">
-                <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
-                  
-                  {/* Visual Color Picker & Hex Input */}
-                  <div className="flex items-center space-x-3 w-full sm:w-auto">
-                    <div className="relative w-12 h-12 rounded-2xl overflow-hidden border-2 border-white shadow-md ring-2 ring-slate-200 hover:ring-indigo-500 transition-all shrink-0 cursor-pointer group">
-                      <div 
-                        className="w-full h-full flex items-center justify-center text-white"
-                        style={{ backgroundColor: primaryColorInput }}
-                      >
-                        <Pipette className="w-4 h-4 drop-shadow-md opacity-80 group-hover:opacity-100 transition-opacity" />
-                      </div>
-                      <input
-                        type="color"
-                        value={primaryColorInput.length === 7 ? primaryColorInput : '#6366f1'}
-                        onChange={(e) => {
-                          setPrimaryColorInput(e.target.value);
-                          setThemeInput('custom');
-                        }}
-                        className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0 opacity-0"
-                        id="primary-brand-color-picker"
-                        title="คลิกเพื่อเลือกสีจาก Color Picker"
-                      />
+          </div>
+
+          {/* Primary Color & Theme Configuration */}
+          <div className="space-y-4 border-t border-dashed border-slate-200 pt-6">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+              <div className="space-y-0.5">
+                <h4 className="text-sm font-extrabold text-slate-900 flex items-center space-x-2">
+                  <Palette className="w-4 h-4" style={{ color: currentPrimaryColor }} />
+                  <span>สีหลักประจำร้าน (Primary Brand Color) & ปรับแต่งเฉดสีอัตโนมัติ</span>
+                </h4>
+                <p className="text-xs text-slate-500">
+                  ระบบจะคำนวณเฉดสีที่เข้าชุด ปรับใช้กับปุ่ม แท็บเมนู และการ์ดทั้งระบบอย่างสวยงาม
+                </p>
+              </div>
+              <div className="flex items-center space-x-2 shrink-0">
+                <span className="text-xs font-bold px-3 py-1 rounded-full bg-slate-100 text-slate-800 font-mono flex items-center space-x-2 border border-slate-200 shadow-2xs">
+                  <span className="w-3.5 h-3.5 rounded-full border border-black/10 shadow-xs" style={{ backgroundColor: currentPrimaryColor }} />
+                  <span>{currentPrimaryColor.toUpperCase()}</span>
+                </span>
+              </div>
+            </div>
+
+            {/* Color Controls Container */}
+            <div className="bg-slate-50 p-5 rounded-2xl border border-slate-200 space-y-4">
+              <div className="flex flex-col lg:flex-row items-start lg:items-center justify-between gap-4">
+                
+                {/* Visual Picker & Hex */}
+                <div className="flex items-center space-x-3 w-full sm:w-auto">
+                  <div className="relative w-12 h-12 rounded-2xl overflow-hidden border-2 border-white shadow-md ring-2 ring-slate-200 hover:ring-slate-400 transition-all shrink-0 cursor-pointer group">
+                    <div 
+                      className="w-full h-full flex items-center justify-center text-white"
+                      style={{ backgroundColor: currentPrimaryColor }}
+                    >
+                      <Pipette className="w-4 h-4 drop-shadow-md opacity-80 group-hover:opacity-100 transition-opacity" />
                     </div>
+                    <input
+                      type="color"
+                      value={primaryColorInput.length === 7 ? primaryColorInput : '#6366f1'}
+                      onChange={(e) => {
+                        setPrimaryColorInput(e.target.value);
+                        setThemeInput('custom');
+                      }}
+                      className="absolute inset-0 w-[200%] h-[200%] -translate-x-[25%] -translate-y-[25%] cursor-pointer border-0 p-0 opacity-0"
+                      title="เลือกสีจากจานสี"
+                    />
+                  </div>
 
-                    <div className="space-y-1">
-                      <label className="text-[11px] font-bold text-slate-600 block">
-                        รหัสสี Hex (พิมพ์รหัสสีได้อิสระ):
-                      </label>
-                      <div className="flex items-center space-x-1.5">
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={primaryColorInput}
-                            onChange={(e) => {
-                              const val = e.target.value;
-                              if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
-                                setPrimaryColorInput(val);
-                                setThemeInput('custom');
-                              }
-                            }}
-                            placeholder="#6366f1"
-                            className="w-28 pl-3 pr-2 py-1.5 text-xs font-mono font-bold bg-white border border-slate-300 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500 shadow-2xs"
-                            maxLength={7}
-                          />
-                        </div>
+                  <div className="space-y-1">
+                    <label className="text-[11px] font-bold text-slate-600 block">
+                      รหัสสี HEX (พิมพ์แก้ไขได้):
+                    </label>
+                    <div className="flex items-center space-x-1.5">
+                      <input
+                        type="text"
+                        value={primaryColorInput}
+                        onChange={(e) => {
+                          const val = e.target.value;
+                          if (/^#[0-9A-Fa-f]{0,6}$/.test(val)) {
+                            setPrimaryColorInput(val);
+                            setThemeInput('custom');
+                          }
+                        }}
+                        placeholder="#6366f1"
+                        className="w-28 h-9 px-3 text-xs font-mono font-bold bg-white border border-slate-300 rounded-xl focus:outline-none shadow-2xs"
+                        maxLength={7}
+                      />
+                      <button
+                        type="button"
+                        onClick={() => {
+                          if (navigator.clipboard) {
+                            navigator.clipboard.writeText(primaryColorInput);
+                            setCopiedHex(true);
+                            setTimeout(() => setCopiedHex(false), 2000);
+                          }
+                        }}
+                        className="h-9 px-3 text-xs font-bold bg-white border border-slate-300 rounded-xl hover:bg-slate-50 text-slate-700 flex items-center space-x-1 shadow-2xs cursor-pointer"
+                        title="คัดลอกรหัสสี"
+                      >
+                        {copiedHex ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
+                        <span className="text-[11px]">{copiedHex ? 'คัดลอกแล้ว' : 'คัดลอก'}</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Quick Swatches */}
+                <div className="w-full lg:w-auto flex-1">
+                  <span className="text-[11px] font-bold text-slate-600 block mb-1.5">
+                    หรือเลือกโทนสียอดนิยมสำหรับร้านบาร์เบอร์ / ซาลอน:
+                  </span>
+                  <div className="flex flex-wrap gap-1.5">
+                    {QUICK_BRAND_COLORS.map((col) => {
+                      const isMatch = primaryColorInput.toLowerCase() === col.hex.toLowerCase();
+                      return (
                         <button
+                          key={col.hex}
                           type="button"
                           onClick={() => {
-                            if (navigator.clipboard) {
-                              navigator.clipboard.writeText(primaryColorInput);
-                              setCopiedHex(true);
-                              setTimeout(() => setCopiedHex(false), 2000);
-                            }
+                            setPrimaryColorInput(col.hex);
+                            setThemeInput('custom');
                           }}
-                          className="px-2.5 py-1.5 text-xs font-semibold bg-white border border-slate-300 rounded-xl hover:bg-slate-50 text-slate-700 flex items-center space-x-1 shadow-2xs cursor-pointer"
-                          title="คัดลอกรหัสสี"
+                          className={`px-3 py-1.5 rounded-xl text-[11px] font-bold flex items-center space-x-1.5 transition-all cursor-pointer border ${
+                            isMatch
+                              ? 'bg-white border-slate-900 text-slate-900 shadow-xs ring-2 ring-slate-900/10 scale-105'
+                              : 'bg-white/90 border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300'
+                          }`}
                         >
-                          {copiedHex ? <Check className="w-3.5 h-3.5 text-emerald-600" /> : <Copy className="w-3.5 h-3.5 text-slate-500" />}
-                          <span className="text-[11px]">{copiedHex ? 'คัดลอกแล้ว' : 'คัดลอก'}</span>
+                          <span 
+                            className="w-3 h-3 rounded-full border border-black/10 shrink-0 shadow-2xs" 
+                            style={{ backgroundColor: col.hex }} 
+                          />
+                          <span>{col.name}</span>
                         </button>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Quick Preset Swatches Chips */}
-                  <div className="w-full lg:w-auto flex-1">
-                    <span className="text-[11px] font-bold text-slate-600 block mb-1.5">
-                      หรือเลือกโทนสียอดนิยมสำหรับร้านบาร์เบอร์/ซาลอน:
-                    </span>
-                    <div className="flex flex-wrap gap-1.5">
-                      {QUICK_BRAND_COLORS.map((col) => {
-                        const isMatch = primaryColorInput.toLowerCase() === col.hex.toLowerCase();
-                        return (
-                          <button
-                            key={col.hex}
-                            type="button"
-                            onClick={() => {
-                              setPrimaryColorInput(col.hex);
-                              setThemeInput('custom');
-                            }}
-                            className={`px-2.5 py-1 rounded-xl text-[11px] font-bold flex items-center space-x-1.5 transition-all cursor-pointer border ${
-                              isMatch
-                                ? 'bg-white border-slate-900 text-slate-900 shadow-xs ring-2 ring-slate-900/10 scale-105'
-                                : 'bg-white/80 border-slate-200 text-slate-700 hover:bg-white hover:border-slate-300 hover:scale-102'
-                            }`}
-                          >
-                            <span 
-                              className="w-3 h-3 rounded-full border border-black/10 shrink-0 shadow-2xs" 
-                              style={{ backgroundColor: col.hex }} 
-                            />
-                            <span>{col.name}</span>
-                          </button>
-                        );
-                      })}
-                    </div>
-                  </div>
-                </div>
-
-                {/* 2. Dynamic generateShade() Lightness Spectrum Bar */}
-                <div className="space-y-2 pt-3 border-t border-slate-200/70">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
-                      <Sparkles className="w-3.5 h-3.5 text-amber-500" />
-                      <span>เฉดสีที่ถูกสร้างขึ้นอัตโนมัติด้วยฟังก์ชัน generateShade (50 - 950 Palette):</span>
-                    </span>
-                    <span className="text-[10.5px] text-slate-400 font-sans">
-                      คำนวณ HSL Lightness สำหรับพื้นหลัง ปุ่ม และการ์ด
-                    </span>
-                  </div>
-
-                  <div className="grid grid-cols-11 gap-1 sm:gap-1.5 rounded-xl overflow-hidden p-1.5 bg-white border border-slate-200 shadow-2xs">
-                    {getShadePalette(primaryColorInput).map((step) => {
-                      const isBase = step.shade === 600;
-                      return (
-                        <div 
-                          key={step.shade}
-                          className="group relative flex flex-col items-center cursor-default"
-                          title={`${step.label}: ${step.color}`}
-                        >
-                          <div 
-                            className={`w-full h-9 sm:h-11 rounded-lg transition-transform group-hover:scale-110 shadow-2xs flex items-center justify-center ${
-                              isBase ? 'ring-2 ring-slate-900 ring-offset-1 z-10' : ''
-                            }`}
-                            style={{ backgroundColor: step.color }}
-                          >
-                            {isBase && <Check className="w-3 h-3 text-white drop-shadow-md" />}
-                          </div>
-                          <span className={`text-[10px] mt-1 font-mono font-bold ${
-                            isBase ? 'text-slate-900 font-extrabold underline' : 'text-slate-500'
-                          }`}>
-                            {step.shade}
-                          </span>
-                        </div>
                       );
                     })}
                   </div>
                 </div>
 
-                {/* 3. Real-time Live UI Preview Card */}
-                <div className="space-y-2 pt-3 border-t border-slate-200/70">
-                  <span className="text-xs font-bold text-slate-700 flex items-center space-x-1.5">
-                    <Eye className="w-3.5 h-3.5 text-indigo-600" />
-                    <span>ตัวอย่างหน้าตา UI จริงเมื่อใช้สีนี้ (Live Component Preview):</span>
-                  </span>
-
-                  <div 
-                    className="p-4 rounded-2xl border transition-all"
-                    style={{ 
-                      backgroundColor: generateShade(primaryColorInput, 98),
-                      borderColor: generateShade(primaryColorInput, 85)
-                    }}
-                  >
-                    <div className="flex flex-wrap items-center gap-3">
-                      {/* Sample Primary Button */}
-                      <button
-                        type="button"
-                        className="px-4 py-2 rounded-xl text-white text-xs font-bold shadow-sm transition-all hover:opacity-90 flex items-center space-x-1.5 cursor-default"
-                        style={{ backgroundColor: primaryColorInput }}
-                      >
-                        <Sparkles className="w-3.5 h-3.5" />
-                        <span>ปุ่มหลัก (Primary Button)</span>
-                      </button>
-
-                      {/* Sample Ghost Button / Light Tag */}
-                      <div
-                        className="px-3 py-1.5 rounded-xl text-xs font-bold border transition-all flex items-center space-x-1"
-                        style={{
-                          backgroundColor: generateShade(primaryColorInput, 94),
-                          color: generateShade(primaryColorInput, 30),
-                          borderColor: generateShade(primaryColorInput, 80)
-                        }}
-                      >
-                        <Check className="w-3 h-3" />
-                        <span>ป้ายกำกับ (Soft Badge - 100)</span>
-                      </div>
-
-                      {/* Sample Active Tab Pill */}
-                      <div
-                        className="px-3 py-1.5 rounded-full text-white text-xs font-bold shadow-2xs"
-                        style={{ backgroundColor: generateShade(primaryColorInput, 42) }}
-                      >
-                        แท็บที่เลือกใช้งาน
-                      </div>
-
-                      {/* Sample Subtle Input Border */}
-                      <div
-                        className="px-3 py-1.5 rounded-xl text-xs bg-white border font-mono font-semibold"
-                        style={{ 
-                          borderColor: generateShade(primaryColorInput, 60),
-                          color: generateShade(primaryColorInput, 25)
-                        }}
-                      >
-                        ช่องกรอกข้อมูล (Focus Ring)
-                      </div>
-                    </div>
-                  </div>
-                </div>
               </div>
 
               {/* Theme Presets Gallery */}
-              <div className="space-y-3 pt-4 border-t border-slate-100">
+              <div className="space-y-3 pt-3 border-t border-slate-200">
                 <div className="flex items-center justify-between">
-                  <span className="block text-xs font-bold text-slate-800 flex items-center space-x-2">
-                    <Sliders className="w-4 h-4 text-slate-600" />
-                    <span>หรือเลือกจากชุดธีมและบรรยากาศสำเร็จรูป (Theme Presets Gallery):</span>
-                  </span>
-                  <span className="text-[11px] font-semibold text-slate-400">
-                    เลือกสไตล์ภาพรวม (สว่าง / วินเทจ / มืดลักชัวรี)
+                  <span className="text-xs font-bold text-slate-800 flex items-center space-x-1.5">
+                    <Sliders className="w-3.5 h-3.5 text-slate-600" />
+                    <span>หรือเลือกจากชุดธีมสไตล์สำเร็จรูป (Theme Presets):</span>
                   </span>
                 </div>
 
@@ -1038,16 +854,16 @@ export default function ConfigTab({
                           setThemeInput(preset.id);
                           setPrimaryColorInput(preset.primaryColor);
                         }}
-                        className={`p-3.5 rounded-2xl border text-left transition-all relative cursor-pointer overflow-hidden flex flex-col justify-between space-y-3 ${
+                        className={`p-3.5 rounded-2xl border text-left transition-all relative cursor-pointer overflow-hidden flex flex-col justify-between space-y-2.5 ${
                           isSelected 
                             ? 'bg-white border-slate-900 shadow-md ring-2 ring-slate-900/10 scale-[1.01]' 
-                            : 'bg-slate-50/70 border-slate-200/80 hover:bg-white hover:border-slate-300 hover:shadow-2xs'
+                            : 'bg-white/80 border-slate-200 hover:bg-white hover:border-slate-300'
                         }`}
                       >
-                        <div className="space-y-1.5">
+                        <div className="space-y-1">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
-                              <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: preset.primaryColor }} />
+                            <span className="text-xs font-black text-slate-900 flex items-center space-x-1.5">
+                              <span className="w-2.5 h-2.5 rounded-full shadow-xs" style={{ backgroundColor: preset.primaryColor }} />
                               <span>{preset.name}</span>
                             </span>
                             {isSelected && (
@@ -1062,12 +878,11 @@ export default function ConfigTab({
                           </p>
                         </div>
 
-                        {/* Color Palette Preview Swatches */}
                         <div className="flex items-center space-x-1.5 pt-1 border-t border-slate-100">
                           {preset.previewColors.map((col, idx) => (
                             <span 
                               key={idx} 
-                              className="w-5 h-5 rounded-full border border-black/10 shadow-2xs transition-transform hover:scale-110" 
+                              className="w-4 h-4 rounded-full border border-black/10 shadow-2xs" 
                               style={{ backgroundColor: col }}
                               title={col}
                             />
@@ -1078,170 +893,141 @@ export default function ConfigTab({
                   })}
                 </div>
               </div>
-            </div>
 
-            {/* Billing Cycle Cutoff Day Input */}
-            <div className="space-y-1.5 w-full md:col-span-2">
-              <span className="block text-xs font-semibold text-slate-600">รอบวันตัดยอดบัญชีรายเดือน (วันสิ้นสุดของรอบบิล):</span>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3 bg-indigo-50/50 p-3.5 rounded-2xl border border-indigo-100/60">
-                <div className="relative shrink-0 w-full sm:w-auto">
-                  <select
-                    value={billingCutoffDayInput}
-                    onChange={(e) => setBillingCutoffDayInput(parseInt(e.target.value, 10))}
-                    className="w-full sm:w-auto pl-3 pr-8 py-2 border border-slate-200 rounded-xl bg-white font-mono text-xs font-bold focus:outline-none focus:border-indigo-500 cursor-pointer"
-                  >
-                    <option value={1}>วันที่ 1 ของเดือน (เริ่มนับ 1 ของเดือน)</option>
-                    {[...Array(27)].map((_, i) => (
-                      <option key={i + 2} value={i + 2}>ทุกวันที่ {i + 2} ของเดือน (รอบเริ่มวันที่ {i + 3})</option>
-                    ))}
-                  </select>
-                </div>
-                <p className="text-[11px] text-indigo-950 font-sans leading-relaxed">
-                  * เช่น หากตั้งเป็น <strong>ทุกวันที่ 25 ของเดือน</strong> รอบบัญชีเดือนมิถุนายน (2026-06) จะเริ่มนับยอดเงินสะสมตั้งแต่วันที่ 26 พฤษภาคม จนถึงวันที่ 25 มิถุนายน ของทุกปี ระบบจะทำการคำนวณและกรองรายงานให้ตรงกันโดยอัตโนมัติ
-                </p>
-              </div>
-            </div>
-
-            {/* Additional Modules: Feature Toggles */}
-            <div className="space-y-3 w-full md:col-span-2 border-t border-dashed border-slate-100 pt-4 mt-2">
-              <span className="block text-xs font-bold text-slate-800 flex items-center space-x-1.5">
-                <Sparkles className="w-4 h-4 text-indigo-600" />
-                <span>เปิด/ปิด เมนูฟังก์ชันบนแถบใช้งานหลัก (Toggle Main System Modules)</span>
-              </span>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                {/* Cash Counter Toggle */}
-                <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
-                  enableCashCounterInput 
-                    ? 'bg-indigo-50/40 border-indigo-200/80 shadow-2xs' 
-                    : 'bg-slate-50/50 border-slate-200 opacity-60 hover:opacity-100'
-                }`}>
-                  <input
-                    type="checkbox"
-                    id="toggle-cash"
-                    checked={enableCashCounterInput}
-                    onChange={(e) => setEnableCashCounterInput(e.target.checked)}
-                    className="w-5 h-5 text-indigo-600 rounded-md border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer shrink-0"
-                  />
-                  <label htmlFor="toggle-cash" className="cursor-pointer space-y-1 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
-                        <DollarSign className="w-4 h-4 text-indigo-600" />
-                        <span>1. ระบบนับเงินสด (Cash Counter)</span>
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        enableCashCounterInput ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-                      }`}>
-                        {enableCashCounterInput ? '● เปิดใช้งาน' : '○ ปิดใช้งาน'}
-                      </span>
-                    </div>
-                    <span className="block text-[11px] text-slate-500 leading-relaxed">
-                      แสดงแถบเมนู "นับเงินสด" สำหรับตรวจนับธนบัตรและเหรียญในลิ้นชักประจำวัน
-                    </span>
-                  </label>
-                </div>
-
-                {/* Payslips Toggle */}
-                <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
-                  enablePayslipsInput 
-                    ? 'bg-indigo-50/40 border-indigo-200/80 shadow-2xs' 
-                    : 'bg-slate-50/50 border-slate-200 opacity-60 hover:opacity-100'
-                }`}>
-                  <input
-                    type="checkbox"
-                    id="toggle-payslips"
-                    checked={enablePayslipsInput}
-                    onChange={(e) => setEnablePayslipsInput(e.target.checked)}
-                    className="w-5 h-5 text-indigo-600 rounded-md border-slate-300 focus:ring-indigo-500 bg-white mt-0.5 cursor-pointer shrink-0"
-                  />
-                  <label htmlFor="toggle-payslips" className="cursor-pointer space-y-1 flex-1">
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-extrabold text-slate-900 flex items-center space-x-1.5">
-                        <Briefcase className="w-4 h-4 text-indigo-600" />
-                        <span>2. ระบบสลิปเงินเดือน (Payslips System)</span>
-                      </span>
-                      <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        enablePayslipsInput ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-                      }`}>
-                        {enablePayslipsInput ? '● เปิดใช้งาน' : '○ ปิดใช้งาน'}
-                      </span>
-                    </div>
-                    <span className="block text-[11px] text-slate-500 leading-relaxed">
-                      แสดงแถบเมนู "สลิปเงินเดือน" และคำนวณเงินประกัน ค่าเบิก หักภาษี ออกสลิปช่าง (หากปิดไว้ แถบเมนูและรายงานสลิปจะซ่อนออกเพื่อความสะอาดตา)
-                    </span>
-                  </label>
-                </div>
-              </div>
             </div>
           </div>
 
-          {isPinLockedInput && (
-            <div className="bg-amber-50/40 rounded-2xl p-4 border border-amber-100 space-y-3">
-              <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-                <div>
-                  <h4 className="text-xs font-extrabold text-amber-800 flex items-center space-x-1">
-                    <Lock className="w-3.5 h-3.5" />
-                    <span>ระบุรหัส PIN ป้องกันเฉพาะผู้รู้ (4 หรือ 6 หลัก)</span>
-                  </h4>
-                  <p className="text-[10px] text-slate-500">กรุณาจำรหัสนี้ให้ถูกต้อง เพื่อเข้าถึงหน้านี้ภายภาคหน้า</p>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  <input
-                    type={showPinInput ? 'text' : 'password'}
-                    pattern="[0-9]*"
-                    maxLength={6}
-                    value={pinCodeInput}
-                    onChange={(e) => {
-                      const val = e.target.value.replace(/[^0-9]/g, '');
-                      setPinCodeInput(val);
-                    }}
-                    placeholder="เลข PIN (4-6 หลัก)"
-                    className="w-36 px-3 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-bold text-center tracking-widest focus:outline-none"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPinInput(!showPinInput)}
-                    className="text-xs font-bold text-indigo-600 hover:underline px-1"
-                  >
-                    {showPinInput ? 'ซ่อน' : 'แสดง'}
-                  </button>
-                </div>
+          {/* Module Feature Toggles */}
+          <div className="space-y-3 border-t border-dashed border-slate-200 pt-5">
+            <span className="block text-xs font-extrabold text-slate-800 flex items-center space-x-1.5">
+              <Sparkles className="w-4 h-4" style={{ color: currentPrimaryColor }} />
+              <span>เปิด/ปิด เมนูฟังก์ชันบนแถบใช้งานหลัก (Toggle Main System Modules)</span>
+            </span>
+            
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              
+              {/* Cash Counter Toggle */}
+              <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
+                enableCashCounterInput 
+                  ? 'bg-slate-50 border-slate-300 shadow-2xs' 
+                  : 'bg-slate-50/50 border-slate-200 opacity-60'
+              }`}>
+                <input
+                  type="checkbox"
+                  id="toggle-cash"
+                  checked={enableCashCounterInput}
+                  onChange={(e) => setEnableCashCounterInput(e.target.checked)}
+                  className="w-5 h-5 rounded-md border-slate-300 bg-white mt-0.5 cursor-pointer shrink-0"
+                />
+                <label htmlFor="toggle-cash" className="cursor-pointer space-y-1 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                      <DollarSign className="w-4 h-4 text-emerald-600" />
+                      <span>1. ระบบนับเงินสด (Cash Counter)</span>
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      enableCashCounterInput ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {enableCashCounterInput ? '● เปิดใช้งาน' : '○ ปิดใช้งาน'}
+                    </span>
+                  </div>
+                  <span className="block text-[11px] text-slate-500 leading-relaxed">
+                    แสดงแท็บ "นับเงินสด" สำหรับตรวจนับธนบัตรและเหรียญในลิ้นชักประจำวัน
+                  </span>
+                </label>
               </div>
-            </div>
-          )}
 
-          <div className="flex justify-end pt-1">
+              {/* Payslips Toggle */}
+              <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
+                enablePayslipsInput 
+                  ? 'bg-slate-50 border-slate-300 shadow-2xs' 
+                  : 'bg-slate-50/50 border-slate-200 opacity-60'
+              }`}>
+                <input
+                  type="checkbox"
+                  id="toggle-payslips"
+                  checked={enablePayslipsInput}
+                  onChange={(e) => setEnablePayslipsInput(e.target.checked)}
+                  className="w-5 h-5 rounded-md border-slate-300 bg-white mt-0.5 cursor-pointer shrink-0"
+                />
+                <label htmlFor="toggle-payslips" className="cursor-pointer space-y-1 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                      <Briefcase className="w-4 h-4 text-indigo-600" />
+                      <span>2. ระบบสลิปเงินเดือน (Payslips System)</span>
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      enablePayslipsInput ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {enablePayslipsInput ? '● เปิดใช้งาน' : '○ ปิดใช้งาน'}
+                    </span>
+                  </div>
+                  <span className="block text-[11px] text-slate-500 leading-relaxed">
+                    แสดงแท็บ "สลิปเงินเดือน" และคำนวณเงินประกัน ค่าเบิก หักภาษี ออกสลิปช่าง
+                  </span>
+                </label>
+              </div>
+
+            </div>
+          </div>
+
+          <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="w-full sm:w-auto px-6 py-2 bg-slate-950 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1 cursor-pointer"
+              className="w-full sm:w-auto px-7 py-3 text-white rounded-2xl text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer hover:opacity-90 active:scale-98"
+              style={{ backgroundColor: currentPrimaryColor }}
             >
               <Check className="w-4 h-4" />
-              <span>บันทึกความปลอดภัย</span>
+              <span>บันทึกข้อมูลร้านค้า & ธีม</span>
             </button>
           </div>
         </form>
+
         {isShopSaved && (
-          <p className="text-xs text-emerald-600 font-semibold font-sans">✓ อัปเดตและบันทึกข้อมูลทั่วไปเรียบร้อยแล้ว</p>
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center space-x-2 text-xs font-bold text-emerald-700">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>อัปเดตและบันทึกข้อมูลร้านค้าและโทนสีเรียบร้อยแล้ว</span>
+          </div>
         )}
       </div>
 
       {/* 2. CHOOSE COMMISSION (%) */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
-        <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-          <Settings className="w-5 h-5 text-amber-500" />
-          <span>ปันส่วนแบ่งช่างและทางร้าน (% ส่วนแบ่งช่างตัดผม)</span>
-        </h3>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          * กำหนดรายได้ที่จะถูกนำไปคำนวณเบื้องหลังเพื่อจัดแจงบัญชีเงินเดือนช่างแต่ละคน ฝ่ายบัญชีสามารถปรับการแบ่งสัดส่วนได้ตลอดเวลา
-        </p>
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+          <div className="flex items-center space-x-3">
+            <div 
+              className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
+              style={{ backgroundColor: currentPrimaryColor }}
+            >
+              <Settings className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                2. โครงสร้างส่วนแบ่งรายได้ (% Commission Shares)
+              </h3>
+              <p className="text-xs text-slate-500">
+                กำหนดสัดส่วนรายได้ที่ช่างตัดผมจะได้รับจากงานตัดผม งานเคมี และการขายสินค้า
+              </p>
+            </div>
+          </div>
 
-        <form onSubmit={handleSaveShareConfig} className="space-y-4">
+          <button
+            type="button"
+            onClick={handleResetShareToDefault}
+            className="text-xs font-bold text-slate-500 hover:text-slate-800 px-3 py-1.5 rounded-xl border border-slate-200 hover:bg-slate-50 transition-all flex items-center gap-1.5 cursor-pointer shadow-2xs"
+            title="คืนค่าอัตราส่วนแบ่งมาตรฐาน 50/40/10"
+          >
+            <RotateCcw className="w-3.5 h-3.5 text-slate-400" />
+            <span>คืนค่ามาตรฐาน (50/40/10)</span>
+          </button>
+        </div>
+
+        <form onSubmit={handleSaveShareConfig} className="space-y-6">
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             
             {/* Haircut share ratio */}
-            <div className="bg-slate-50/50 p-4 border border-slate-100 rounded-2xl space-y-2">
-              <span className="block text-xs font-semibold text-slate-600">อัตราส่วนแบ่งค่าตัดผมช่าง:</span>
+            <div className="bg-slate-50 p-4 border border-slate-200 rounded-2xl space-y-2">
+              <span className="block text-xs font-extrabold text-slate-700">ส่วนแบ่งค่าตัดผม (ช่าง):</span>
               <div className="relative">
                 <input
                   type="number"
@@ -1252,18 +1038,18 @@ export default function ConfigTab({
                   value={haircutPct === 0 ? '' : haircutPct}
                   onChange={(e) => setHaircutPct(parseFloat(e.target.value) || 0)}
                   onFocus={(e) => e.target.select()}
-                  className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500"
+                  className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-xl font-mono text-sm font-bold focus:outline-none focus:border-slate-400 shadow-2xs"
                 />
-                <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
+                <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
               </div>
-              <p className="text-[10px] text-slate-500 font-sans">
+              <p className="text-[10.5px] text-slate-500 font-medium">
                 ช่างได้รับ {haircutPct}% | ร้านได้รับ {100 - haircutPct}%
               </p>
             </div>
 
             {/* Chemical ratio */}
-            <div className={`bg-slate-50/50 p-4 border border-slate-100 rounded-2xl space-y-2 transition-all ${!enableChemicalService ? 'opacity-40 select-none' : ''}`}>
-              <span className="block text-xs font-semibold text-slate-600">อัตราส่วนแบ่งงานเคมีช่าง:</span>
+            <div className={`bg-slate-50 p-4 border border-slate-200 rounded-2xl space-y-2 transition-all ${!enableChemicalService ? 'opacity-40 select-none' : ''}`}>
+              <span className="block text-xs font-extrabold text-slate-700">ส่วนแบ่งงานเคมี (ช่าง):</span>
               <div className="relative">
                 <input
                   type="number"
@@ -1275,18 +1061,18 @@ export default function ConfigTab({
                   value={chemicalPct === 0 ? '' : chemicalPct}
                   onChange={(e) => setChemicalPct(parseFloat(e.target.value) || 0)}
                   onFocus={(e) => e.target.select()}
-                  className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-50"
+                  className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-xl font-mono text-sm font-bold focus:outline-none focus:border-slate-400 disabled:bg-slate-100 shadow-2xs"
                 />
-                <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
+                <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
               </div>
-              <p className="text-[10px] text-slate-500 font-sans">
+              <p className="text-[10.5px] text-slate-500 font-medium">
                 {enableChemicalService ? `ช่างได้รับ ${chemicalPct}% | ร้านได้รับ ${100 - chemicalPct}%` : 'ปิดใช้งานบริการเคมี'}
               </p>
             </div>
 
             {/* Merchandise ratio */}
-            <div className={`bg-slate-50/50 p-4 border border-slate-100 rounded-2xl space-y-2 transition-all ${!enableProductSales ? 'opacity-40 select-none' : ''}`}>
-              <span className="block text-xs font-semibold text-slate-600">ส่วนแบ่งค่าขายของในร้านช่าง:</span>
+            <div className={`bg-slate-50 p-4 border border-slate-200 rounded-2xl space-y-2 transition-all ${!enableProductSales ? 'opacity-40 select-none' : ''}`}>
+              <span className="block text-xs font-extrabold text-slate-700">ส่วนแบ่งขายสินค้า (ช่าง):</span>
               <div className="relative">
                 <input
                   type="number"
@@ -1298,78 +1084,77 @@ export default function ConfigTab({
                   value={productPct === 0 ? '' : productPct}
                   onChange={(e) => setProductPct(parseFloat(e.target.value) || 0)}
                   onFocus={(e) => e.target.select()}
-                  className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-50"
+                  className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-xl font-mono text-sm font-bold focus:outline-none focus:border-slate-400 disabled:bg-slate-100 shadow-2xs"
                 />
-                <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
+                <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
               </div>
-              <p className="text-[10px] text-slate-500 font-sans">
+              <p className="text-[10.5px] text-slate-500 font-medium">
                 {enableProductSales ? `ช่างได้รับ ${productPct}% | ร้านได้รับ ${100 - productPct}%` : 'ปิดใช้งานการขายสินค้า'}
               </p>
             </div>
 
           </div>
 
-          {/* Divider and Feature Toggles (Chemical, Products) */}
-          <div className="border-t border-slate-100 pt-5 space-y-3">
-            <h4 className="text-xs font-bold text-slate-700 flex items-center space-x-1">
-              <Sparkles className="w-3.5 h-3.5 text-indigo-500" />
-              <span>เปิด/ปิดฟังก์ชั่นการทำงานของระบบ (ค่าเคมี, สินค้า)</span>
+          {/* Feature Toggles (Chemical, Products) */}
+          <div className="border-t border-dashed border-slate-200 pt-5 space-y-3">
+            <h4 className="text-xs font-extrabold text-slate-800 flex items-center space-x-1.5">
+              <Sparkles className="w-3.5 h-3.5" style={{ color: currentPrimaryColor }} />
+              <span>เปิด/ปิด บริการเสริมในหน้าคิดเงิน POS:</span>
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Chemical Services Toggle */}
-              <label className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
+              
+              <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors">
                 <div>
-                  <span className="block text-xs font-semibold text-slate-700">เปิดใช้งาน "ช่องใส่ค่าเคมี"</span>
-                  <span className="block text-[10px] text-slate-500">แสดงการป้อนค่าเคมีและส่วนแบ่งในหน้าคิดเงิน</span>
+                  <span className="block text-xs font-bold text-slate-800">เปิดใช้งาน "ช่องใส่ค่าเคมี"</span>
+                  <span className="block text-[11px] text-slate-500">แสดงการป้อนค่าเคมีและส่วนแบ่งในหน้าตัดบิล</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={enableChemicalService}
                   onChange={(e) => setEnableChemicalService(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer shrink-0 ml-2"
+                  className="w-5 h-5 bg-white border-slate-300 rounded cursor-pointer shrink-0 ml-2"
                 />
               </label>
 
-              {/* Product Sales Toggle */}
-              <label className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 cursor-pointer hover:bg-slate-100 transition-colors">
+              <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer hover:bg-slate-100/80 transition-colors">
                 <div>
-                  <span className="block text-xs font-semibold text-slate-700">เปิดใช้งาน "ช่องรายการสินค้า"</span>
-                  <span className="block text-[10px] text-slate-500">แสดงการเลือกสินค้าและสต็อกในหน้าคิดเงิน</span>
+                  <span className="block text-xs font-bold text-slate-800">เปิดใช้งาน "ช่องรายการสินค้า"</span>
+                  <span className="block text-[11px] text-slate-500">แสดงการเลือกสินค้าและตัดสต็อกในหน้าตัดบิล</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={enableProductSales}
                   onChange={(e) => setEnableProductSales(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer shrink-0 ml-2"
+                  className="w-5 h-5 bg-white border-slate-300 rounded cursor-pointer shrink-0 ml-2"
                 />
               </label>
+
             </div>
           </div>
 
-          {/* Divider and Promo Settings */}
-          <div className="border-t border-slate-100 pt-5 space-y-3">
-            <h4 className="text-xs font-bold text-slate-700 flex items-center space-x-1">
+          {/* Promo Discount Settings */}
+          <div className="border-t border-dashed border-slate-200 pt-5 space-y-3">
+            <h4 className="text-xs font-extrabold text-slate-800 flex items-center space-x-1.5">
               <Percent className="w-3.5 h-3.5 text-emerald-600" />
-              <span>ตั้งค่าระบบส่วนลดโปรโมชั่นของร้าน (เฉพาะตัดผม)</span>
+              <span>ระบบส่วนลดโปรโมชั่นของร้าน (เฉพาะตัดผม):</span>
             </h4>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {/* Show Promo Discount Toggle Checkbox */}
-              <label className="flex items-center justify-between p-4 bg-slate-50/50 rounded-2xl border border-slate-100 cursor-pointer">
+              
+              <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer">
                 <div>
-                  <span className="block text-xs font-semibold text-slate-700">เปิดระบบการให้ส่วนลดโปรโมชั่น</span>
-                  <span className="block text-[10px] text-slate-500">หากติ๊กออก ปุ่มเลือกโปรโมชั่นจะไม่แสดงในหน้าตัดบิล</span>
+                  <span className="block text-xs font-bold text-slate-800">เปิดระบบการให้ส่วนลดโปรโมชั่น</span>
+                  <span className="block text-[11px] text-slate-500">หากติ๊กออก ปุ่มเลือกโปรโมชั่นจะไม่แสดงในหน้าตัดบิล</span>
                 </div>
                 <input
                   type="checkbox"
                   checked={showPromoDiscount}
                   onChange={(e) => setShowPromoDiscount(e.target.checked)}
-                  className="w-5 h-5 text-indigo-600 bg-white border-slate-300 rounded focus:ring-indigo-500 outline-none cursor-pointer"
+                  className="w-5 h-5 bg-white border-slate-300 rounded cursor-pointer"
                 />
               </label>
 
-              {/* Promo Discount Percentage */}
-              <div className="bg-slate-50/50 p-4 border border-slate-100 rounded-2xl space-y-2">
-                <span className="block text-xs font-semibold text-slate-600">สัดส่วน % ส่วนลดที่ต้องการลด:</span>
+              <div className="bg-slate-50 p-4 border border-slate-200 rounded-2xl space-y-2">
+                <span className="block text-xs font-bold text-slate-700">สัดส่วน % ส่วนลดที่ต้องการลด:</span>
                 <div className="relative">
                   <input
                     type="number"
@@ -1381,73 +1166,96 @@ export default function ConfigTab({
                     value={promoDiscountPct === 0 ? '' : promoDiscountPct}
                     onChange={(e) => setPromoDiscountPct(parseFloat(e.target.value) || 0)}
                     onFocus={(e) => e.target.select()}
-                    className="w-full pl-3 pr-8 py-1.5 border border-slate-200 rounded-xl bg-white font-mono text-sm focus:outline-none focus:border-indigo-500 disabled:bg-slate-100 disabled:text-slate-400 font-medium"
+                    className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-xl font-mono text-sm font-bold focus:outline-none focus:border-slate-400 disabled:bg-slate-100 shadow-2xs"
                   />
-                  <span className="absolute right-3 top-2 text-xs font-semibold text-slate-400">%</span>
+                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
                 </div>
-                <p className="text-[10px] text-slate-500 font-sans">
-                  ส่วนลด {promoDiscountPct}% สำหรับคิดลดเฉพาะค่าบริการตัดผมเท่านั้น (ไม่กระทบรายได้ช่าง)
+                <p className="text-[10.5px] text-slate-500 font-medium">
+                  ส่วนลด {promoDiscountPct}% สำหรับคิดลดเฉพาะค่าบริการตัดผมเท่านั้น
                 </p>
               </div>
+
             </div>
           </div>
 
           <div className="flex justify-end pt-2">
             <button
               type="submit"
-              className="px-6 py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all shadow-md"
+              className="w-full sm:w-auto px-7 py-3 text-white rounded-2xl text-xs font-bold transition-all shadow-md flex items-center justify-center space-x-2 cursor-pointer hover:opacity-90 active:scale-98"
+              style={{ backgroundColor: currentPrimaryColor }}
             >
-              บันทึกโครงสร้างรายได้ (%)
+              <Check className="w-4 h-4" />
+              <span>บันทึกโครงสร้างรายได้ (%)</span>
             </button>
           </div>
         </form>
+
         {isShareSaved && (
-          <p className="text-xs text-emerald-600 font-semibold font-sans mt-1">✓ อัปเดตและเปลี่ยนโครงสร้างรายได้ใหม่สำเร็จแล้ว</p>
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-2xl flex items-center space-x-2 text-xs font-bold text-emerald-700">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600" />
+            <span>อัปเดตและบันทึกโครงสร้างส่วนแบ่งรายได้สำเร็จแล้ว</span>
+          </div>
         )}
       </div>
 
       {/* 3. BARBER LIST CONFIGURATION */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
-        <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-          <Users className="w-5 h-5 text-indigo-500" />
-          <span>รายชื่อช่างประจําสาขา (แก้ไขชื่อจริง-ตำแหน่ง และสถานะการทำงาน)</span>
-        </h3>
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
+        <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+          <div 
+            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
+            style={{ backgroundColor: currentPrimaryColor }}
+          >
+            <Users className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              3. รายชื่อช่างตัดผมประจำร้าน (Barber Team Members)
+            </h3>
+            <p className="text-xs text-slate-500">
+              เพิ่ม แก้ไขชื่อจริง ตำแหน่ง ฐานเงินเดือน และเปิด/ปิดสถานะการทำงานประจำวัน
+            </p>
+          </div>
+        </div>
 
         {/* Add new barber form */}
-        <form onSubmit={handleAddBarber} className="p-5 bg-slate-50 rounded-2xl border border-slate-100 space-y-4">
-          <p className="text-[11px] font-extrabold text-indigo-700 uppercase tracking-wider flex items-center gap-1.5">
-            <span>➕ ลงทะเบียนช่างตัดผมในระบบคนใหม่</span>
+        <form onSubmit={handleAddBarber} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+          <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+            <Plus className="w-4 h-4" style={{ color: currentPrimaryColor }} />
+            <span>ลงทะเบียนเพิ่มช่างตัดผมคนใหม่</span>
           </p>
+          
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-            <div className="space-y-1.5 flex flex-col justify-end">
-              <label className="block text-xs font-bold text-slate-700">ชื่อเล่นช่าง <span className="text-rose-500">*</span></label>
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                ชื่อเล่นช่าง <span className="text-rose-500">*</span>
+              </label>
               <input
                 type="text"
                 required
-                placeholder="ระบุชื่อเล่น"
+                placeholder="เช่น บอย, ต้อม, อาร์ม"
                 value={newBarberName}
                 onChange={(e) => setNewBarberName(e.target.value)}
-                className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-sans transition-all font-medium shadow-xs"
+                className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-slate-400 font-medium shadow-2xs"
               />
             </div>
 
-            <div className="space-y-1.5 flex flex-col justify-end">
+            <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-700">ชื่อจริง - นามสกุล</label>
               <input
                 type="text"
-                placeholder="แสดงในสลิปทางการ (ถ้ามี)"
+                placeholder="แสดงในสลิปเงินเดือน"
                 value={newBarberRealName}
                 onChange={(e) => setNewBarberRealName(e.target.value)}
-                className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-sans transition-all font-medium shadow-xs"
+                className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-slate-400 font-medium shadow-2xs"
               />
             </div>
 
-            <div className="space-y-1.5 flex flex-col justify-end">
+            <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-700">ตำแหน่งการทำงาน (Position)</label>
               <select
                 value={newBarberPosition}
                 onChange={(e) => setNewBarberPosition(e.target.value)}
-                className="w-full h-10 px-3 py-1.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-sans transition-all font-medium shadow-xs cursor-pointer"
+                className="w-full h-10 px-3 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-slate-400 font-medium shadow-2xs cursor-pointer"
               >
                 <option value="Hairdresser">Hairdresser (ช่างตัดผมหลัก)</option>
                 <option value="Branch Manager">Branch Manager (ผู้จัดการสาขา)</option>
@@ -1456,17 +1264,17 @@ export default function ConfigTab({
               </select>
             </div>
 
-            <div className="space-y-1.5 flex flex-col justify-end">
+            <div className="space-y-1.5">
               <label className="block text-xs font-bold text-slate-700">ฐานเงินเดือน (บาท/เดือน)</label>
               <input
                 type="number"
                 min="0"
                 step="any"
-                placeholder="ใส่ 0 หรือเว้นว่างหากไม่มี"
+                placeholder="ใส่ 0 หรือเว้นว่าง"
                 value={newBarberBaseSalary}
                 onChange={(e) => setNewBarberBaseSalary(e.target.value)}
                 onFocus={(e) => e.target.select()}
-                className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-sans transition-all font-medium shadow-xs"
+                className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-slate-400 font-medium shadow-2xs font-mono"
               />
             </div>
           </div>
@@ -1474,7 +1282,8 @@ export default function ConfigTab({
           <div className="text-right pt-1">
             <button
               type="submit"
-              className="px-5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all inline-flex items-center space-x-1 shadow-xs cursor-pointer active:scale-98"
+              className="px-5 py-2.5 text-white rounded-xl text-xs font-bold transition-all inline-flex items-center space-x-1.5 shadow-sm cursor-pointer hover:opacity-90 active:scale-98"
+              style={{ backgroundColor: currentPrimaryColor }}
             >
               <Plus className="w-4 h-4" />
               <span>เพิ่มช่างลงระบบ</span>
@@ -1483,263 +1292,87 @@ export default function ConfigTab({
         </form>
 
         {/* Barbers list */}
-        <div className="max-h-[380px] overflow-y-auto pr-1.5 space-y-2 pt-1 border border-slate-100 rounded-2xl p-2 bg-slate-50/20">
-          {barbers.map((barber, idx) => {
-            const isEditing = editingBarberId === barber.id;
-            return (
-              <div key={barber.id} className="p-4 bg-white rounded-2xl border border-slate-150 transition-all space-y-3 shadow-xs text-left">
-                {isEditing ? (
-                  /* INLINE EDIT MODE FORM */
-                  <div className="space-y-4">
-                    <p className="text-[11px] font-extrabold text-indigo-600">✍️ กำลังแก้ไขข้อมูลช่าง {barber.name}</p>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-slate-50/50 p-4 rounded-xl border border-indigo-100">
-                      <div className="space-y-1.5 flex flex-col justify-end">
-                        <label className="block text-xs font-bold text-slate-700">ชื่อเล่นช่าง <span className="text-rose-500">*</span></label>
-                        <input
-                          type="text"
-                          required
-                          value={editNickname}
-                          onChange={(e) => setEditNickname(e.target.value)}
-                          className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-sans focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium transition-all shadow-xs"
-                        />
-                      </div>
-                      <div className="space-y-1.5 flex flex-col justify-end">
-                        <label className="block text-xs font-bold text-slate-700">ชื่อจริง - นามสกุล</label>
-                        <input
-                          type="text"
-                          value={editRealName}
-                          onChange={(e) => setEditRealName(e.target.value)}
-                          className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-sans focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium transition-all shadow-xs"
-                          placeholder="ยังไม่มีชื่อจริง"
-                        />
-                      </div>
-                      <div className="space-y-1.5 flex flex-col justify-end">
-                        <label className="block text-xs font-bold text-slate-700">ตำแหน่งการทำงาน (Position)</label>
-                        <select
-                          value={editPosition}
-                          onChange={(e) => setEditPosition(e.target.value)}
-                          className="w-full h-10 px-3 py-1.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium transition-all shadow-xs cursor-pointer"
-                        >
-                          <option value="Hairdresser">Hairdresser</option>
-                          <option value="Branch Manager">Branch Manager</option>
-                          <option value="Junior Barber">Junior Barber</option>
-                          <option value="Senior Stylist">Senior Stylist</option>
-                        </select>
-                      </div>
-                      <div className="space-y-1.5 flex flex-col justify-end">
-                        <label className="block text-xs font-bold text-slate-700">ฐานเงินเดือน (บาท/เดือน)</label>
-                        <input
-                          type="number"
-                          min="0"
-                          value={editBaseSalary}
-                          onChange={(e) => setEditBaseSalary(e.target.value)}
-                          onFocus={(e) => e.target.select()}
-                          className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-sans focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 font-medium transition-all shadow-xs"
-                          placeholder="ยังไม่มีฐานเงินเดือน"
-                        />
-                      </div>
-                    </div>
-                    <div className="flex justify-end space-x-2.5">
-                      <button
-                        type="button"
-                        onClick={handleCancelEditBarber}
-                        className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
-                      >
-                        <X className="w-4 h-4" />
-                        <span>ยกเลิก</span>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => handleSaveEditBarber(barber.id)}
-                        className="px-4 py-2 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer shadow-xs"
-                      >
-                        <Check className="w-4 h-4" />
-                        <span>บันทึกข้อมูล</span>
-                      </button>
-                    </div>
-                  </div>
-                ) : (
-                  /* DISPLAY MODE */
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      {/* Reorder Buttons */}
-                      <div className="flex flex-row md:flex-col gap-0.5 items-center shrink-0 border-r border-slate-100 pr-2">
-                        <button
-                          type="button"
-                          disabled={idx === 0}
-                          onClick={() => handleMoveBarberUp(idx)}
-                          className={`p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:text-slate-150 disabled:hover:bg-transparent transition-all ${idx === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                          title="เลื่อนอันดับขึ้น / Move Up"
-                        >
-                          <ChevronUp className="w-4 h-4" />
-                        </button>
-                        <button
-                          type="button"
-                          disabled={idx === barbers.length - 1}
-                          onClick={() => handleMoveBarberDown(idx)}
-                          className={`p-1 rounded-md text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 disabled:text-slate-150 disabled:hover:bg-transparent transition-all ${idx === barbers.length - 1 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                          title="เลื่อนอันดับลง / Move Down"
-                        >
-                          <ChevronDown className="w-4 h-4" />
-                        </button>
-                      </div>
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between text-xs text-slate-500 font-bold px-1">
+            <span>รายชื่อช่างทั้งหมด ({barbers.length} คน):</span>
+            <span>เรียงลำดับ / จัดการ</span>
+          </div>
 
-                      <div className="space-y-1 text-left">
-                        <div className="flex items-center space-x-2 flex-wrap gap-y-1">
-                          <span className="text-sm font-extrabold text-slate-800">ช่าง{barber.name}</span>
-                          <span className={`text-[9px] px-2 py-0.5 rounded-full font-bold ${
-                            barber.isWorking ? 'bg-emerald-100 text-emerald-700' : 'bg-rose-100 text-rose-700'
-                          }`}>
-                            {barber.isWorking ? '● ทำงานวันนี้' : '○ ลา/ปกติ'}
-                          </span>
-                          <span className="text-[10px] text-slate-400 font-semibold uppercase">{barber.position || 'Hairdresser'}</span>
-                        </div>
-                        
-                        <div className="text-[11px] text-slate-500 flex items-center space-x-2 flex-wrap gap-y-1.5 font-sans">
-                          <span className="font-bold text-slate-600">ชื่อจริง:</span>
-                          <span className="bg-indigo-50/70 border border-indigo-100/40 text-indigo-800 px-2.5 py-0.5 rounded-md font-medium">
-                            {barber.realName ? barber.realName : `(ยังไม่กำหนดชื่อจริง - ใช้ "ช่าง${barber.name}" บรรเทาแทน)`}
-                          </span>
-                          <span className="font-bold text-slate-600 ml-1">ฐานเงินเดือน:</span>
-                          <span className="bg-emerald-50/70 border border-emerald-100/40 text-emerald-800 px-2.5 py-0.5 rounded-md font-medium">
-                            {barber.baseSalary !== undefined && barber.baseSalary > 0 ? `${formatBaht(barber.baseSalary)}` : 'ไม่มี (คิดตามส่วนแบ่ง)'}
-                          </span>
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex items-center gap-2 self-end md:self-auto">
-                      {/* Edit Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleStartEditBarber(barber)}
-                        className="px-2.5 py-1.5 bg-slate-200/80 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
-                        title="แก้ไขรายละเอียดช่าง"
-                      >
-                        <Edit3 className="w-3.5 h-3.5" />
-                        <span>แก้ไขข้อมูล</span>
-                      </button>
-
-                      {/* Working Toggle */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleWorking(barber.id)}
-                        className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer ${
-                          barber.isWorking
-                            ? 'bg-emerald-100/50 hover:bg-emerald-100 text-emerald-800'
-                            : 'bg-rose-100/50 hover:bg-rose-100 text-rose-800'
-                        }`}
-                      >
-                        <Power className="w-3.5 h-3.5" />
-                        <span>{barber.isWorking ? 'เวรมาทำงาน' : 'สถานะลางาน'}</span>
-                      </button>
-
-                      {/* Delete button */}
-                      <button
-                        type="button"
-                        onClick={() => handleDeleteBarber(barber.id)}
-                        className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                        title="ลบรายชื่อช่าง"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
-                    </div>
-                  </div>
-                )}
-              </div>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* 4. PRODUCTS LIST CONFIGURATION */}
-      {shareConfig.enableProductSales !== false && (
-        <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
-          <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-            <ShoppingBag className="w-5 h-5 text-emerald-500" />
-            <span>จัดแจงบริการและสินค้าหน้าร้าน (แก้ไข หรือ ปิดสถานะสินค้าหมด)</span>
-          </h3>
-
-          {/* Add Product Form */}
-          <form onSubmit={handleAddProduct} className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-            <input
-              type="text"
-              required
-              placeholder="ชื่อสินค้าเซ็ตผม / แชมพูสระ"
-              value={newProductName}
-              onChange={(e) => setNewProductName(e.target.value)}
-              className="sm:col-span-2 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs"
-            />
-            <div className="flex gap-2">
-              <input
-                type="number"
-                required
-                min="0"
-                placeholder="ราคา (บาท)"
-                value={newProductPrice}
-                onChange={(e) => setNewProductPrice(e.target.value)}
-                onFocus={(e) => e.target.select()}
-                className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs font-mono"
-              />
-              <button
-                type="submit"
-                className="px-4 py-1.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center h-full whitespace-nowrap"
-              >
-                <Plus className="w-4 h-4 mr-0.5" />
-                <span>เพิ่มสินค้า</span>
-              </button>
-            </div>
-          </form>
-
-          {/* Products Listing with Out of Stock toggle */}
-          <div className="max-h-[380px] overflow-y-auto pr-1.5 space-y-2 pt-2 border border-slate-100 rounded-2xl p-2 bg-slate-50/20">
-            {products.map((item, idx) => {
-              const isEditing = editingProductId === item.id;
+          <div className="space-y-2">
+            {barbers.map((barber, idx) => {
+              const isEditing = editingBarberId === barber.id;
               return (
-                <div key={item.id} className="p-4 bg-white rounded-2xl border border-slate-150 transition-all space-y-3 shadow-xs text-left">
+                <div key={barber.id} className="p-4 bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200/90 transition-all space-y-3 text-left">
                   {isEditing ? (
-                    /* INLINE EDIT PRODUCT FORM */
-                    <div className="space-y-4 animate-fadeIn">
-                      <p className="text-[11px] font-extrabold text-emerald-600">✍️ กำลังแก้ไขข้อมูลสินค้า {item.name}</p>
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-slate-50/50 p-4 rounded-xl border border-emerald-100">
+                    /* INLINE EDIT MODE FORM */
+                    <div className="space-y-4">
+                      <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                        <Edit3 className="w-3.5 h-3.5" style={{ color: currentPrimaryColor }} />
+                        <span>กำลังแก้ไขข้อมูลช่าง {barber.name}</span>
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 bg-white p-4 rounded-xl border border-slate-200">
                         <div className="space-y-1.5">
-                          <label className="block text-xs font-bold text-slate-700">ชื่อสินค้า/บริการ <span className="text-rose-500">*</span></label>
+                          <label className="block text-xs font-bold text-slate-700">ชื่อเล่นช่าง <span className="text-rose-500">*</span></label>
                           <input
                             type="text"
                             required
-                            value={editProductName}
-                            onChange={(e) => setEditProductName(e.target.value)}
-                            className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-sans focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-medium transition-all shadow-xs"
+                            value={editNickname}
+                            onChange={(e) => setEditNickname(e.target.value)}
+                            className="w-full h-10 px-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-medium"
                           />
                         </div>
                         <div className="space-y-1.5">
-                          <label className="block text-xs font-bold text-slate-700">ราคาปกติ (บาท) <span className="text-rose-500">*</span></label>
+                          <label className="block text-xs font-bold text-slate-700">ชื่อจริง - นามสกุล</label>
+                          <input
+                            type="text"
+                            value={editRealName}
+                            onChange={(e) => setEditRealName(e.target.value)}
+                            className="w-full h-10 px-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-medium"
+                            placeholder="ยังไม่มีชื่อจริง"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700">ตำแหน่ง (Position)</label>
+                          <select
+                            value={editPosition}
+                            onChange={(e) => setEditPosition(e.target.value)}
+                            className="w-full h-10 px-3 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-medium cursor-pointer"
+                          >
+                            <option value="Hairdresser">Hairdresser</option>
+                            <option value="Branch Manager">Branch Manager</option>
+                            <option value="Junior Barber">Junior Barber</option>
+                            <option value="Senior Stylist">Senior Stylist</option>
+                          </select>
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700">ฐานเงินเดือน (บาท/เดือน)</label>
                           <input
                             type="number"
                             min="0"
-                            required
-                            value={editProductPrice}
-                            onChange={(e) => setEditProductPrice(e.target.value)}
+                            value={editBaseSalary}
+                            onChange={(e) => setEditBaseSalary(e.target.value)}
                             onFocus={(e) => e.target.select()}
-                            className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-mono focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500 font-medium transition-all shadow-xs"
+                            className="w-full h-10 px-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-medium font-mono"
+                            placeholder="0"
                           />
                         </div>
                       </div>
                       <div className="flex justify-end space-x-2.5">
                         <button
                           type="button"
-                          onClick={handleCancelEditProduct}
-                          className="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
+                          onClick={handleCancelEditBarber}
+                          className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
                         >
-                          <X className="w-4 h-4" />
+                          <X className="w-3.5 h-3.5" />
                           <span>ยกเลิก</span>
                         </button>
                         <button
                           type="button"
-                          onClick={() => handleSaveEditProduct(item.id)}
-                          className="px-4 py-2 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer shadow-xs"
+                          onClick={() => handleSaveEditBarber(barber.id)}
+                          className="px-4 py-2 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer shadow-xs"
+                          style={{ backgroundColor: currentPrimaryColor }}
                         >
-                          <Check className="w-4 h-4" />
+                          <Check className="w-3.5 h-3.5" />
                           <span>บันทึกข้อมูล</span>
                         </button>
                       </div>
@@ -1749,78 +1382,77 @@ export default function ConfigTab({
                     <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                       <div className="flex items-center gap-3">
                         {/* Reorder Buttons */}
-                        <div className="flex flex-row md:flex-col gap-0.5 items-center shrink-0 border-r border-slate-100 pr-2">
+                        <div className="flex flex-row md:flex-col gap-0.5 items-center shrink-0 border-r border-slate-200 pr-2.5">
                           <button
                             type="button"
                             disabled={idx === 0}
-                            onClick={() => handleMoveProductUp(idx)}
-                            className={`p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:text-slate-150 disabled:hover:bg-transparent transition-all ${idx === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                            title="เลื่อนอันดับขึ้น / Move Up"
+                            onClick={() => handleMoveBarberUp(idx)}
+                            className={`p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:text-slate-200 transition-all ${idx === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                           >
                             <ChevronUp className="w-4 h-4" />
                           </button>
                           <button
                             type="button"
-                            disabled={idx === products.length - 1}
-                            onClick={() => handleMoveProductDown(idx)}
-                            className={`p-1 rounded-md text-slate-400 hover:text-emerald-600 hover:bg-emerald-50 disabled:text-slate-150 disabled:hover:bg-transparent transition-all ${idx === products.length - 1 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
-                            title="เลื่อนอันดับลง / Move Down"
+                            disabled={idx === barbers.length - 1}
+                            onClick={() => handleMoveBarberDown(idx)}
+                            className={`p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:text-slate-200 transition-all ${idx === barbers.length - 1 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
                           >
                             <ChevronDown className="w-4 h-4" />
                           </button>
                         </div>
 
+                        <div className="w-9 h-9 rounded-xl bg-white border border-slate-200 flex items-center justify-center font-bold text-xs shadow-2xs" style={{ color: currentPrimaryColor }}>
+                          {barber.name.substring(0, 2)}
+                        </div>
+
                         <div className="space-y-0.5 text-left">
-                          <span className={`text-sm font-bold ${item.isActive ? 'text-slate-700' : 'text-slate-400 line-through'}`}>
-                            {item.name}
-                          </span>
-                          <span className="block text-xs font-semibold text-slate-500 font-mono">
-                            {formatBaht(item.price)}
-                          </span>
+                          <div className="flex items-center space-x-2">
+                            <span className="text-sm font-bold text-slate-900">
+                              ช่าง{barber.name}
+                            </span>
+                            <span className="text-[10px] bg-slate-200/80 text-slate-700 px-2 py-0.5 rounded-md font-bold">
+                              {barber.position || 'Hairdresser'}
+                            </span>
+                          </div>
+                          <div className="flex items-center space-x-3 text-[11px] text-slate-500 font-medium">
+                            <span>{barber.realName ? `ชื่อจริง: ${barber.realName}` : 'ยังไม่ได้ระบุชื่อจริง'}</span>
+                            {barber.baseSalary ? (
+                              <span className="font-mono text-emerald-700 font-bold">
+                                ฐาน: {formatBaht(barber.baseSalary)}
+                              </span>
+                            ) : null}
+                          </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-2 self-end md:self-auto">
-                        {/* Edit Button */}
                         <button
                           type="button"
-                          onClick={() => handleStartEditProduct(item)}
-                          className="px-2.5 py-1.5 bg-slate-200/80 hover:bg-slate-200 text-slate-700 rounded-lg text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
-                          title="แก้ไขรายละเอียดสินค้า"
+                          onClick={() => handleStartEditBarber(barber)}
+                          className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
                         >
-                          <Edit3 className="w-3.5 h-3.5" />
-                          <span>แก้ไขข้อมูล</span>
+                          <Edit3 className="w-3.5 h-3.5 mr-1 inline" />
+                          <span>แก้ไข</span>
                         </button>
 
-                        {/* Active Toggle (ปิดสถานะสินค้าในกรณีของหมด) */}
                         <button
                           type="button"
-                          onClick={() => handleToggleProductActive(item.id)}
-                          className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer border shadow-3xs ${
-                            item.isActive
-                              ? 'bg-emerald-50/80 hover:bg-emerald-100/80 text-emerald-700 border-emerald-200/50'
-                              : 'bg-amber-50/80 hover:bg-amber-100/80 text-amber-700 border-amber-200/50'
+                          onClick={() => handleToggleWorking(barber.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer border shadow-2xs ${
+                            barber.isWorking 
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200' 
+                              : 'bg-rose-50 hover:bg-rose-100 text-rose-800 border-rose-200'
                           }`}
                         >
-                          {item.isActive ? (
-                            <>
-                              <Check className="w-3.5 h-3.5 text-emerald-600" />
-                              <span>วางขายปกติ (In Stock)</span>
-                            </>
-                          ) : (
-                            <>
-                              <X className="w-3.5 h-3.5 text-amber-600" />
-                              <span>ของหมด / ปิดสถานะสินค้า (Out)</span>
-                            </>
-                          )}
+                          <Power className="w-3.5 h-3.5" />
+                          <span>{barber.isWorking ? 'มาทำงาน (Online)' : 'หยุดงาน (Offline)'}</span>
                         </button>
 
-                        {/* Remove button */}
                         <button
                           type="button"
-                          onClick={() => handleDeleteProduct(item.id)}
-                          className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all cursor-pointer"
-                          title="ลบสินค้า"
+                          onClick={() => handleDeleteBarber(barber.id)}
+                          className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                          title="ลบช่าง"
                         >
                           <Trash2 className="w-4 h-4" />
                         </button>
@@ -1832,68 +1464,312 @@ export default function ConfigTab({
             })}
           </div>
         </div>
-      )}
+      </div>
 
-
-      {/* 6. VOUCHERS MANAGEMENT */}
-      <div className="bg-white rounded-2xl shadow-sm border border-slate-100 p-6 space-y-4">
-        <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-          <Gift className="w-5 h-5 text-rose-500" />
-          <span>จัดการ Gift Voucher และคูปองบัตรสะสมสมนาคุณ</span>
-        </h3>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          * เพิ่มหรือถอนราคาคูปอง โดยลูกค้าที่นำคูปองมาใช้ ยอดเงินจะถูกลดไป แต่เปอร์เซ็นต์ปันผลของช่างตัดผมจะคงที่ตามราคาปกติหน้าร้าน
-        </p>
-
-        {/* Add Voucher Form */}
-        <form onSubmit={handleAddVoucher} className="flex gap-2">
-          <input
-            type="number"
-            required
-            min="10"
-            max="1000"
-            placeholder="ระบุราคาบัตร บัตรกำนัล เช่น 20 , 50 , 100"
-            value={newVoucherValue}
-            onChange={(e) => setNewVoucherValue(e.target.value)}
-            onFocus={(e) => e.target.select()}
-            className="flex-1 px-3 py-1.5 border border-slate-200 rounded-xl outline-none text-xs font-mono"
-          />
-          <button
-            type="submit"
-            className="px-4 py-1.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1"
+      {/* 4. PRODUCTS MANAGEMENT */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
+        <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+          <div 
+            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
+            style={{ backgroundColor: currentPrimaryColor }}
           >
-            <Plus className="w-4 h-4" />
-            <span>เพิ่ม Voucher ใหม่</span>
-          </button>
+            <ShoppingBag className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              4. รายการสินค้าและบริการเสริม (Products & Retail Inventory)
+            </h3>
+            <p className="text-xs text-slate-500">
+              เพิ่มและกำหนดราคาขายสินค้า เช่น แว็กซ์ เจล น้ำมันใส่ผม หรือบริการเสริม
+            </p>
+          </div>
+        </div>
+
+        {/* Add Product Form */}
+        <form onSubmit={handleAddProduct} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+          <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+            <Plus className="w-4 h-4" style={{ color: currentPrimaryColor }} />
+            <span>เพิ่มสินค้า / บริการเสริมใหม่</span>
+          </p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div className="sm:col-span-2 space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                ชื่อสินค้า / บริการ <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="เช่น Pomade Matte, Wax จัดทรง, เซรั่มบำรุงผม"
+                value={newProductName}
+                onChange={(e) => setNewProductName(e.target.value)}
+                className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-medium shadow-2xs"
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="block text-xs font-bold text-slate-700">
+                ราคาขายหน้าร้าน (บาท) <span className="text-rose-500">*</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                step="any"
+                required
+                placeholder="0"
+                value={newProductPrice}
+                onChange={(e) => setNewProductPrice(e.target.value)}
+                onFocus={(e) => e.target.select()}
+                className="w-full h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-medium shadow-2xs font-mono"
+              />
+            </div>
+          </div>
+
+          <div className="text-right pt-1">
+            <button
+              type="submit"
+              className="px-5 py-2.5 text-white rounded-xl text-xs font-bold transition-all inline-flex items-center space-x-1.5 shadow-sm cursor-pointer hover:opacity-90 active:scale-98"
+              style={{ backgroundColor: currentPrimaryColor }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>เพิ่มสินค้าลงระบบ</span>
+            </button>
+          </div>
         </form>
 
-        {/* Vouchers list with toggling options */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 pt-2">
+        {/* Products Listing */}
+        <div className="space-y-2.5">
+          <div className="flex items-center justify-between text-xs text-slate-500 font-bold px-1">
+            <span>รายการสินค้าทั้งหมด ({products.length} รายการ):</span>
+            <span>เรียงลำดับ / จัดการ</span>
+          </div>
+
+          <div className="space-y-2">
+            {products.map((item, idx) => {
+              const isEditing = editingProductId === item.id;
+              return (
+                <div key={item.id} className="p-4 bg-slate-50/70 hover:bg-slate-50 rounded-2xl border border-slate-200/90 transition-all space-y-3 text-left">
+                  {isEditing ? (
+                    /* INLINE EDIT PRODUCT FORM */
+                    <div className="space-y-4">
+                      <p className="text-xs font-black text-slate-900 flex items-center gap-1.5">
+                        <Edit3 className="w-3.5 h-3.5" style={{ color: currentPrimaryColor }} />
+                        <span>กำลังแก้ไขสินค้า {item.name}</span>
+                      </p>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 bg-white p-4 rounded-xl border border-slate-200">
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700">ชื่อสินค้า <span className="text-rose-500">*</span></label>
+                          <input
+                            type="text"
+                            required
+                            value={editProductName}
+                            onChange={(e) => setEditProductName(e.target.value)}
+                            className="w-full h-10 px-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-medium"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="block text-xs font-bold text-slate-700">ราคาขาย (บาท) <span className="text-rose-500">*</span></label>
+                          <input
+                            type="number"
+                            min="0"
+                            required
+                            value={editProductPrice}
+                            onChange={(e) => setEditProductPrice(e.target.value)}
+                            onFocus={(e) => e.target.select()}
+                            className="w-full h-10 px-3.5 bg-slate-50 border border-slate-200 rounded-xl outline-none text-xs text-slate-800 font-mono font-bold"
+                          />
+                        </div>
+                      </div>
+                      <div className="flex justify-end space-x-2.5">
+                        <button
+                          type="button"
+                          onClick={handleCancelEditProduct}
+                          className="px-4 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                        >
+                          ยกเลิก
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleSaveEditProduct(item.id)}
+                          className="px-4 py-2 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+                          style={{ backgroundColor: currentPrimaryColor }}
+                        >
+                          บันทึกข้อมูล
+                        </button>
+                      </div>
+                    </div>
+                  ) : (
+                    /* DISPLAY MODE */
+                    <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+                      <div className="flex items-center gap-3">
+                        {/* Reorder Buttons */}
+                        <div className="flex flex-row md:flex-col gap-0.5 items-center shrink-0 border-r border-slate-200 pr-2.5">
+                          <button
+                            type="button"
+                            disabled={idx === 0}
+                            onClick={() => handleMoveProductUp(idx)}
+                            className={`p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:text-slate-200 transition-all ${idx === 0 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <ChevronUp className="w-4 h-4" />
+                          </button>
+                          <button
+                            type="button"
+                            disabled={idx === products.length - 1}
+                            onClick={() => handleMoveProductDown(idx)}
+                            className={`p-1 rounded-md text-slate-400 hover:text-slate-700 hover:bg-slate-200 disabled:text-slate-200 transition-all ${idx === products.length - 1 ? 'cursor-not-allowed' : 'cursor-pointer'}`}
+                          >
+                            <ChevronDown className="w-4 h-4" />
+                          </button>
+                        </div>
+
+                        <div className="space-y-0.5 text-left">
+                          <span className={`text-sm font-bold ${item.isActive ? 'text-slate-900' : 'text-slate-400 line-through'}`}>
+                            {item.name}
+                          </span>
+                          <span className="block text-xs font-black font-mono" style={{ color: currentPrimaryColor }}>
+                            {formatBaht(item.price)}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="flex items-center gap-2 self-end md:self-auto">
+                        <button
+                          type="button"
+                          onClick={() => handleStartEditProduct(item)}
+                          className="px-3 py-1.5 bg-white hover:bg-slate-100 text-slate-700 border border-slate-200 rounded-xl text-xs font-bold transition-all cursor-pointer shadow-2xs"
+                        >
+                          <Edit3 className="w-3.5 h-3.5 mr-1 inline" />
+                          <span>แก้ไข</span>
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleToggleProductActive(item.id)}
+                          className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 cursor-pointer border shadow-2xs ${
+                            item.isActive
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-800 border-emerald-200'
+                              : 'bg-amber-50 hover:bg-amber-100 text-amber-800 border-amber-200'
+                          }`}
+                        >
+                          {item.isActive ? (
+                            <>
+                              <Check className="w-3.5 h-3.5 text-emerald-600" />
+                              <span>วางขายปกติ (In Stock)</span>
+                            </>
+                          ) : (
+                            <>
+                              <X className="w-3.5 h-3.5 text-amber-600" />
+                              <span>สินค้าหมด (Out of Stock)</span>
+                            </>
+                          )}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => handleDeleteProduct(item.id)}
+                          className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </div>
+
+      {/* 5. VOUCHERS MANAGEMENT */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
+        <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+          <div 
+            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
+            style={{ backgroundColor: currentPrimaryColor }}
+          >
+            <Gift className="w-5 h-5" />
+          </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              5. บัตรกำนัล & คูปองส่วนลด (Gift Vouchers & Promos)
+            </h3>
+            <p className="text-xs text-slate-500">
+              กำหนดมูลค่าบัตรกำนัลสำหรับให้ลูกค้าใช้ลดค่าบริการหน้าร้าน
+            </p>
+          </div>
+        </div>
+
+        {/* Add Voucher Form */}
+        <form onSubmit={handleAddVoucher} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+          <label className="block text-xs font-bold text-slate-700">
+            เพิ่มมูลค่า Gift Voucher ใหม่:
+          </label>
+          <div className="flex flex-col sm:flex-row gap-3">
+            <input
+              type="number"
+              required
+              min="10"
+              max="5000"
+              placeholder="ระบุมูลค่าคูปอง เช่น 50, 100, 200, 500"
+              value={newVoucherValue}
+              onChange={(e) => setNewVoucherValue(e.target.value)}
+              onFocus={(e) => e.target.select()}
+              className="flex-1 h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs font-mono font-bold shadow-2xs"
+            />
+            <button
+              type="submit"
+              className="px-6 h-10 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer hover:opacity-90 active:scale-98 shrink-0"
+              style={{ backgroundColor: currentPrimaryColor }}
+            >
+              <Plus className="w-4 h-4" />
+              <span>เพิ่ม Voucher</span>
+            </button>
+          </div>
+        </form>
+
+        {/* Vouchers list */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
           {vouchers.map((v) => (
-            <div key={v.id} className="flex items-center justify-between p-3.5 bg-slate-50 rounded-xl border border-slate-150">
-              <span className={`text-sm font-bold font-mono ${v.isActive ? 'text-slate-800' : 'text-slate-400 line-through'}`}>
-                Gift Voucher {v.value} บาท
-              </span>
+            <div 
+              key={v.id} 
+              className={`p-4 rounded-2xl border transition-all flex items-center justify-between shadow-2xs ${
+                v.isActive 
+                  ? 'bg-slate-50 border-slate-200' 
+                  : 'bg-slate-50/50 border-slate-200 opacity-60'
+              }`}
+            >
+              <div className="flex items-center space-x-2.5">
+                <Tag className="w-4 h-4 text-slate-500" />
+                <div>
+                  <span className={`text-sm font-black font-mono ${v.isActive ? 'text-slate-900' : 'text-slate-400 line-through'}`}>
+                    Voucher {formatBaht(v.value)}
+                  </span>
+                  <span className="block text-[10px] text-slate-400">
+                    {v.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
+                  </span>
+                </div>
+              </div>
 
               <div className="flex items-center space-x-1">
-                {/* Active Toggle */}
                 <button
                   type="button"
                   onClick={() => handleToggleVoucherActive(v.id)}
-                  className={`p-1.5 rounded-lg transition-all ${
+                  className={`p-2 rounded-xl transition-all cursor-pointer ${
                     v.isActive 
                       ? 'text-emerald-600 hover:bg-emerald-50' 
                       : 'text-slate-400 hover:bg-slate-200'
                   }`}
-                  title={v.isActive ? 'เปิดสถานะคูปอง' : 'ปิดสถานะคูปอง'}
+                  title={v.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
                 >
                   <Power className="w-4 h-4" />
                 </button>
 
-                {/* Delete button */}
                 <button
+                  type="button"
                   onClick={() => handleDeleteVoucher(v.id)}
-                  className="p-1.5 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-all"
+                  className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
+                  title="ลบคูปอง"
                 >
                   <Trash2 className="w-4 h-4" />
                 </button>
@@ -1903,292 +1779,161 @@ export default function ConfigTab({
         </div>
       </div>
 
-      {/* 7. RESET SYSTEM & DATA CLEAR */}
-      <div className="bg-white rounded-2xl shadow-sm border border-rose-100 p-6 space-y-4">
-        <h3 className="text-base font-bold text-slate-800 flex items-center space-x-2">
-          <Trash2 className="w-5 h-5 text-rose-500" />
-          <span>จัดการฐานข้อมูลระบบ (ล้างข้อมูล & เริ่มต้นใช้งานจริง)</span>
-        </h3>
-        <p className="text-xs text-slate-500 leading-relaxed">
-          หากท่านต้องการเริ่มใช้งานจริงในวันนี้ และต้องการล้างยอดขายตัวอย่างเดิมทั้งหมดออก สามารถเลือกล้างฐานข้อมูลได้จากปุ่มด้านล่างนี้ (เมื่อล้างแล้วไม่สามารถกู้คืนได้):
-        </p>
-
-        {/* Annual Reset Cycle Information Banner */}
-        <div className="bg-amber-50/70 border border-amber-200 rounded-2xl p-4 space-y-3">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <Clock className="w-5 h-5 text-amber-600" />
-              <span className="text-xs font-bold text-amber-900">รอบระยะเวลาใช้งานบัญชี (1-Year Auto Factory Reset Cycle)</span>
-            </div>
-            {onOpenAnnualModal && (
-              <button
-                type="button"
-                onClick={onOpenAnnualModal}
-                className="px-3 py-1 bg-amber-600 hover:bg-amber-700 text-white rounded-lg text-xs font-bold transition-all flex items-center gap-1 shadow-xs"
-              >
-                🔔 ทดลองเปิดป๊อปอัปแจ้งเตือน
-              </button>
-            )}
+      {/* 6. SYSTEM RESET & DATA MAINTENANCE */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
+        <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
+          <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <RotateCcw className="w-5 h-5" />
           </div>
-          
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
-            <div className="bg-white p-3 rounded-xl border border-amber-200/80">
-              <span className="text-slate-500 block text-[11px]">วันที่เริ่มเข้าใช้งานวันแรก:</span>
-              <span className="font-bold text-slate-800 text-sm">
-                {firstLoginDate ? formatThaiDate(firstLoginDate.split('T')[0]) : 'เริ่มต้นวันนี้'}
-              </span>
-            </div>
-            <div className="bg-white p-3 rounded-xl border border-amber-200/80">
-              <span className="text-slate-500 block text-[11px]">อายุการใช้งานสะสม:</span>
-              <span className="font-bold text-amber-700 text-sm">
-                {annualDaysElapsed} วัน {annualDaysElapsed >= 365 ? '(ครบ 1 ปี - อยู่ในระยะผ่อนผัน)' : `(เหลืออีก ${Math.max(0, 365 - annualDaysElapsed)} วันก่อนครบ 1 ปี)`}
-              </span>
-            </div>
+          <div>
+            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+              6. การสำรองข้อมูล & รีเซ็ตระบบ (1-Year Backup & System Maintenance)
+            </h3>
+            <p className="text-xs text-slate-500">
+              ระบบสำรองข้อมูลย้อนหลัง 1 ปี อัตโนมัติ และเครื่องมือจัดการข้อมูลร้านค้า
+            </p>
           </div>
-
-          <p className="text-[11px] text-amber-800 leading-relaxed bg-amber-100/60 p-2.5 rounded-xl border border-amber-200/60">
-            ℹ️ **กติการะบบอัตโนมัติ**: เมื่อใช้งานครบ 1 ปี (365 วัน) ระบบจะแสดงป๊อปอัปแจ้งเตือนทุกวันเป็นเวลา 1 เดือน (30 วัน) เพื่อให้ท่านดาวน์โหลดไฟล์ Report ย้อนหลังเก็บไว้ หลังจากนั้นระบบจะทำการ **Factory Reset อัตโนมัติ** เพื่อล้างข้อมูลและเริ่มต้นปีการทำงานใหม่
-          </p>
         </div>
 
-        {/* 1-Year Old Sales Cleanup Card (Performance & Firestore Optimization) */}
-        {(() => {
-          const oneYearAgoDate = new Date();
-          oneYearAgoDate.setFullYear(oneYearAgoDate.getFullYear() - 1);
-          const cutoffDateIso = oneYearAgoDate.toISOString().split('T')[0];
-
-          const oldSalesList = (sales || []).filter((s) => {
-            const sDate = s.date || (s.timestamp ? s.timestamp.split('T')[0] : '');
-            return sDate && sDate < cutoffDateIso;
-          });
-          const oldSalesCount = oldSalesList.length;
-
-          return (
-            <div className="p-4 border border-amber-200/90 bg-gradient-to-br from-amber-50/50 via-orange-50/30 to-amber-50/20 rounded-2xl space-y-3 shadow-2xs">
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                <div className="space-y-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="p-1.5 bg-amber-100 text-amber-700 rounded-lg">
-                      <Zap className="w-4 h-4" />
-                    </span>
-                    <span className="text-xs font-black text-amber-950 font-sans">
-                      ล้างข้อมูลบิลขายที่เก่ากว่า 1 ปี (เร่งความเร็ว & ประหยัดพื้นที่ Firestore)
-                    </span>
-                    <span className="text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-amber-200/80 text-amber-900 border border-amber-300">
-                      ⚡ เพิ่มประสิทธิภาพ
-                    </span>
-                  </div>
-                  <p className="text-[11px] text-slate-600 leading-relaxed font-sans">
-                    ลบเฉพาะประวัติบิลขายที่บันทึกไว้ก่อนวันที่ <strong>{formatThaiDate(cutoffDateIso)}</strong> (เกิน 365 วัน) เพื่อลดขนาดข้อมูลที่ต้องโหลดในหน้า Dashboard และประหยัดโควตา Cloud Firestore โดยยังคงเก็บประวัติบิลย้อนหลัง 1 ปีล่าสุด รวมถึงรายชื่อช่าง, รายการสินค้า, และข้อมูลสมาชิกไว้ครบถ้วนสมบูรณ์
-                  </p>
-                </div>
-
-                {/* Counter Badge */}
-                <div className="shrink-0 flex items-center gap-2 bg-white px-3 py-1.5 rounded-xl border border-amber-200 shadow-2xs self-start sm:self-center">
-                  <span className="text-[10px] text-slate-500 font-bold">บิลที่เกิน 1 ปี:</span>
-                  <span className={`text-xs font-black font-mono px-2 py-0.5 rounded-md ${
-                    oldSalesCount > 0 ? 'bg-amber-500 text-white animate-pulse' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {oldSalesCount} รายการ
-                  </span>
-                </div>
+        {/* 1-Year Backup & Lifecycle Banner Card */}
+        <div className="p-5 bg-gradient-to-br from-amber-50 via-orange-50/60 to-rose-50/50 rounded-2xl border border-amber-200/80 space-y-4">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+            <div className="flex items-start space-x-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+                <Package className="w-5 h-5" />
               </div>
+              <div className="space-y-0.5">
+                <div className="flex items-center gap-2">
+                  <h4 className="text-sm font-black text-slate-900">
+                    สำรองข้อมูลย้อนหลัง 1 ปี (Annual 1-Year Data Backup)
+                  </h4>
+                  <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border ${
+                    annualDaysElapsed >= 365
+                      ? 'bg-rose-100 text-rose-800 border-rose-300'
+                      : 'bg-emerald-100 text-emerald-800 border-emerald-300'
+                  }`}>
+                    {annualDaysElapsed >= 365 ? `⚠️ ครบกำหนด 1 ปี (ผ่อนผัน ${annualDaysRemaining} วัน)` : '🟢 ปกติ (กำลังบันทึกข้อมูล)'}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-600">
+                  วันแรกที่เปิดใช้งาน: <span className="font-semibold text-slate-900">{firstLoginDate ? formatThaiDate(firstLoginDate.split('T')[0]) : 'วันนี้'}</span> • ใช้งานมาแล้ว <span className="font-bold text-amber-700">{annualDaysElapsed} วัน</span> (จากรอบ 365 วัน)
+                </p>
+              </div>
+            </div>
 
-              {showClearOldSalesConfirm ? (
-                <div className="p-3.5 bg-amber-50/90 border border-amber-300 rounded-xl space-y-3 animate-fadeIn">
-                  <span className="block text-xs font-bold text-amber-900 flex items-center gap-1.5">
-                    <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0" />
-                    <span>ยืนยันการลบประวัติบิลขายที่เก่ากว่า 1 ปี (ก่อน {formatThaiDate(cutoffDateIso)})?</span>
-                  </span>
-                  <p className="text-[11px] text-amber-800 leading-relaxed font-sans">
-                    ระบบจะทำการลบบิลขายจำนวน <strong>{oldSalesCount} รายการ</strong> ออกจากฐานข้อมูลคลาวด์ Firestore อย่างถาวร ข้อมูลบิลขาย 1 ปีล่าสุด ({salesCount - oldSalesCount} รายการ) จะยังคงอยู่ครบถ้วน
-                  </p>
-                  <div className="flex gap-2">
-                    <button
-                      type="button"
-                      disabled={isClearingOldSales}
-                      onClick={() => setShowClearOldSalesConfirm(false)}
-                      className="flex-1 px-3 py-2 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-xl text-xs font-bold transition-all disabled:opacity-50 cursor-pointer"
-                    >
-                      ยกเลิก
-                    </button>
-                    <button
-                      type="button"
-                      disabled={isClearingOldSales}
-                      onClick={async () => {
-                        if (!onClearSalesOlderThanOneYear) return;
-                        setIsClearingOldSales(true);
-                        try {
-                          const count = await onClearSalesOlderThanOneYear();
-                          setShowClearOldSalesConfirm(false);
-                          setAlertDialog({
-                            isOpen: true,
-                            title: 'ล้างข้อมูลบิลเก่าสำเร็จ',
-                            message: `ล้างข้อมูลบิลขายที่เก่ากว่า 1 ปี สำเร็จเรียบร้อยแล้ว จำนวน ${count} รายการ! ช่วยเพิ่มประสิทธิภาพการโหลดหน้าจอและประหยัดพื้นที่จัดเก็บ Firestore เรียบร้อยครับ`
-                          });
-                        } catch (err: any) {
-                          setAlertDialog({
-                            isOpen: true,
-                            title: 'เกิดข้อผิดพลาด',
-                            message: err?.message || 'ไม่สามารถล้างข้อมูลบิลเก่าได้ กรุณาลองใหม่อีกครั้ง'
-                          });
-                        } finally {
-                          setIsClearingOldSales(false);
-                        }
-                      }}
-                      className="flex-1 px-3 py-2 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center gap-1.5 cursor-pointer disabled:opacity-50"
-                    >
-                      {isClearingOldSales ? (
-                        <>
-                          <RefreshCw className="w-3.5 h-3.5 animate-spin" />
-                          <span>กำลังล้างข้อมูล...</span>
-                        </>
-                      ) : (
-                        <>
-                          <Zap className="w-3.5 h-3.5" />
-                          <span>ยืนยันล้างบิลเก่า {oldSalesCount} รายการ</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="flex flex-col sm:flex-row items-center gap-3 pt-1">
-                  {oldSalesCount > 0 ? (
-                    <button
-                      type="button"
-                      onClick={() => setShowClearOldSalesConfirm(true)}
-                      className="w-full sm:w-auto px-5 py-2.5 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm shadow-amber-600/20 flex items-center justify-center space-x-2 cursor-pointer hover:scale-[1.01] active:scale-[0.99]"
-                    >
-                      <Zap className="w-4 h-4" />
-                      <span>ล้างข้อมูลบิลขายที่เก่ากว่า 1 ปี ({oldSalesCount} รายการ)</span>
-                    </button>
-                  ) : (
-                    <div className="w-full sm:w-auto px-4 py-2 bg-slate-100 text-slate-500 rounded-xl text-xs font-semibold flex items-center justify-center space-x-2 border border-slate-200/60">
-                      <Check className="w-4 h-4 text-emerald-600" />
-                      <span>ข้อมูลทุกบิลเป็นปัจจุบัน (ยังไม่มีบิลที่บันทึกไว้เกิน 1 ปี)</span>
-                    </div>
-                  )}
-                  <span className="text-[10px] text-slate-500 italic">
-                    * วันที่ตัดรอบ 1 ปี: บิลที่บันทึกก่อน {formatThaiDate(cutoffDateIso)}
-                  </span>
-                </div>
+            <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+              {onDownloadFullBackup && (
+                <button
+                  type="button"
+                  onClick={onDownloadFullBackup}
+                  className="px-3.5 py-2 bg-white hover:bg-amber-50 text-slate-800 border border-amber-300 rounded-xl text-xs font-bold transition-all shadow-xs flex items-center gap-1.5 cursor-pointer active:scale-98"
+                >
+                  <Download className="w-3.5 h-3.5 text-amber-600" />
+                  <span>ดาวน์โหลดไฟล์แบคอัพ 1 ปี</span>
+                </button>
+              )}
+
+              {onOpenAnnualModal && (
+                <button
+                  type="button"
+                  onClick={onOpenAnnualModal}
+                  className="px-3.5 py-2 bg-gradient-to-r from-amber-600 to-orange-600 hover:from-amber-700 hover:to-orange-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center gap-1.5 cursor-pointer active:scale-98"
+                >
+                  <FileText className="w-3.5 h-3.5" />
+                  <span>ดูหน้าต่างสรุป 1 ปี (Modal)</span>
+                </button>
               )}
             </div>
-          );
-        })()}
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-          {/* Option 1: Clear Sales Data only */}
-          <div className="p-4 border border-rose-100 bg-rose-50/10 rounded-2xl space-y-3">
-            <div>
-              <span className="block text-xs font-bold text-rose-700">ล้างประวัติการขายตัวอย่าง (แนะนำเมื่อเริ่มเปิดร้านจริง)</span>
-              <span className="block text-[10px] text-slate-500 mt-1">ลบประวัติบิลการขายเก่าทั้งหมดออก เพื่อให้ยอดขายสะสมเป็น 0 บาท แต่ยังคงชื่อช่างตัดผม รายการสินค้า และรหัสคูปองไว้ครบถ้วนเหมือนเดิม</span>
-            </div>
-            
-            {showClearSalesConfirm ? (
-              <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl space-y-3">
-                <span className="block text-xs font-bold text-rose-800 flex items-center gap-1">
-                  ⚠️ ยืนยันการล้างประวัติการขายหรือไม่?
-                </span>
-                <p className="text-[11px] text-rose-600 leading-relaxed font-semibold">
-                  ข้อมูลประวัติบิลการขายเก่าทั้งหมดจะถูกลบออกอย่างถาวรเป็น 0 บิล และไม่สามารถกู้คืนกลับมาใหม่ประการใด
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowClearSalesConfirm(false)}
-                    className="flex-1 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-all"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onClearSales();
-                      setShowClearSalesConfirm(false);
-                      setAlertDialog({
-                        isOpen: true,
-                        title: 'ล้างข้อมูลสำเร็จ',
-                        message: 'ล้างข้อมูลการขายสำเร็จ! ตอนนี้ประวัติการขายของคุณว่างเปล่า พร้อมสำหรับเริ่มต้นบริการวันนี้แล้วครับ'
-                      });
-                    }}
-                    className="flex-1 px-3 py-1.5 bg-rose-600 hover:bg-rose-700 text-white rounded-lg text-xs font-bold transition-all"
-                  >
-                    ยืนยันล้างสถิติ
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowClearSalesConfirm(true)}
-                className="w-full px-4 py-2 bg-rose-500 hover:bg-rose-600 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer"
-              >
-                <Trash2 className="w-4 h-4" />
-                <span>ล้างเฉพาะประวัติการขาย (มี {salesCount} รายการ)</span>
-              </button>
-            )}
           </div>
 
-          {/* Option 2: Full System Reset */}
-          <div className="p-4 border border-slate-200 bg-slate-50/30 rounded-2xl space-y-3">
-            <div>
-              <span className="block text-xs font-bold text-slate-700">รวมคืนค่าเริ่มต้นระบบทั้งหมด (Factory Reset)</span>
-              <span className="block text-[10px] text-slate-500 mt-1">รีเซ็ตชุดข้อมูลในเครื่องทั้งหมด ทั้งรายชื่อช่างตัดผม, รายการสินค้าขาย, อัตราส่วนและเงินปันผล และคูปองกลับไปยังค่าตั้งต้นโรงงานเดิม</span>
+          <div className="text-[11px] text-amber-900/90 bg-white/70 p-3 rounded-xl border border-amber-200/60 leading-relaxed space-y-1">
+            <p className="font-bold text-amber-950 flex items-center gap-1.5">
+              <Clock className="w-3.5 h-3.5 text-amber-600" />
+              <span>ระบบตรวจสอบอัตโนมัติเมื่อครบ 1 ปี:</span>
+            </p>
+            <p>
+              เมื่อบัญชีร้านใช้งานครบ 365 วัน (1 ปี) ระบบจะแสดงหน้าต่างแจ้งเตือนและปุ่มให้ดาวน์โหลดไฟล์สำรองข้อมูลย้อนหลัง 1 ปี (JSON, CSV, PDF) ขึ้นมาเองโดยอัตโนมัติ โดยมีระยะเวลาผ่อนผัน 30 วันให้บันทึกไฟล์ ก่อนที่ระบบจะทำการล้างและเริ่มรอบปีถัดไป
+            </p>
+          </div>
+        </div>
+
+        {/* 3 Maintenance Actions */}
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          
+          {/* Option A: Clear Sales Records */}
+          <div className="p-5 bg-amber-50/60 rounded-2xl border border-amber-200/80 flex flex-col justify-between space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-amber-900 font-extrabold text-sm">
+                <Trash2 className="w-4 h-4 text-amber-600 shrink-0" />
+                <span>1. ล้างประวัติบิลยอดขาย</span>
+              </div>
+              <p className="text-xs text-amber-800/80 leading-relaxed font-medium">
+                ลบประวัติการขายและรายการบิลทั้งหมด เพื่อเริ่มต้นรอบยอดขายใหม่ โดยคงรายชื่อช่าง สินค้า และการตั้งค่าไว้ตามเดิม
+              </p>
             </div>
 
-            {showFullResetConfirm ? (
-              <div className="p-3 bg-slate-100 border border-slate-300 rounded-xl space-y-3">
-                <span className="block text-xs font-bold text-slate-800 flex items-center gap-1">
-                  ⚠️ คำเตือน: ยืนยันการคืนค่าโรงงาน?
-                </span>
-                <p className="text-[11px] text-slate-600 leading-relaxed font-semibold">
-                  นี่คือการล้างระบบใหม่ทั้งหมด! รายชื่อช่างที่เปลี่ยนใหม่ สินค้า คูปองสะสม และข้อมูลบิลสะสมทั้งหมดจะกลับไปเป็นค่าเริ่มต้นเสมือนเพิ่งติดตั้งแอป
-                </p>
-                <div className="flex gap-2">
-                  <button
-                    type="button"
-                    onClick={() => setShowFullResetConfirm(false)}
-                    className="flex-1 px-3 py-1.5 bg-slate-200 hover:bg-slate-300 text-slate-700 rounded-lg text-xs font-bold transition-all"
-                  >
-                    ยกเลิก
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      onFullReset();
-                      setShowFullResetConfirm(false);
-                      setAlertDialog({
-                        isOpen: true,
-                        title: 'รีเซ็ตสำเร็จ',
-                        message: 'คืนค่าเริ่มต้นระบบทั้งหมดเสร็จสมบูรณ์เรียบร้อยแล้ว!'
-                      });
-                    }}
-                    className="flex-1 px-3 py-1.5 bg-slate-800 hover:bg-slate-900 text-white rounded-lg text-xs font-bold transition-all"
-                  >
-                    ยืนยันล้างระบบทั้งหมด
-                  </button>
-                </div>
-              </div>
-            ) : (
-              <button
-                type="button"
-                onClick={() => setShowFullResetConfirm(true)}
-                className="w-full px-4 py-2 bg-slate-800 hover:bg-slate-900 text-white rounded-xl text-xs font-bold transition-all shadow-xs flex items-center justify-center space-x-2 cursor-pointer"
-              >
-                <Power className="w-4 h-4" />
-                <span>คืนค่าเริ่มต้นคืนสภาพโรงงานใหม่ทั้งหมด</span>
-              </button>
-            )}
+            <button
+              type="button"
+              onClick={onClearSales}
+              className="w-full py-2.5 bg-amber-600 hover:bg-amber-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-98"
+            >
+              <RotateCcw className="w-3.5 h-3.5" />
+              <span>รีเซ็ตประวัติการขาย</span>
+            </button>
           </div>
+
+          {/* Option B: Clear Sales Older Than 1 Year */}
+          <div className="p-5 bg-slate-50 rounded-2xl border border-slate-200 flex flex-col justify-between space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-slate-900 font-extrabold text-sm">
+                <Clock className="w-4 h-4 text-slate-600 shrink-0" />
+                <span>2. ล้างบิลเก่ากว่า 1 ปี</span>
+              </div>
+              <p className="text-xs text-slate-600 leading-relaxed font-medium">
+                ค้นหาและลบบิลยอดขายที่มีอายุเกิน 365 วันออกอย่างปลอดภัย ช่วยเพิ่มความเร็วและลดพื้นที่จัดเก็บ
+              </p>
+            </div>
+
+            <button
+              type="button"
+              disabled={isClearingOldSales}
+              onClick={handleClearOldSalesClick}
+              className="w-full py-2.5 bg-slate-800 hover:bg-slate-900 disabled:bg-slate-400 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-98"
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${isClearingOldSales ? 'animate-spin' : ''}`} />
+              <span>{isClearingOldSales ? 'กำลังตรวจสอบ...' : 'ล้างบิลเก่ากว่า 1 ปี'}</span>
+            </button>
+          </div>
+
+          {/* Option C: Factory Reset */}
+          <div className="p-5 bg-rose-50/60 rounded-2xl border border-rose-200/80 flex flex-col justify-between space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-rose-900 font-extrabold text-sm">
+                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>3. คืนค่าเริ่มต้นจากโรงงาน</span>
+              </div>
+              <p className="text-xs text-rose-800/80 leading-relaxed font-medium">
+                ล้างข้อมูลร้าน บิลขาย รายชื่อช่าง และสินค้าทั้งหมด คืนค่าระบบกลับสู่สถานะเริ่มต้นใหม่ทั้งหมด
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={onFullReset}
+              className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-98"
+            >
+              <AlertTriangle className="w-3.5 h-3.5" />
+              <span>รีเซ็ตระบบทั้งหมด (Reset All)</span>
+            </button>
+          </div>
+
         </div>
       </div>
 
       {/* Custom Confirmation Modal */}
       {confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs transition-opacity animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5 animate-scaleUp">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs transition-opacity">
+          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5">
             <div className="flex items-start space-x-3.5">
               <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
                 confirmDialog.type === 'danger' ? 'bg-rose-50 text-rose-600' :
@@ -2197,8 +1942,8 @@ export default function ConfigTab({
                 {confirmDialog.type === 'danger' ? <Trash2 className="w-5 h-5" /> : <AlertCircle className="w-5 h-5" />}
               </div>
               <div className="space-y-1 text-left">
-                <h3 className="text-base font-extrabold text-slate-950 font-sans">{confirmDialog.title}</h3>
-                <p className="text-xs text-slate-500 leading-relaxed font-sans">{confirmDialog.message}</p>
+                <h3 className="text-base font-extrabold text-slate-950">{confirmDialog.title}</h3>
+                <p className="text-xs text-slate-500 leading-relaxed">{confirmDialog.message}</p>
               </div>
             </div>
             
@@ -2213,9 +1958,9 @@ export default function ConfigTab({
               <button
                 type="button"
                 onClick={confirmDialog.onConfirm}
-                className={`px-4.5 py-2 text-white rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                  confirmDialog.type === 'danger' ? 'bg-rose-600 hover:bg-rose-700 shadow-sm shadow-rose-100' :
-                  confirmDialog.type === 'warning' ? 'bg-amber-600 hover:bg-amber-700 shadow-sm shadow-amber-100' : 'bg-indigo-600 hover:bg-indigo-700 shadow-sm shadow-indigo-100'
+                className={`px-5 py-2 text-white rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  confirmDialog.type === 'danger' ? 'bg-rose-600 hover:bg-rose-700' :
+                  confirmDialog.type === 'warning' ? 'bg-amber-600 hover:bg-amber-700' : 'bg-slate-900 hover:bg-slate-800'
                 }`}
               >
                 ยืนยันการทำรายการ
@@ -2227,14 +1972,14 @@ export default function ConfigTab({
 
       {/* Custom Alert Modal */}
       {alertDialog.isOpen && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs transition-opacity animate-fadeIn">
-          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-center animate-scaleUp">
-            <div className="w-12 h-12 bg-indigo-50 text-indigo-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
+        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs transition-opacity">
+          <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-center">
+            <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
               <Check className="w-6 h-6" />
             </div>
             <div className="space-y-1.5">
-              <h3 className="text-sm font-extrabold text-slate-900 font-sans">{alertDialog.title}</h3>
-              <p className="text-xs text-slate-500 leading-relaxed font-sans">{alertDialog.message}</p>
+              <h3 className="text-sm font-extrabold text-slate-900">{alertDialog.title}</h3>
+              <p className="text-xs text-slate-500 leading-relaxed">{alertDialog.message}</p>
             </div>
             <button
               type="button"

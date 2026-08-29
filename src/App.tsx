@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, CustomerSubscription, Member, MemberPackage } from './types';
+import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, Member, MemberPackage } from './types';
 import { getThemePreset, generateShade, hexToHsl } from './themes';
 import { 
   INITIAL_BARBERS, 
@@ -16,10 +16,14 @@ import DashboardTab from './components/DashboardTab';
 import ConfigTab from './components/ConfigTab';
 import CashCounterTab from './components/CashCounterTab';
 import PayslipsTab from './components/PayslipsTab';
-import SuperAdminTab from './components/SuperAdminTab';
 import AnnualResetModal from './components/AnnualResetModal';
-import MembersTab from './components/MembersTab';
 import { ExpensesTab } from './components/ExpensesTab';
+import { 
+  SystemBackupData, 
+  exportFullSystemBackupJson, 
+  downloadExcelReport, 
+  formatThaiDate 
+} from './utils';
 import { 
   Scissors, 
   LayoutDashboard, 
@@ -48,7 +52,10 @@ import {
   CheckCircle2,
   Eye,
   EyeOff,
-  ArrowDownCircle
+  ArrowDownCircle,
+  Download,
+  FileText,
+  Package
 } from 'lucide-react';
 import { 
   db, 
@@ -109,11 +116,6 @@ function cleanUndefined<T>(obj: T): T {
   }
   return obj;
 }
-
-const SUPER_ADMIN_EMAILS = [
-  'kunakorn.k66@gmail.com',
-  'admin@barberpos.com'
-];
 
 export default function App() {
   const [userEmail, setUserEmail] = useState<string | null>(() => {
@@ -245,17 +247,7 @@ export default function App() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashCounter, setCashCounter] = useState<CashCounterState | null>(null);
-  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'expenses' | 'config' | 'cash' | 'payslips' | 'superadmin'>('sales');
-
-  const isSuperAdmin = useMemo(() => {
-    if (!userEmail) return false;
-    const clean = userEmail.trim().toLowerCase();
-    return SUPER_ADMIN_EMAILS.includes(clean);
-  }, [userEmail]);
-
-  const [subscriptionInfo, setSubscriptionInfo] = useState<CustomerSubscription | null>(null);
-  const [subCheckStatus, setSubCheckStatus] = useState<'checking' | 'approved' | 'pending' | 'suspended' | 'expired'>('checking');
-  const [graceDaysLeft, setGraceDaysLeft] = useState<number | null>(null);
+  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'expenses' | 'config' | 'cash' | 'payslips'>('sales');
 
   // 1-Year Annual Reset Tracker State
   const [firstLoginDate, setFirstLoginDate] = useState<string>('');
@@ -441,129 +433,6 @@ export default function App() {
     }
     appNameMeta.content = shopName;
   }, [shopConfig?.shopName]);
-
-  // Real-time subscription and approval status tracking for customer accounts
-  useEffect(() => {
-    if (!userEmail) {
-      setSubCheckStatus('checking');
-      setSubscriptionInfo(null);
-      setGraceDaysLeft(null);
-      return;
-    }
-
-    const cleanEmail = userEmail.trim().toLowerCase();
-    const isSuper = SUPER_ADMIN_EMAILS.includes(cleanEmail);
-    const isGuest = cleanEmail === 'guest@gmail.com';
-
-    // Super Admins & Guest Sandbox bypass restrictions automatically
-    if (isSuper || isGuest) {
-      setSubCheckStatus('approved');
-      setGraceDaysLeft(null);
-      return;
-    }
-
-    const subDocRef = doc(db, "subscriptions", cleanEmail);
-    const unsubscribe = onSnapshot(subDocRef, async (docSnap) => {
-      const today = new Date().toISOString().split('T')[0];
-      const todayMs = new Date(today).getTime();
-
-      if (!docSnap.exists()) {
-        // First login -> create pending subscription record
-        const nextMonth = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-        const initialSub: CustomerSubscription = {
-          email: cleanEmail,
-          shopName: shopConfig?.shopName || 'ระบบร้านบาร์เบอร์ POS ของคุณ',
-          status: 'pending',
-          startDate: today,
-          expiryDate: nextMonth,
-          isOnline: true,
-          lastActiveAt: new Date().toISOString(),
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString()
-        };
-
-        try {
-          await setDoc(subDocRef, initialSub, { merge: true });
-        } catch (e) {
-          console.warn("Could not save initial subscription doc:", e);
-        }
-
-        setSubscriptionInfo(initialSub);
-        setSubCheckStatus('pending');
-        setGraceDaysLeft(null);
-      } else {
-        const data = docSnap.data() as CustomerSubscription;
-        setSubscriptionInfo(data);
-
-        // Note: do not update subDocRef inside onSnapshot callback to avoid write listener loop
-        if (data.status === 'suspended') {
-          setSubCheckStatus('suspended');
-          setGraceDaysLeft(null);
-        } else if (data.status === 'pending') {
-          setSubCheckStatus('pending');
-          setGraceDaysLeft(null);
-        } else if (data.status === 'approved') {
-          const expiry = data.expiryDate || today;
-          const expiryMs = new Date(expiry).getTime();
-          const diffDays = Math.floor((expiryMs - todayMs) / (1000 * 60 * 60 * 24));
-
-          if (diffDays >= 0) {
-            setSubCheckStatus('approved');
-            setGraceDaysLeft(null);
-          } else if (diffDays >= -7) {
-            const grace = 7 + diffDays;
-            setSubCheckStatus('approved');
-            setGraceDaysLeft(grace);
-          } else {
-            setSubCheckStatus('expired');
-            setGraceDaysLeft(null);
-          }
-        }
-      }
-    }, (err) => {
-      handleFirestoreError(err, OperationType.GET, `subscriptions/${cleanEmail}`);
-      // Fallback to approved on offline error
-      setSubCheckStatus('approved');
-    });
-
-    return () => unsubscribe();
-  }, [userEmail, shopConfig?.shopName]);
-
-  // Daily Expiry Warning Popup State for store clients (เตือนก่อนหมดอายุ 7 วัน)
-  const [showExpiryModalAlert, setShowExpiryModalAlert] = useState(false);
-  const [daysLeftForCustomer, setDaysLeftForCustomer] = useState<number | null>(null);
-
-  useEffect(() => {
-    if (!userEmail || isSuperAdmin || subCheckStatus !== 'approved' || !subscriptionInfo?.expiryDate) {
-      setShowExpiryModalAlert(false);
-      return;
-    }
-
-    const todayStr = new Date().toISOString().split('T')[0];
-    const todayMs = new Date(todayStr).getTime();
-    const expiryMs = new Date(subscriptionInfo.expiryDate).getTime();
-    const diffDays = Math.ceil((expiryMs - todayMs) / (1000 * 60 * 60 * 24));
-
-    setDaysLeftForCustomer(diffDays);
-
-    // Show daily warning popup if within 7 days of expiry or in grace period
-    if (diffDays <= 7) {
-      const dismissKey = `barber_pos_expiry_popup_dismissed_${userEmail}_${todayStr}`;
-      const alreadyDismissedToday = localStorage.getItem(dismissKey);
-      if (!alreadyDismissedToday) {
-        setShowExpiryModalAlert(true);
-      }
-    }
-  }, [userEmail, isSuperAdmin, subCheckStatus, subscriptionInfo?.expiryDate]);
-
-  const handleDismissExpiryModalToday = () => {
-    if (userEmail) {
-      const todayStr = new Date().toISOString().split('T')[0];
-      const dismissKey = `barber_pos_expiry_popup_dismissed_${userEmail}_${todayStr}`;
-      localStorage.setItem(dismissKey, 'true');
-    }
-    setShowExpiryModalAlert(false);
-  };
 
   // Connection & logging status for Firebase
   const [firebaseStatus, setFirebaseStatus] = useState<'checking' | 'connected' | 'error'>('checking');
@@ -1209,6 +1078,80 @@ export default function App() {
       });
   };
 
+  const handleDownloadFullBackupNow = () => {
+    try {
+      const totalIncome = correctedSales.reduce((sum, s) => sum + (s.customerPaid || 0), 0);
+      const backupData: SystemBackupData = {
+        version: '1.0.0',
+        backupDate: new Date().toISOString(),
+        backupType: '1-year-annual',
+        userEmail: userEmail || 'unknown',
+        shopName: shopConfig.shopName || 'ร้านบาร์เบอร์ของฉัน',
+        firstLoginDate: firstLoginDate || undefined,
+        daysActive: annualDaysElapsed,
+        totalSalesCount: correctedSales.length,
+        totalIncome,
+        data: {
+          shopConfig,
+          shareConfig,
+          barbers,
+          products,
+          chemicalPromos,
+          vouchers,
+          sales: correctedSales,
+          expenses,
+          payslips,
+          cashCounter,
+          members,
+          memberPackages
+        }
+      };
+
+      const cleanShop = (shopConfig.shopName || 'BarberPOS').replace(/[/\\?%*:|"<>]/g, '-');
+      const dateStr = new Date().toISOString().split('T')[0];
+      
+      // 1. Export JSON Full Backup
+      exportFullSystemBackupJson(backupData, `สำรองข้อมูลระบบ1ปี_ร้าน${cleanShop}_${dateStr}.json`);
+
+      // 2. Export Excel/CSV Sales Report
+      const headers = [
+        'วันที่ทำรายการ',
+        'เลขที่บิล (ID)',
+        'ชื่อช่างผู้ให้บริการ',
+        'ชื่อลูกค้า / หมายเหตุ',
+        'ค่าบริการตัดผม (บาท)',
+        'ค่าบริการเคมี (บาท)',
+        'สินค้า (บาท)',
+        'ส่วนลดรวม (บาท)',
+        'ยอดรับชำระจริง (บาท)',
+        'ช่องทางชำระเงิน',
+        'ส่วนแบ่งช่าง (บาท)',
+        'ส่วนแบ่งร้าน (บาท)',
+        'ทิป (บาท)'
+      ];
+
+      const rows: string[][] = correctedSales.map((s) => [
+        s.timestamp ? formatThaiDate(s.timestamp.split('T')[0]) + ' ' + (s.timestamp.split('T')[1]?.substring(0, 5) || '') : (s.date || ''),
+        s.id || '',
+        s.barberName || '',
+        s.customerName || s.notes || '-',
+        (s.haircutPrice || 0).toString(),
+        (s.chemicalPrice || 0).toString(),
+        (s.productPrice || 0).toString(),
+        (s.discountAmount || 0).toString(),
+        (s.customerPaid || 0).toString(),
+        s.paymentMethod === 'cash' ? 'เงินสด' : s.paymentMethod === 'transfer' ? 'เงินโอน/สแกน' : 'จ่ายผสม/เครดิต',
+        (s.barberTotalShare || 0).toString(),
+        (s.shopTotalShare || 0).toString(),
+        (s.tip || 0).toString()
+      ]);
+
+      downloadExcelReport(`รายงานประวัติบิล1ปี_ร้าน_${cleanShop}_${dateStr}`, rows, headers);
+    } catch (err) {
+      console.error('Failed to trigger full backup:', err);
+    }
+  };
+
   const handleFullReset = () => {
     setShowFullResetConfirm(true);
   };
@@ -1216,6 +1159,14 @@ export default function App() {
   const confirmFullReset = () => {
     if (!userEmail) return;
     setShowFullResetConfirm(false);
+
+    // Automatically trigger full backup before destructive reset
+    try {
+      handleDownloadFullBackupNow();
+    } catch (err) {
+      console.warn("Could not auto-download backup before reset:", err);
+    }
+
     setIsLoading(true);
     
     // Clear all local storage caches for this user
@@ -1583,7 +1534,6 @@ export default function App() {
   const confirmLogout = () => {
     localStorage.removeItem('barber_pos_user_email');
     setUserEmail(null);
-    setSubCheckStatus('checking');
     setEmailInput('');
     setLoginError('');
     setShowLogoutConfirm(false);
@@ -1806,107 +1756,8 @@ export default function App() {
     );
   }
 
-  // Restricted Access Screen for accounts pending approval, suspended, or expired past 7 days
-  if (userEmail && !isSuperAdmin && (subCheckStatus === 'pending' || subCheckStatus === 'suspended' || subCheckStatus === 'expired')) {
-    return (
-      <div className="min-h-screen bg-slate-900 text-white flex flex-col items-center justify-center font-sans p-4 antialiased selection:bg-amber-500 selection:text-slate-950">
-        <div className="w-full max-w-md bg-slate-800/90 rounded-3xl border border-slate-700/80 p-8 shadow-2xl backdrop-blur-md space-y-6 text-center animate-slide-up relative overflow-hidden">
-          
-          <div className="absolute -right-12 -top-12 w-48 h-48 bg-amber-500/10 rounded-full blur-2xl pointer-events-none"></div>
-
-          {/* Icon Header */}
-          <div className="relative">
-            {subCheckStatus === 'pending' && (
-              <div className="w-16 h-16 bg-amber-500/20 text-amber-400 rounded-3xl border border-amber-500/30 flex items-center justify-center mx-auto shadow-lg shadow-amber-500/10 animate-bounce">
-                <Clock className="w-8 h-8" />
-              </div>
-            )}
-            {subCheckStatus === 'suspended' && (
-              <div className="w-16 h-16 bg-rose-500/20 text-rose-400 rounded-3xl border border-rose-500/30 flex items-center justify-center mx-auto shadow-lg shadow-rose-500/10">
-                <Lock className="w-8 h-8" />
-              </div>
-            )}
-            {subCheckStatus === 'expired' && (
-              <div className="w-16 h-16 bg-orange-500/20 text-orange-400 rounded-3xl border border-orange-500/30 flex items-center justify-center mx-auto shadow-lg shadow-orange-500/10">
-                <ShieldAlert className="w-8 h-8" />
-              </div>
-            )}
-          </div>
-
-          <div className="space-y-2">
-            <h1 className="text-xl sm:text-2xl font-black tracking-tight text-white">
-              {subCheckStatus === 'pending' && 'อยู่ระหว่างรอการอนุมัติใช้งานระบบ'}
-              {subCheckStatus === 'suspended' && 'บัญชีร้านค้าถูกระงับสิทธิ์การใช้งาน'}
-              {subCheckStatus === 'expired' && 'แพ็กเกจใช้งานหมดอายุ'}
-            </h1>
-            <p className="text-xs text-slate-300 leading-relaxed font-medium">
-              {subCheckStatus === 'pending' && 'ระบบได้รับบัญชีอีเมลของคุณแล้ว ขณะนี้อยู่ระหว่างรอผู้ดูแลระบบ (Super Admin) ตรวจสอบและอนุมัติสิทธิ์ในการเข้าใช้งาน'}
-              {subCheckStatus === 'suspended' && 'บัญชีผู้ใช้ของคุณถูกระงับการเข้าถึงชั่วคราวตามนโยบายของผู้ดูแลระบบ'}
-              {subCheckStatus === 'expired' && 'แพ็กเกจการใช้งานรายเดือนของคุณหมดอายุลงเกินระยะเวลาผ่อนผัน 7 วันแล้ว'}
-            </p>
-          </div>
-
-          {/* Store Info Card */}
-          <div className="bg-slate-900/80 rounded-2xl p-4 border border-slate-700/80 text-left space-y-2">
-            {subscriptionInfo?.expiryDate && (
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-slate-400 font-semibold">วันหมดอายุแพ็กเกจ:</span>
-                <span className="font-mono font-bold text-slate-300">{subscriptionInfo.expiryDate}</span>
-              </div>
-            )}
-            <div className="flex items-center justify-between text-xs pt-1 border-t border-slate-800">
-              <span className="text-slate-400 font-semibold">สถานะข้อมูลประวัติ:</span>
-              <span className="text-emerald-400 font-bold flex items-center gap-1">
-                <CheckCircle2 className="w-3.5 h-3.5" />
-                <span>ปลอดภัย 100% ไม่ถูกลบ</span>
-              </span>
-            </div>
-          </div>
-
-          <div className="p-3.5 bg-amber-500/10 border border-amber-500/20 rounded-2xl text-[11px] text-amber-200/90 text-left space-y-1">
-            <p className="font-bold text-amber-300 flex items-center gap-1">
-              <ShieldCheck className="w-3.5 h-3.5" />
-              <span>วิธีดำเนินการต่อ:</span>
-            </p>
-            <p className="leading-snug">
-              กรุณาติดต่อผู้ดูแลระบบ (Super Admin) เพื่อแจ้งอนุมัติสิทธิ์ หรือ ชำระค่าบริการต่ออายุแพ็กเกจรายเดือน หลังจากนั้นให้กดปุ่ม "ตรวจสอบสิทธิ์อีกครั้ง"
-            </p>
-          </div>
-
-          <div className="flex flex-col sm:flex-row items-center gap-3 pt-2">
-            <button
-              onClick={() => window.location.reload()}
-              className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold rounded-2xl text-xs transition-all shadow-md active:scale-95 flex items-center justify-center space-x-2 cursor-pointer"
-            >
-              <RefreshCw className="w-4 h-4" />
-              <span>ตรวจสอบสิทธิ์อีกครั้ง</span>
-            </button>
-            <button
-              onClick={confirmLogout}
-              className="w-full py-3 bg-rose-600/90 hover:bg-rose-600 text-white font-bold rounded-2xl text-xs transition-all flex items-center justify-center space-x-2 cursor-pointer shadow-md active:scale-95"
-            >
-              <LogOut className="w-4 h-4" />
-              <span>ออกจากระบบ (Sign Out)</span>
-            </button>
-          </div>
-
-        </div>
-      </div>
-    );
-  }
-
   return (
     <div className="min-h-screen bg-slate-50 text-slate-800 flex flex-col font-sans selection:bg-indigo-500 selection:text-white antialiased">
-      
-      {/* 7-Day Grace Period Warning Banner */}
-      {graceDaysLeft !== null && graceDaysLeft >= 0 && (
-        <div className="bg-amber-500 text-slate-950 px-4 py-2.5 text-xs font-bold text-center flex items-center justify-center space-x-2 shadow-sm border-b border-amber-600">
-          <AlertTriangle className="w-4 h-4 text-slate-950 shrink-0 animate-bounce" />
-          <span>
-            ⚠️ แจ้งเตือน: แพ็กเกจของคุณหมดอายุแล้วเมื่อวันที่ {subscriptionInfo?.expiryDate} (ขณะนี้อยู่ในช่วงผ่อนผันใช้งาน เหลือเวลาผ่อนผันอีก {graceDaysLeft} วัน) กรุณาติดต่อชำระค่าบริการรายเดือนเพื่อใช้งานได้อย่างต่อเนื่อง
-          </span>
-        </div>
-      )}
       
       {/* Dynamic Brand Color & Theme Overrides */}
       {(() => {
@@ -2053,7 +1904,6 @@ export default function App() {
                 ...(shopConfig?.enableCashCounter !== false ? [{ id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 { id: 'config' as const, label: 'ตั้งค่า', icon: <Settings className="w-3.5 h-3.5 text-indigo-500" /> },
-                ...(isSuperAdmin ? [{ id: 'superadmin' as const, label: 'จัดการสิทธิ์ลูกค้า', icon: <ShieldCheck className="w-3.5 h-3.5 text-amber-500 animate-pulse" /> }] : []),
               ].map((tab, idx) => (
                 <button
                   key={tab.id}
@@ -2107,6 +1957,37 @@ export default function App() {
         </div>
       </header>
 
+      {/* 1.1 Sticky 1-Year Warning Banner when 365 days elapsed */}
+      {annualDaysElapsed >= 365 && (
+        <div className="bg-gradient-to-r from-amber-500 via-orange-500 to-rose-600 text-white py-2.5 px-4 shadow-md sticky top-[72px] z-40">
+          <div className="max-w-7xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+            <div className="flex items-center space-x-2.5">
+              <span className="p-1 bg-white/20 rounded-lg">
+                <Clock className="w-4 h-4 text-white" />
+              </span>
+              <div>
+                <span className="font-extrabold">แจ้งเตือนครบรอบ 1 ปี:</span> บัญชีของคุณใช้งานครบ {annualDaysElapsed} วันแล้ว (เหลือเวลาผ่อนผัน {annualDaysRemaining} วัน ก่อนระบบเริ่มรอบปีถัดไป)
+              </div>
+            </div>
+            <div className="flex items-center space-x-2 shrink-0">
+              <button
+                onClick={handleDownloadFullBackupNow}
+                className="px-3 py-1 bg-white text-slate-900 font-extrabold rounded-lg text-xs hover:bg-amber-50 transition-all flex items-center gap-1 shadow-xs cursor-pointer"
+              >
+                <Download className="w-3.5 h-3.5 text-amber-600" />
+                <span>โหลดแบคอัพ 1 ปี</span>
+              </button>
+              <button
+                onClick={() => setShowAnnualResetModal(true)}
+                className="px-3 py-1 bg-white/20 hover:bg-white/30 text-white font-bold rounded-lg text-xs transition-all flex items-center gap-1 cursor-pointer border border-white/30"
+              >
+                <FileText className="w-3.5 h-3.5" />
+                <span>เปิดดูรายงานสรุป (Modal)</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* 2. Main Content Module */}
       <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -2158,19 +2039,19 @@ export default function App() {
 
         {activeTab === 'config' && (
           <div className="tab-content-enter">
-            <ConfigTab
+            <ConfigTab 
               userEmail={userEmail}
-              sales={correctedSales}
               barbers={barbers}
               products={products}
               chemicalPromos={chemicalPromos}
               shareConfig={shareConfig}
               shopConfig={shopConfig}
               vouchers={vouchers}
-              salesCount={correctedSales.length}
               firstLoginDate={firstLoginDate}
               annualDaysElapsed={annualDaysElapsed}
+              annualDaysRemaining={annualDaysRemaining}
               onOpenAnnualModal={() => setShowAnnualResetModal(true)}
+              onDownloadFullBackup={handleDownloadFullBackupNow}
               onUpdateBarbers={handleUpdateBarbers}
               onUpdateProducts={handleUpdateProducts}
               onUpdateChemicalPromos={handleUpdateChemicalPromos}
@@ -2206,12 +2087,6 @@ export default function App() {
               payslips={payslips}
               onUpdatePayslips={handleUpdatePayslips}
             />
-          </div>
-        )}
-
-        {activeTab === 'superadmin' && isSuperAdmin && (
-          <div className="tab-content-enter">
-            <SuperAdminTab currentAdminEmail={userEmail} />
           </div>
         )}
       </main>
@@ -2417,6 +2292,16 @@ export default function App() {
         userEmail={userEmail || ''}
         sales={correctedSales}
         expenses={expenses}
+        barbers={barbers}
+        products={products}
+        chemicalPromos={chemicalPromos}
+        shareConfig={shareConfig}
+        shopConfig={shopConfig}
+        vouchers={vouchers}
+        members={members}
+        memberPackages={memberPackages}
+        payslips={payslips}
+        cashCounter={cashCounter}
         shopName={shopConfig.shopName}
         onTriggerFactoryResetNow={() => {
           setShowAnnualResetModal(false);
@@ -2647,54 +2532,6 @@ export default function App() {
                 className="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-2xl text-xs font-bold transition-all cursor-pointer"
               >
                 ปิดหน้าต่าง
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Customer 7-Day Expiry Warning Modal Dialog */}
-      {showExpiryModalAlert && (
-        <div className="fixed inset-0 bg-slate-900/70 backdrop-blur-xs flex items-center justify-center p-4 z-50 font-sans animate-fade-in">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl space-y-5 border border-slate-100 animate-scale-up relative">
-            <div className="text-center space-y-2">
-              <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-3xl border border-amber-200/80 flex items-center justify-center mx-auto shadow-md animate-bounce">
-                <AlertTriangle className="w-8 h-8" />
-              </div>
-              <h2 className="text-lg font-black text-slate-900 tracking-tight">
-                {daysLeftForCustomer !== null && daysLeftForCustomer >= 0
-                  ? `⚠️ แพ็กเกจของคุณใกล้หมดอายุ (เหลือ ${daysLeftForCustomer} วัน)`
-                  : `⚠️ แพ็กเกจของคุณหมดอายุแล้ว (อยู่ในช่วงผ่อนผัน)`}
-              </h2>
-              <p className="text-xs text-slate-500 font-medium leading-relaxed">
-                แจ้งเตือนสำหรับร้าน <span className="font-bold text-slate-800">{subscriptionInfo?.shopName || 'ของคุณ'}</span> ({userEmail})
-              </p>
-            </div>
-
-            <div className="bg-amber-50/80 border border-amber-200/80 rounded-2xl p-4 text-xs space-y-2 text-slate-700">
-              <div className="flex justify-between items-center border-b border-amber-200/60 pb-2">
-                <span className="font-semibold text-slate-500">วันหมดอายุแพ็กเกจ:</span>
-                <span className="font-mono font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md border border-rose-200">
-                  {subscriptionInfo?.expiryDate}
-                </span>
-              </div>
-              <p className="text-[11px] leading-relaxed text-slate-600 pt-1">
-                กรุณาติดต่อผู้ดูแลระบบ (Super Admin) เพื่อชำระค่าบริการต่ออายุแพ็กเกจรายเดือน จะได้สามารถใช้งานระบบได้อย่างต่อเนื่อง ข้อมูลประวัติการขาย สินค้า และสถิติทั้งหมดของคุณปลอดภัย ไม่สูญหาย
-              </p>
-            </div>
-
-            <div className="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-[10px] text-slate-400 text-center font-medium">
-              💡 ป๊อบอัปนี้จะแสดงเตือนวันละ 1 ครั้งเมื่อเข้าใช้งานโปรแกรม
-            </div>
-
-            <div className="flex items-center space-x-3 pt-1 font-sans">
-              <button
-                type="button"
-                onClick={handleDismissExpiryModalToday}
-                className="w-full py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-2xl text-xs font-extrabold cursor-pointer transition-all shadow-md active:scale-95 flex items-center justify-center space-x-2"
-              >
-                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span>รับทราบ / เข้าใช้งานต่อ</span>
               </button>
             </div>
           </div>

@@ -26,6 +26,7 @@ import {
   exportAsyncMonthlyPdfReport
 } from '../utils';
 import { DailySalesChart } from './DailySalesChart';
+import { AnnualOverview } from './AnnualOverview';
 import { 
   TrendingUp, 
   Users, 
@@ -274,8 +275,8 @@ export default function DashboardTab({
   const [historySelectedMonth, setHistorySelectedMonth] = useState<string>('all');
   const [historySelectedBarberId, setHistorySelectedBarberId] = useState<string>('all');
 
-  // Dashboard view mode state: 'daily' | 'monthly' | 'all'
-  const [dashboardViewMode, setDashboardViewMode] = useState<'daily' | 'monthly' | 'all'>('all');
+  // Dashboard view mode state: 'daily' | 'monthly' | 'annual' | 'all'
+  const [dashboardViewMode, setDashboardViewMode] = useState<'daily' | 'monthly' | 'annual' | 'all'>('all');
 
   // Controls for Daily Cash & Transfer Breakdown Table (1st of month to present)
   const [breakdownSortAsc, setBreakdownSortAsc] = useState<boolean>(true); // Default: วันที่ 1 -> ปัจจุบัน
@@ -2358,6 +2359,19 @@ export default function DashboardTab({
 
             <button
               type="button"
+              onClick={() => setDashboardViewMode('annual')}
+              className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
+                dashboardViewMode === 'annual'
+                  ? 'bg-gradient-to-r from-amber-600 to-orange-600 text-white shadow-sm'
+                  : 'text-slate-600 hover:text-slate-900 hover:bg-slate-200/50'
+              }`}
+            >
+              <TrendingUp className="w-4 h-4" />
+              <span>📈 สรุปรายปี (Annual Overview)</span>
+            </button>
+
+            <button
+              type="button"
               onClick={() => setDashboardViewMode('all')}
               className={`flex items-center space-x-2 px-4 py-2 rounded-xl text-xs font-extrabold transition-all cursor-pointer ${
                 dashboardViewMode === 'all'
@@ -2423,7 +2437,7 @@ export default function DashboardTab({
 
           <div className="text-[11px] text-slate-500 font-mono flex items-center space-x-2">
             <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span>มุมมองที่เลือก: <strong className="text-slate-800 font-sans">{dashboardViewMode === 'daily' ? '📊 รายงานรายวัน' : dashboardViewMode === 'monthly' ? '📅 รายงานรายเดือน' : '👁️ แสดงทั้งหมด'}</strong></span>
+            <span>มุมมองที่เลือก: <strong className="text-slate-800 font-sans">{dashboardViewMode === 'daily' ? '📊 รายงานรายวัน' : dashboardViewMode === 'monthly' ? '📅 รายงานรายเดือน' : dashboardViewMode === 'annual' ? '📈 สรุปภาพรวมรายปี' : '👁️ แสดงทั้งหมด'}</strong></span>
           </div>
         </div>
       </div>
@@ -3790,6 +3804,24 @@ export default function DashboardTab({
 
       </div>
       </>
+      )}
+
+      {/* ========================================================== */}
+      {/* SECTION 3: ANNUAL OVERVIEW & 12-MONTH FISCAL TRENDS */}
+      {/* ========================================================== */}
+      {(dashboardViewMode === 'annual' || dashboardViewMode === 'all') && (
+        <AnnualOverview
+          sales={sales}
+          expenses={expenses}
+          shareConfig={shareConfig}
+          shopConfig={shopConfig}
+          barbers={barbers}
+          payslips={payslips}
+          onSelectMonth={(m) => {
+            setSelectedMonth(m);
+            setDashboardViewMode('monthly');
+          }}
+        />
       )}
 
       {/* Custom Confirmation Modal */}
