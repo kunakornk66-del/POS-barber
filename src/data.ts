@@ -141,6 +141,8 @@ export const DEFAULT_SHOP_CONFIG: ShopConfig = {
   primaryColor: '#6366f1',
   enableCashCounter: true,
   enablePayslips: true,
+  pinCode: '1234',
+  isPinLocked: true,
 };
 
 // Seed 30 past sales records spanning June 1st to June 9th, 2026

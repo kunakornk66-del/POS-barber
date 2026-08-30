@@ -33,6 +33,7 @@ import {
   Pipette,
   Copy,
   Eye,
+  EyeOff,
   Sliders,
   CheckCircle2,
   Tag,
@@ -40,6 +41,10 @@ import {
   RefreshCw,
   Clock,
   ShieldAlert,
+  ShieldCheck,
+  Lock,
+  Unlock,
+  KeyRound,
   Download,
   FileText,
   Package,
@@ -59,6 +64,7 @@ interface ConfigTabProps {
   annualDaysRemaining?: number;
   onOpenAnnualModal?: () => void;
   onDownloadFullBackup?: () => void;
+  onLockSettingsNow?: () => void;
   onUpdateBarbers: (barbers: Barber[]) => void;
   onUpdateProducts: (products: Product[]) => void;
   onUpdateChemicalPromos?: (promos: ChemicalPromo[]) => void;
@@ -83,6 +89,7 @@ export default function ConfigTab({
   annualDaysRemaining = 30,
   onOpenAnnualModal,
   onDownloadFullBackup,
+  onLockSettingsNow,
   onUpdateBarbers,
   onUpdateProducts,
   onUpdateChemicalPromos,
@@ -262,6 +269,75 @@ export default function ConfigTab({
     });
     setIsShopSaved(true);
     setTimeout(() => setIsShopSaved(false), 3000);
+  };
+
+  // ==========================================
+  // PIN LOCK SECURITY STATE
+  // ==========================================
+  const [pinCodeInput, setPinCodeInput] = useState<string>(shopConfig.pinCode || '1234');
+  const [confirmPinInput, setConfirmPinInput] = useState<string>('');
+  const [isPinLockedInput, setIsPinLockedInput] = useState<boolean>(shopConfig.isPinLocked ?? true);
+  const [showPinCode, setShowPinCode] = useState<boolean>(false);
+  const [pinStatusMsg, setPinStatusMsg] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
+
+  useEffect(() => {
+    setPinCodeInput(shopConfig.pinCode || '1234');
+    setIsPinLockedInput(shopConfig.isPinLocked ?? true);
+  }, [shopConfig.pinCode, shopConfig.isPinLocked]);
+
+  const handleSavePin = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (isPinLockedInput) {
+      const cleanPin = pinCodeInput.trim();
+      if (cleanPin.length < 4 || cleanPin.length > 6 || !/^\d+$/.test(cleanPin)) {
+        setPinStatusMsg({ type: 'error', text: 'กรุณาระบุรหัสผ่าน PIN เป็นตัวเลข 4 ถึง 6 หลักเท่านั้น' });
+        return;
+      }
+      if (confirmPinInput && confirmPinInput !== cleanPin) {
+        setPinStatusMsg({ type: 'error', text: 'รหัสยืนยัน PIN ไม่ตรงกัน กรุณาตรวจสอบอีกครั้ง' });
+        return;
+      }
+      onUpdateShopConfig({
+        ...shopConfig,
+        pinCode: cleanPin,
+        isPinLocked: true
+      });
+      setConfirmPinInput('');
+      setPinStatusMsg({ type: 'success', text: `บันทึกรหัสผ่าน PIN (${cleanPin}) และเปิดใช้งานการล็อคหน้าตั้งค่าเรียบร้อยแล้ว!` });
+      setTimeout(() => setPinStatusMsg(null), 4000);
+    } else {
+      onUpdateShopConfig({
+        ...shopConfig,
+        pinCode: '',
+        isPinLocked: false
+      });
+      setPinCodeInput('');
+      setConfirmPinInput('');
+      setPinStatusMsg({ type: 'success', text: 'ปิดใช้งานการล็อค PIN เรียบร้อยแล้ว (สามารถเข้าหน้าตั้งค่าได้โดยไม่ต้องใส่รหัส)' });
+      setTimeout(() => setPinStatusMsg(null), 4000);
+    }
+  };
+
+  const handleDisablePin = () => {
+    setConfirmDialog({
+      isOpen: true,
+      title: 'ปิดใช้งานระบบล็อครหัสผ่าน PIN?',
+      message: 'หากปิดใช้งาน ทุกคนจะสามารถเข้าถึงหน้าตั้งค่าเพื่อดูข้อมูล ปรับราคา หรือจัดการช่างได้โดยไม่ต้องใส่รหัสผ่าน ต้องการดำเนินการต่อใช่หรือไม่?',
+      type: 'warning',
+      onConfirm: () => {
+        setIsPinLockedInput(false);
+        setPinCodeInput('');
+        setConfirmPinInput('');
+        onUpdateShopConfig({
+          ...shopConfig,
+          pinCode: '',
+          isPinLocked: false
+        });
+        setPinStatusMsg({ type: 'success', text: 'ปิดใช้งานระบบล็อครหัส PIN เรียบร้อยแล้ว' });
+        setConfirmDialog(prev => ({ ...prev, isOpen: false }));
+        setTimeout(() => setPinStatusMsg(null), 4000);
+      }
+    });
   };
 
   // ==========================================
@@ -989,6 +1065,194 @@ export default function ConfigTab({
             <span>อัปเดตและบันทึกข้อมูลร้านค้าและโทนสีเรียบร้อยแล้ว</span>
           </div>
         )}
+      </div>
+
+      {/* 1.1 SECURITY & PIN LOCK SETTINGS */}
+      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between border-b border-slate-100 pb-4 gap-3">
+          <div className="flex items-center space-x-3">
+            <div className="w-10 h-10 rounded-2xl bg-indigo-50 border border-indigo-200/60 flex items-center justify-center text-indigo-700 shrink-0 shadow-xs">
+              {shopConfig.isPinLocked && shopConfig.pinCode ? (
+                <Lock className="w-5 h-5 text-indigo-700" />
+              ) : (
+                <Unlock className="w-5 h-5 text-slate-400" />
+              )}
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
+                  ระบบความปลอดภัย & ล็อครหัส PIN หน้าตั้งค่า (PIN Lock Security)
+                </h3>
+                <span className="hidden sm:inline-flex items-center gap-1 text-[10px] font-bold px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                  <span>เปิดล็อค PIN อยู่ ({showPinCode ? (shopConfig.pinCode || '1234') : '••••'})</span>
+                </span>
+              </div>
+              <p className="text-xs text-slate-500">
+                ป้องกันไม่ให้พนักงานหรือบุคคลอื่นแอบดูยอดขาย เปลี่ยนราคา หรือแก้ไขข้อมูลร้านค้าโดยไม่ได้รับอนุญาต
+              </p>
+            </div>
+          </div>
+
+          {shopConfig.isPinLocked && shopConfig.pinCode && onLockSettingsNow && (
+            <button
+              type="button"
+              onClick={onLockSettingsNow}
+              className="text-xs font-bold text-indigo-700 hover:text-indigo-900 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-3.5 py-1.5 rounded-xl transition-all flex items-center gap-1.5 cursor-pointer self-start sm:self-auto shadow-2xs active:scale-95"
+              title="ล็อคหน้าตั้งค่าและออกจากหน้านี้ทันทีเพื่อทดสอบรหัส PIN"
+            >
+              <Lock className="w-3.5 h-3.5" />
+              <span>ทดสอบล็อคหน้าตั้งค่าทันที</span>
+            </button>
+          )}
+        </div>
+
+        <form onSubmit={handleSavePin} className="space-y-5">
+          {/* Status and Toggle Switch */}
+          <div className="bg-slate-50 p-4 sm:p-5 rounded-2xl border border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <span className="text-xs font-extrabold text-slate-800">
+                  สถานะการป้องกันหน้าตั้งค่า:
+                </span>
+                <span className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 bg-emerald-100/70 px-2.5 py-0.5 rounded-full border border-emerald-200">
+                  <Check className="w-3 h-3" />
+                  <span>เปิดใช้งานแล้ว (รหัส: {showPinCode ? (shopConfig.pinCode || '1234') : '••••'})</span>
+                </span>
+              </div>
+              <p className="text-[11.5px] text-slate-500 leading-relaxed">
+                เมื่อเปิดใช้งาน ทุกครั้งที่จะกดเข้ามาที่แท็บ <strong>&quot;ตั้งค่า&quot;</strong> ระบบจะบังคับให้กรอกรหัส PIN 4-6 หลักก่อนเสมอ
+              </p>
+            </div>
+
+            <label className="relative inline-flex items-center cursor-pointer shrink-0">
+              <input
+                type="checkbox"
+                checked={isPinLockedInput}
+                onChange={(e) => {
+                  const checked = e.target.checked;
+                  setIsPinLockedInput(checked);
+                  if (!checked && shopConfig.isPinLocked) {
+                    handleDisablePin();
+                  }
+                }}
+                className="sr-only peer"
+              />
+              <div className="w-12 h-6 bg-slate-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-slate-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-indigo-600"></div>
+              <span className="ml-2.5 text-xs font-bold text-slate-700">
+                {isPinLockedInput ? 'เปิดล็อค PIN' : 'ปิดล็อค PIN'}
+              </span>
+            </label>
+          </div>
+
+          {/* PIN Setup Inputs when enabled */}
+          {isPinLockedInput && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 p-4.5 bg-indigo-50/50 rounded-2xl border border-indigo-100">
+              {/* PIN Input */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <label className="block text-xs font-extrabold text-slate-700">
+                    รหัสผ่าน PIN (4 - 6 หลัก) <span className="text-rose-500">*</span>:
+                  </label>
+                  <button
+                    type="button"
+                    onClick={() => setShowPinCode(!showPinCode)}
+                    className="text-[11px] font-bold text-indigo-600 hover:text-indigo-800 flex items-center gap-1 cursor-pointer"
+                  >
+                    {showPinCode ? (
+                      <>
+                        <EyeOff className="w-3 h-3" />
+                        <span>ซ่อนรหัส</span>
+                      </>
+                    ) : (
+                      <>
+                        <Eye className="w-3 h-3" />
+                        <span>ดูรหัส</span>
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="relative">
+                  <input
+                    type={showPinCode ? 'text' : 'password'}
+                    inputMode="numeric"
+                    pattern="[0-9]*"
+                    maxLength={6}
+                    required
+                    value={pinCodeInput}
+                    onChange={(e) => setPinCodeInput(e.target.value.replace(/[^0-9]/g, ''))}
+                    placeholder="เช่น 1234 หรือ 888888"
+                    className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl outline-none font-mono text-sm font-black text-slate-900 tracking-wider focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-2xs"
+                  />
+                  <div className="absolute right-3 top-3 text-xs font-bold text-slate-400 font-mono">
+                    {pinCodeInput.length}/6
+                  </div>
+                </div>
+              </div>
+
+              {/* Confirm PIN Input */}
+              <div className="space-y-1.5">
+                <label className="block text-xs font-extrabold text-slate-700">
+                  ยืนยันรหัสผ่าน PIN อีกครั้ง <span className="text-rose-500">*</span>:
+                </label>
+                <input
+                  type={showPinCode ? 'text' : 'password'}
+                  inputMode="numeric"
+                  pattern="[0-9]*"
+                  maxLength={6}
+                  value={confirmPinInput}
+                  onChange={(e) => setConfirmPinInput(e.target.value.replace(/[^0-9]/g, ''))}
+                  placeholder="กรอกรหัสเดิมเพื่อยืนยัน..."
+                  className="w-full h-11 px-4 bg-white border border-slate-200 rounded-xl outline-none font-mono text-sm font-black text-slate-900 tracking-wider focus:border-indigo-500 focus:ring-2 focus:ring-indigo-100 shadow-2xs"
+                />
+              </div>
+            </div>
+          )}
+
+          {/* Status Message */}
+          {pinStatusMsg && (
+            <div
+              className={`p-3 rounded-2xl flex items-center space-x-2 text-xs font-bold ${
+                pinStatusMsg.type === 'success'
+                  ? 'bg-emerald-50 border border-emerald-200 text-emerald-800'
+                  : 'bg-rose-50 border border-rose-200 text-rose-800'
+              }`}
+            >
+              {pinStatusMsg.type === 'success' ? (
+                <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
+              ) : (
+                <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
+              )}
+              <span>{pinStatusMsg.text}</span>
+            </div>
+          )}
+
+          {/* Action Buttons */}
+          <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-2">
+            <div className="text-[11px] text-slate-400 font-medium">
+              💡 แนะนำ: ใช้ตัวเลขจำง่าย เช่น เบอร์โทร หรือเลข 4 หลักที่คุณจำได้แม่นยำ
+            </div>
+
+            <div className="flex items-center space-x-2 w-full sm:w-auto">
+              {shopConfig.isPinLocked && shopConfig.pinCode && (
+                <button
+                  type="button"
+                  onClick={handleDisablePin}
+                  className="w-full sm:w-auto px-4 py-2.5 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  ปิดใช้งาน PIN
+                </button>
+              )}
+              <button
+                type="submit"
+                className="w-full sm:w-auto px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl text-xs font-bold transition-all shadow-sm flex items-center justify-center space-x-1.5 cursor-pointer active:scale-95"
+              >
+                <KeyRound className="w-3.5 h-3.5" />
+                <span>บันทึกรหัสผ่าน PIN</span>
+              </button>
+            </div>
+          </div>
+        </form>
       </div>
 
       {/* 2. CHOOSE COMMISSION (%) */}

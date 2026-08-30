@@ -3,6 +3,84 @@ import html2canvas from 'html2canvas';
 import { jsPDF } from 'jspdf';
 
 /**
+ * Render HTML content inside an isolated offscreen iframe to prevent html2canvas
+ * from touching main document stylesheets that contain OKLCH colors.
+ */
+export async function renderHtmlContentToCanvas(
+  htmlContent: string,
+  width: number = 840
+): Promise<HTMLCanvasElement> {
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '0';
+  iframe.style.left = '-9999px';
+  iframe.style.width = `${width}px`;
+  iframe.style.height = '1200px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.zIndex = '-9999';
+  document.body.appendChild(iframe);
+
+  try {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      throw new Error('Unable to access iframe document');
+    }
+
+    iframeDoc.open();
+    iframeDoc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <style>
+            * { box-sizing: border-box; }
+            body { margin: 0; padding: 0; background: #ffffff; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
+
+    // Allow browser to calculate layout and dimensions
+    await new Promise((resolve) => setTimeout(resolve, 150));
+
+    const bodyHeight = Math.max(
+      iframeDoc.body.scrollHeight,
+      iframeDoc.documentElement.scrollHeight,
+      800
+    );
+    iframe.style.height = `${bodyHeight + 50}px`;
+
+    const canvasPromise = html2canvas(iframeDoc.body, {
+      scale: 2,
+      useCORS: true,
+      allowTaint: true,
+      backgroundColor: '#ffffff',
+      logging: false,
+      windowWidth: width,
+      width: width,
+      height: bodyHeight
+    });
+
+    // Safety timeout: 10 seconds max
+    const timeoutPromise = new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error('PDF Canvas generation timed out')), 10000)
+    );
+
+    const canvas = await Promise.race([canvasPromise, timeoutPromise]);
+    return canvas;
+  } finally {
+    if (document.body.contains(iframe)) {
+      document.body.removeChild(iframe);
+    }
+  }
+}
+
+/**
  * Safe wrapper around html2canvas to prevent crashes caused by modern OKLCH CSS colors
  * in Tailwind CSS v4 stylesheets.
  */
@@ -10,40 +88,9 @@ export async function renderHtml2CanvasSafely(
   element: HTMLElement,
   options?: any
 ): Promise<HTMLCanvasElement> {
-  const originalStyleSheets = document.styleSheets;
-
-  // Temporarily mock document.styleSheets to prevent html2canvas from parsing OKLCH in stylesheets
-  try {
-    Object.defineProperty(document, 'styleSheets', {
-      value: [],
-      writable: true,
-      configurable: true
-    });
-  } catch (e) {
-    console.warn('Could not mock document.styleSheets', e);
-  }
-
-  try {
-    const canvas = await html2canvas(element, {
-      scale: 2,
-      useCORS: true,
-      allowTaint: true,
-      backgroundColor: '#ffffff',
-      logging: false,
-      ...options
-    });
-    return canvas;
-  } finally {
-    try {
-      Object.defineProperty(document, 'styleSheets', {
-        value: originalStyleSheets,
-        writable: true,
-        configurable: true
-      });
-    } catch (e) {
-      console.warn('Could not restore document.styleSheets', e);
-    }
-  }
+  const width = options?.windowWidth || options?.width || element.offsetWidth || 840;
+  const content = element.outerHTML || element.innerHTML;
+  return renderHtmlContentToCanvas(content, width);
 }
 
 // Format currency
@@ -1917,88 +1964,64 @@ export async function exportAsyncAnnualPdfReport(
     userEmail
   );
 
-  const tempContainer = document.createElement('div');
-  tempContainer.style.position = 'fixed';
-  tempContainer.style.top = '0px';
-  tempContainer.style.left = '0px';
-  tempContainer.style.width = '840px';
-  tempContainer.style.backgroundColor = '#ffffff';
-  tempContainer.style.zIndex = '-9999';
-  tempContainer.style.opacity = '0';
-  tempContainer.style.pointerEvents = 'none';
+  const canvas = await renderHtmlContentToCanvas(htmlContent, 840);
 
-  tempContainer.innerHTML = htmlContent;
-  document.body.appendChild(tempContainer);
+  const pdf = new jsPDF({
+    orientation: 'portrait',
+    unit: 'mm',
+    format: 'a4'
+  });
 
-  try {
-    const canvas = await renderHtml2CanvasSafely(tempContainer, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    });
+  const pdfWidth = 210;
+  const pdfHeight = 297;
+  const margin = 8;
+  const imgWidth = pdfWidth - (margin * 2);
+  const printableHeightMM = pdfHeight - (margin * 2);
 
-    const pdf = new jsPDF({
-      orientation: 'portrait',
-      unit: 'mm',
-      format: 'a4'
-    });
+  const pxPageHeight = (canvas.width / imgWidth) * printableHeightMM;
+  const totalCanvasHeight = canvas.height;
 
-    const pdfWidth = 210;
-    const pdfHeight = 297;
-    const margin = 8;
-    const imgWidth = pdfWidth - (margin * 2);
-    const printableHeightMM = pdfHeight - (margin * 2);
+  let srcY = 0;
+  let pageCount = 0;
 
-    const pxPageHeight = (canvas.width / imgWidth) * printableHeightMM;
-    const totalCanvasHeight = canvas.height;
-
-    let srcY = 0;
-    let pageCount = 0;
-
-    while (srcY < totalCanvasHeight) {
-      if (pageCount > 0) {
-        pdf.addPage();
-      }
-
-      const sliceHeight = Math.min(pxPageHeight, totalCanvasHeight - srcY);
-
-      const sliceCanvas = document.createElement('canvas');
-      sliceCanvas.width = canvas.width;
-      sliceCanvas.height = sliceHeight;
-
-      const ctx = sliceCanvas.getContext('2d');
-      if (ctx) {
-        ctx.fillStyle = '#ffffff';
-        ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-        ctx.drawImage(
-          canvas,
-          0,
-          srcY,
-          canvas.width,
-          sliceHeight,
-          0,
-          0,
-          canvas.width,
-          sliceHeight
-        );
-      }
-
-      const sliceData = sliceCanvas.toDataURL('image/png');
-      const renderedImgHeightMM = (sliceHeight * imgWidth) / canvas.width;
-
-      pdf.addImage(sliceData, 'PNG', margin, margin, imgWidth, renderedImgHeightMM);
-
-      srcY += sliceHeight;
-      pageCount++;
+  while (srcY < totalCanvasHeight) {
+    if (pageCount > 0) {
+      pdf.addPage();
     }
 
-    pdf.save(fileName);
-  } finally {
-    if (document.body.contains(tempContainer)) {
-      document.body.removeChild(tempContainer);
+    const sliceHeight = Math.min(pxPageHeight, totalCanvasHeight - srcY);
+
+    const sliceCanvas = document.createElement('canvas');
+    sliceCanvas.width = canvas.width;
+    sliceCanvas.height = sliceHeight;
+
+    const ctx = sliceCanvas.getContext('2d');
+    if (ctx) {
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+      ctx.drawImage(
+        canvas,
+        0,
+        srcY,
+        canvas.width,
+        sliceHeight,
+        0,
+        0,
+        canvas.width,
+        sliceHeight
+      );
     }
+
+    const sliceData = sliceCanvas.toDataURL('image/png');
+    const renderedImgHeightMM = (sliceHeight * imgWidth) / canvas.width;
+
+    pdf.addImage(sliceData, 'PNG', margin, margin, imgWidth, renderedImgHeightMM);
+
+    srcY += sliceHeight;
+    pageCount++;
   }
+
+  pdf.save(fileName);
 }
 
 // Barber Visual Palette & Emojis

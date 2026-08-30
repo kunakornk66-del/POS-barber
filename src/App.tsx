@@ -18,6 +18,7 @@ import CashCounterTab from './components/CashCounterTab';
 import PayslipsTab from './components/PayslipsTab';
 import AnnualResetModal from './components/AnnualResetModal';
 import { ExpensesTab } from './components/ExpensesTab';
+import { PinModal } from './components/PinModal';
 import { 
   SystemBackupData, 
   exportFullSystemBackupJson, 
@@ -248,6 +249,35 @@ export default function App() {
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashCounter, setCashCounter] = useState<CashCounterState | null>(null);
   const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'expenses' | 'config' | 'cash' | 'payslips'>('sales');
+  
+  // Settings Security & PIN Unlock State
+  const [isSettingsUnlocked, setIsSettingsUnlocked] = useState<boolean>(false);
+  const [showPinModal, setShowPinModal] = useState<boolean>(false);
+
+  const handleSelectTab = (tabId: 'sales' | 'dashboard' | 'expenses' | 'config' | 'cash' | 'payslips') => {
+    if (tabId === 'config') {
+      if (!isSettingsUnlocked) {
+        setShowPinModal(true);
+        return;
+      }
+    } else {
+      // Re-lock settings when leaving config to protect sensitive shop data
+      setIsSettingsUnlocked(false);
+    }
+    setActiveTab(tabId);
+  };
+
+  const handlePinSuccess = () => {
+    setIsSettingsUnlocked(true);
+    setActiveTab('config');
+    setShowPinModal(false);
+  };
+
+  const handleLockSettingsNow = () => {
+    setIsSettingsUnlocked(false);
+    setActiveTab('sales');
+    setShowPinModal(true);
+  };
 
   // 1-Year Annual Reset Tracker State
   const [firstLoginDate, setFirstLoginDate] = useState<string>('');
@@ -565,8 +595,8 @@ export default function App() {
               shareConfig: DEFAULT_SHARE_CONFIG,
               shopConfig: {
                 shopName: isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ร้านบาร์เบอร์ของฉัน",
-                pinCode: "",
-                isPinLocked: false
+                pinCode: "1234",
+                isPinLocked: true
               },
               barbers: isGuest ? INITIAL_BARBERS : [],
               products: isGuest ? INITIAL_PRODUCTS : [],
@@ -644,8 +674,8 @@ export default function App() {
             setShareConfig(salonData.shareConfig || DEFAULT_SHARE_CONFIG);
             setShopConfig({
               shopName: salonData.shopName || (isGuest ? "ทองหล่อ บาร์เบอร์ สตูดิโอ" : "ร้านบาร์เบอร์ของฉัน"),
-              pinCode: "",
-              isPinLocked: false,
+              pinCode: salonData.shopConfig?.pinCode || "1234",
+              isPinLocked: salonData.shopConfig?.isPinLocked ?? true,
               logoUrl: "",
               ...(salonData.shopConfig || {})
             });
@@ -1231,7 +1261,7 @@ export default function App() {
           { id: "v1", value: 20, isActive: true },
           { id: "v2", value: 50, isActive: true }
         ] : []);
-        setShopConfig(isGuest ? DEFAULT_SHOP_CONFIG : { shopName: "ร้านบาร์เบอร์ของฉัน", pinCode: "", isPinLocked: false });
+        setShopConfig(isGuest ? DEFAULT_SHOP_CONFIG : { shopName: "ร้านบาร์เบอร์ของฉัน", pinCode: "1234", isPinLocked: true });
         setShareConfig(DEFAULT_SHARE_CONFIG);
         setSales([]);
         setPayslips([]);
@@ -1903,12 +1933,21 @@ export default function App() {
                 { id: 'expenses' as const, label: 'ควบคุมรายจ่าย/เบิกเงิน', icon: <ArrowDownCircle className="w-3.5 h-3.5 text-rose-500" /> },
                 ...(shopConfig?.enableCashCounter !== false ? [{ id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
-                { id: 'config' as const, label: 'ตั้งค่า', icon: <Settings className="w-3.5 h-3.5 text-indigo-500" /> },
+                { 
+                  id: 'config' as const, 
+                  label: 'ตั้งค่า', 
+                  icon: isSettingsUnlocked ? (
+                    <Settings className="w-3.5 h-3.5 text-indigo-500" />
+                  ) : (
+                    <Lock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                  ),
+                  isLocked: !isSettingsUnlocked
+                },
               ].map((tab, idx) => (
                 <button
                   key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all ${
+                  onClick={() => handleSelectTab(tab.id)}
+                  className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
                     activeTab === tab.id
                       ? 'bg-white text-slate-900 shadow-sm border border-slate-200/40'
                       : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
@@ -1916,6 +1955,9 @@ export default function App() {
                 >
                   {tab.icon}
                   <span>{idx + 1}. {tab.label}</span>
+                  {tab.id === 'config' && !isSettingsUnlocked && (
+                    <span className="text-[10px] text-amber-600 ml-0.5 font-bold">🔒</span>
+                  )}
                 </button>
               ))}
             </nav>
@@ -2039,29 +2081,61 @@ export default function App() {
 
         {activeTab === 'config' && (
           <div className="tab-content-enter">
-            <ConfigTab 
-              userEmail={userEmail}
-              barbers={barbers}
-              products={products}
-              chemicalPromos={chemicalPromos}
-              shareConfig={shareConfig}
-              shopConfig={shopConfig}
-              vouchers={vouchers}
-              firstLoginDate={firstLoginDate}
-              annualDaysElapsed={annualDaysElapsed}
-              annualDaysRemaining={annualDaysRemaining}
-              onOpenAnnualModal={() => setShowAnnualResetModal(true)}
-              onDownloadFullBackup={handleDownloadFullBackupNow}
-              onUpdateBarbers={handleUpdateBarbers}
-              onUpdateProducts={handleUpdateProducts}
-              onUpdateChemicalPromos={handleUpdateChemicalPromos}
-              onUpdateShareConfig={handleUpdateShareConfig}
-              onUpdateShopConfig={handleUpdateShopConfig}
-              onUpdateVouchers={handleUpdateVouchers}
-              onClearSales={handleClearSales}
-              onClearSalesOlderThanOneYear={handleClearSalesOlderThanOneYear}
-              onFullReset={handleFullReset}
-            />
+            {isSettingsUnlocked ? (
+              <ConfigTab 
+                userEmail={userEmail}
+                barbers={barbers}
+                products={products}
+                chemicalPromos={chemicalPromos}
+                shareConfig={shareConfig}
+                shopConfig={shopConfig}
+                vouchers={vouchers}
+                firstLoginDate={firstLoginDate}
+                annualDaysElapsed={annualDaysElapsed}
+                annualDaysRemaining={annualDaysRemaining}
+                onOpenAnnualModal={() => setShowAnnualResetModal(true)}
+                onDownloadFullBackup={handleDownloadFullBackupNow}
+                onLockSettingsNow={handleLockSettingsNow}
+                onUpdateBarbers={handleUpdateBarbers}
+                onUpdateProducts={handleUpdateProducts}
+                onUpdateChemicalPromos={handleUpdateChemicalPromos}
+                onUpdateShareConfig={handleUpdateShareConfig}
+                onUpdateShopConfig={handleUpdateShopConfig}
+                onUpdateVouchers={handleUpdateVouchers}
+                onClearSales={handleClearSales}
+                onClearSalesOlderThanOneYear={handleClearSalesOlderThanOneYear}
+                onFullReset={handleFullReset}
+              />
+            ) : (
+              <div className="max-w-md mx-auto my-12 bg-white p-8 rounded-3xl shadow-xl border border-slate-200 text-center space-y-5">
+                <div className="w-16 h-16 rounded-3xl bg-amber-50 border border-amber-200/80 flex items-center justify-center text-amber-600 mx-auto shadow-inner">
+                  <Lock className="w-8 h-8 text-amber-600" />
+                </div>
+                <div className="space-y-2">
+                  <h3 className="text-lg font-black text-slate-900">
+                    หน้าตั้งค่าถูกล็อคความปลอดภัย
+                  </h3>
+                  <p className="text-xs text-slate-500 leading-relaxed font-medium">
+                    หน้านี้สำหรับเจ้าของร้านเท่านั้น กรุณาใส่รหัสผ่าน PIN เพื่อเข้าถึงข้อมูลและการตั้งค่าระบบ
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowPinModal(true)}
+                  className="w-full py-3 bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white rounded-2xl text-xs font-bold transition-all shadow-md flex items-center justify-center gap-2 cursor-pointer"
+                >
+                  <KeyRound className="w-4 h-4" />
+                  <span>ใส่รหัสผ่าน PIN เพื่อปลดล็อค</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('sales')}
+                  className="w-full py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-600 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  ← กลับไปหน้าบันทึกการขาย (Sales)
+                </button>
+              </div>
+            )}
           </div>
         )}
 
@@ -2537,6 +2611,20 @@ export default function App() {
           </div>
         </div>
       )}
+
+      {/* 11. Security PIN Protection Modal for Settings */}
+      <PinModal
+        isOpen={showPinModal}
+        onClose={() => {
+          setShowPinModal(false);
+          if (activeTab === 'config' && !isSettingsUnlocked) {
+            setActiveTab('sales');
+          }
+        }}
+        onSuccess={handlePinSuccess}
+        correctPin={shopConfig?.pinCode || '1234'}
+        shopName={shopConfig?.shopName || 'ร้านบาร์เบอร์'}
+      />
 
     </div>
   );

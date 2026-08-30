@@ -83,8 +83,8 @@ app.get("/api/data", async (req, res) => {
         shareConfig: DEFAULT_SHARE_CONFIG,
         shopConfig: {
           shopName: isGuest ? DEFAULT_SHOP_CONFIG.shopName : "ระบบร้านบาร์เบอร์ POS ของคุณ",
-          pinCode: "",
-          isPinLocked: false
+          pinCode: "1234",
+          isPinLocked: true
         },
         barbers: isGuest ? INITIAL_BARBERS : [
           { id: "b-guide", name: "ช่างตัวอย่างสาธิต (Guide Barber)", isWorking: true, realName: "จิรภัทร รักสยาม", position: "Hairdresser" }
@@ -135,8 +135,8 @@ app.get("/api/data", async (req, res) => {
       shareConfig: salonData.shareConfig || DEFAULT_SHARE_CONFIG,
       shopConfig: salonData.shopConfig || {
         shopName: salonData.shopName,
-        pinCode: "",
-        isPinLocked: false
+        pinCode: "1234",
+        isPinLocked: true
       },
       vouchers: salonData.vouchers || [],
       payslips: salonData.payslips || [],
@@ -351,8 +351,8 @@ app.post("/api/reset", async (req, res) => {
       shareConfig: DEFAULT_SHARE_CONFIG,
       shopConfig: {
         shopName: isGuest ? DEFAULT_SHOP_CONFIG.shopName : "ระบบร้านบาร์เบอร์ POS ของคุณ",
-        pinCode: "",
-        isPinLocked: false
+        pinCode: "1234",
+        isPinLocked: true
       },
       barbers: isGuest ? INITIAL_BARBERS : [
         { id: "b-guide", name: "ช่างตัวอย่างสาธิต (Guide Barber)", isWorking: true, realName: "จิรภัทร รักสยาม", position: "Hairdresser" }

@@ -1,21 +1,6 @@
 import React, { useState } from 'react';
 import { Expense, SaleRecord } from '../types';
 import { formatBaht, formatThaiDate, formatThaiMonth } from '../utils';
-
-const getLocalDateString = (): string => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  const day = String(d.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const getLocalMonthString = (): string => {
-  const d = new Date();
-  const year = d.getFullYear();
-  const month = String(d.getMonth() + 1).padStart(2, '0');
-  return `${year}-${month}`;
-};
 import { 
   ArrowDownCircle, 
   PlusCircle, 
@@ -31,8 +16,129 @@ import {
   Building2, 
   Filter,
   CheckCircle2,
-  AlertCircle
+  AlertCircle,
+  Pencil,
+  PieChart,
+  ShoppingBag,
+  Zap,
+  Megaphone,
+  UserCheck,
+  Coins,
+  Coffee,
+  X,
+  Check,
+  ArrowUpDown,
+  Tag,
+  Layers,
+  Percent
 } from 'lucide-react';
+
+const getLocalDateString = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  const day = String(d.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
+
+const getLocalMonthString = (): string => {
+  const d = new Date();
+  const year = d.getFullYear();
+  const month = String(d.getMonth() + 1).padStart(2, '0');
+  return `${year}-${month}`;
+};
+
+export interface ExpenseCategoryMeta {
+  key: Expense['category'];
+  label: string;
+  shortLabel: string;
+  icon: React.ReactNode;
+  colorClass: string;
+  badgeClass: string;
+  bgLightClass: string;
+  borderClass: string;
+  barColor: string;
+}
+
+export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
+  {
+    key: 'supplies',
+    label: 'ซื้อวัสดุ/อุปกรณ์เข้าร้าน',
+    shortLabel: 'วัสดุ/อุปกรณ์',
+    icon: <ShoppingBag className="w-4 h-4 text-blue-600" />,
+    colorClass: 'text-blue-600',
+    badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
+    bgLightClass: 'bg-blue-50/70',
+    borderClass: 'border-blue-200',
+    barColor: 'bg-blue-500'
+  },
+  {
+    key: 'utilities',
+    label: 'ค่าน้ำ-ไฟ-อินเทอร์เน็ต',
+    shortLabel: 'ค่าน้ำ-ไฟ-เน็ต',
+    icon: <Zap className="w-4 h-4 text-amber-600" />,
+    colorClass: 'text-amber-600',
+    badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
+    bgLightClass: 'bg-amber-50/70',
+    borderClass: 'border-amber-200',
+    barColor: 'bg-amber-500'
+  },
+  {
+    key: 'rent',
+    label: 'ค่าเช่าสถานที่/มัดจำ',
+    shortLabel: 'ค่าเช่าสถานที่',
+    icon: <Building2 className="w-4 h-4 text-purple-600" />,
+    colorClass: 'text-purple-600',
+    badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
+    bgLightClass: 'bg-purple-50/70',
+    borderClass: 'border-purple-200',
+    barColor: 'bg-purple-500'
+  },
+  {
+    key: 'marketing',
+    label: 'ค่าทำโฆษณา/การตลาด',
+    shortLabel: 'ค่าโฆษณา/เพจ',
+    icon: <Megaphone className="w-4 h-4 text-pink-600" />,
+    colorClass: 'text-pink-600',
+    badgeClass: 'bg-pink-50 text-pink-700 border-pink-200',
+    bgLightClass: 'bg-pink-50/70',
+    borderClass: 'border-pink-200',
+    barColor: 'bg-pink-500'
+  },
+  {
+    key: 'salary',
+    label: 'สวัสดิการ/ค่าแรงพิเศษ',
+    shortLabel: 'สวัสดิการ/ค่าแรง',
+    icon: <UserCheck className="w-4 h-4 text-teal-600" />,
+    colorClass: 'text-teal-600',
+    badgeClass: 'bg-teal-50 text-teal-700 border-teal-200',
+    bgLightClass: 'bg-teal-50/70',
+    borderClass: 'border-teal-200',
+    barColor: 'bg-teal-500'
+  },
+  {
+    key: 'loans',
+    label: 'เบิกถอนโดยเจ้าของร้าน',
+    shortLabel: 'เบิกถอนเจ้าของ',
+    icon: <Coins className="w-4 h-4 text-rose-600" />,
+    colorClass: 'text-rose-600',
+    badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
+    bgLightClass: 'bg-rose-50/70',
+    borderClass: 'border-rose-200',
+    barColor: 'bg-rose-500'
+  },
+  {
+    key: 'other',
+    label: 'อื่น ๆ / เบ็ดเตล็ด',
+    shortLabel: 'เบ็ดเตล็ด',
+    icon: <Coffee className="w-4 h-4 text-slate-600" />,
+    colorClass: 'text-slate-600',
+    badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
+    bgLightClass: 'bg-slate-100/70',
+    borderClass: 'border-slate-200',
+    barColor: 'bg-slate-500'
+  }
+];
 
 interface ExpensesTabProps {
   userEmail: string | null;
@@ -58,6 +164,15 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
 
   // Draft Expenses State
   const [draftExpenses, setDraftExpenses] = useState<Expense[]>([]);
+
+  // Editing Expense Modal State
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
+  const [editFormCategory, setEditFormCategory] = useState<Expense['category']>('supplies');
+  const [editFormAmount, setEditFormAmount] = useState<string>('');
+  const [editFormNotes, setEditFormNotes] = useState<string>('');
+  const [editFormPayee, setEditFormPayee] = useState<string>('');
+  const [editFormDate, setEditFormDate] = useState<string>('');
+  const [editFormIsFromDrawer, setEditFormIsFromDrawer] = useState<boolean>(true);
 
   // Confirm Modal State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -94,15 +209,33 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
 
   const netCashLeftoverToday = Math.max(0, todayCashSales - totalTodayFromDrawer);
 
-  // Filtered Expenses for the Main Table
-  const filteredExpenses = expenses.filter(exp => {
-    // Date or Month match
+  // Expenses within active time scope (before category/search filtering) for Category Breakdown
+  const periodScopedExpenses = expenses.filter(exp => {
     if (filterMode === 'date') {
-      if (exp.date !== selectedDate) return false;
+      return exp.date === selectedDate;
     } else {
-      if (!exp.date.startsWith(selectedMonth)) return false;
+      return exp.date.startsWith(selectedMonth);
     }
+  });
 
+  const periodTotalAmount = periodScopedExpenses.reduce((sum, e) => sum + e.amount, 0);
+
+  // Category Breakdown Data for the active period
+  const categoryBreakdown = EXPENSE_CATEGORIES.map(cat => {
+    const matched = periodScopedExpenses.filter(e => e.category === cat.key);
+    const amount = matched.reduce((sum, e) => sum + e.amount, 0);
+    const count = matched.length;
+    const percentage = periodTotalAmount > 0 ? (amount / periodTotalAmount) * 100 : 0;
+    return {
+      ...cat,
+      amount,
+      count,
+      percentage
+    };
+  });
+
+  // Filtered Expenses for the Main Table (after category and search filtering)
+  const filteredExpenses = periodScopedExpenses.filter(exp => {
     // Category match
     if (categoryFilter !== 'all' && exp.category !== categoryFilter) {
       return false;
@@ -122,7 +255,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
 
   const filteredTotalAmount = filteredExpenses.reduce((sum, e) => sum + e.amount, 0);
 
-  // Handlers
+  // Handlers for Add / Draft
   const handleAddExpense = (e: React.FormEvent) => {
     e.preventDefault();
     const amountNum = parseFloat(expenseAmount);
@@ -135,13 +268,8 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
       return;
     }
 
-    let catText = 'เบ็ดเตล็ด';
-    if (expenseCategory === 'supplies') catText = 'ซื้อวัสดุ/อุปกรณ์';
-    else if (expenseCategory === 'utilities') catText = 'ค่าน้ำ-ไฟ-อินเทอร์เน็ต';
-    else if (expenseCategory === 'rent') catText = 'ค่าเช่าสถานที่';
-    else if (expenseCategory === 'marketing') catText = 'ค่าทำโฆษณา';
-    else if (expenseCategory === 'salary') catText = 'สวัสดิการ/ค่าแรงพิเศษ';
-    else if (expenseCategory === 'loans') catText = 'เบิกถอนโดยเจ้าของร้าน';
+    const catMeta = EXPENSE_CATEGORIES.find(c => c.key === expenseCategory);
+    const catText = catMeta?.label || 'เบ็ดเตล็ด';
 
     setConfirmDialog({
       isOpen: true,
@@ -218,14 +346,60 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
     });
   };
 
-  const handleDeleteExpense = (id: string) => {
+  // Edit Expense Flow
+  const handleOpenEditModal = (exp: Expense) => {
+    setEditingExpense(exp);
+    setEditFormCategory(exp.category || 'supplies');
+    setEditFormAmount(exp.amount.toString());
+    setEditFormNotes(exp.notes || '');
+    setEditFormPayee(exp.payee || '');
+    setEditFormDate(exp.date || getLocalDateString());
+    setEditFormIsFromDrawer(exp.isFromDrawer !== false);
+  };
+
+  const handleSaveEditedExpense = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingExpense) return;
+
+    const amountNum = parseFloat(editFormAmount);
+    if (isNaN(amountNum) || amountNum <= 0) {
+      alert('กรุณากรอกจำนวนเงินรายจ่ายที่ถูกต้องและมากกว่า 0');
+      return;
+    }
+    if (!editFormNotes.trim()) {
+      alert('กรุณากรอกรายละเอียดบันทึกรายจ่าย');
+      return;
+    }
+
+    const updatedExpenses = expenses.map(item => {
+      if (item.id === editingExpense.id) {
+        return {
+          ...item,
+          category: editFormCategory,
+          amount: amountNum,
+          notes: editFormNotes.trim(),
+          payee: editFormPayee.trim() || 'ทั่วไป',
+          date: editFormDate,
+          isFromDrawer: editFormIsFromDrawer
+        };
+      }
+      return item;
+    });
+
+    onUpdateExpenses(updatedExpenses);
+    setEditingExpense(null);
+  };
+
+  // Delete Expense Flow
+  const handleDeleteExpense = (exp: Expense) => {
+    const catMeta = EXPENSE_CATEGORIES.find(c => c.key === exp.category);
     setConfirmDialog({
       isOpen: true,
       title: '🗑️ ยืนยันลบรายการรายจ่าย',
-      message: 'คุณแน่ใจหรือไม่ว่าต้องการลบรายการรายจ่ายนี้? ยอดใช้จ่ายจะถูกคำนวณใหม่และอัปเดตลงฐานข้อมูลระบบทันที',
-      confirmText: 'ลบรายการรายจ่าย',
+      message: `คุณแน่ใจหรือไม่ว่าต้องการลบรายการรายจ่ายนี้?\n\n• หมวดหมู่: ${catMeta?.label || 'เบ็ดเตล็ด'}\n• วันที่: ${exp.date}\n• จำนวนเงิน: ${formatBaht(exp.amount)}\n• ผู้เบิก/รับเงิน: ${exp.payee || 'ทั่วไป'}\n• รายละเอียด: ${exp.notes}\n\nเมื่อลบแล้ว ยอดใช้จ่ายและเงินคงเหลือจะถูกคำนวณใหม่และบันทึกลงฐานข้อมูลทันที`,
+      confirmText: 'ลบรายการรายจ่ายนี้',
       onConfirm: () => {
-        const updated = expenses.filter(e => e.id !== id);
+        const updated = expenses.filter(e => e.id !== exp.id);
         onUpdateExpenses(updated);
         setConfirmDialog(prev => ({ ...prev, isOpen: false }));
       }
@@ -240,13 +414,8 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
 
     const headers = ['ลำดับ', 'วันที่', 'หมวดหมู่', 'ผู้เบิก/ผู้รับเงิน', 'รายละเอียด/หมายเหตุ', 'จำนวนเงิน (บาท)', 'ตัดเงินจากเก๊ะ'];
     const rows = filteredExpenses.map((exp, idx) => {
-      let catText = 'เบ็ดเตล็ด';
-      if (exp.category === 'supplies') catText = 'ซื้อวัสดุ/อุปกรณ์';
-      else if (exp.category === 'utilities') catText = 'ค่าน้ำ-ไฟ-อินเทอร์เน็ต';
-      else if (exp.category === 'rent') catText = 'ค่าเช่าสถานที่';
-      else if (exp.category === 'marketing') catText = 'ค่าทำโฆษณา';
-      else if (exp.category === 'salary') catText = 'สวัสดิการ/ค่าแรงพิเศษ';
-      else if (exp.category === 'loans') catText = 'เบิกถอนโดยเจ้าของร้าน';
+      const catMeta = EXPENSE_CATEGORIES.find(c => c.key === exp.category);
+      const catText = catMeta?.label || 'เบ็ดเตล็ด';
 
       return [
         idx + 1,
@@ -271,10 +440,10 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
   };
 
   return (
-    <div className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div id="expenses-tab-container" className="space-y-6 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
       
       {/* 1. Header Banner & High-Level Metric Cards */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xs space-y-6">
+      <div id="expenses-header-card" className="bg-white rounded-3xl p-6 sm:p-8 border border-slate-100 shadow-xs space-y-6">
         <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-slate-100 pb-6">
           <div className="space-y-1.5 text-left">
             <div className="flex items-center space-x-2.5">
@@ -286,7 +455,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                   บัญชีควบคุมรายจ่ายและเบิกเงินหน้าร้าน
                 </h1>
                 <p className="text-xs text-slate-500 font-sans mt-0.5">
-                  ระบบบันทึกงบค่าใช้จ่าย ซื้ออุปกรณ์ การเบิกเงินทุนเจ้าของร้าน และสรุปเงินสดคงเหลือสุทธิ
+                  ระบบบันทึกงบค่าใช้จ่าย สรุปแยกหมวดหมู่ แก้ไขและลบรายการ พร้อมคำนวณเงินสดคงเหลือสุทธิ
                 </p>
               </div>
             </div>
@@ -294,6 +463,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
 
           <div className="flex flex-wrap items-center gap-2">
             <button
+              id="btn-export-expenses-csv"
               type="button"
               onClick={handleExportCSV}
               className="px-4 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-sm cursor-pointer"
@@ -380,7 +550,129 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
         </div>
       </div>
 
-      {/* 2. Main Content Grid: Entry Form + Filterable Expenses Table */}
+      {/* 2. CATEGORY BREAKDOWN SUMMARY SECTION */}
+      <div id="category-breakdown-card" className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-5 text-left">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
+          <div className="flex items-center space-x-2.5">
+            <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+              <PieChart className="w-5 h-5" />
+            </span>
+            <div>
+              <h2 className="text-base font-extrabold text-slate-900">
+                สรุปสัดส่วนรายจ่ายแยกตามหมวดหมู่ (Category Breakdown)
+              </h2>
+              <p className="text-xs text-slate-500">
+                ช่วงเวลา: <strong className="text-slate-800 font-semibold">{filterMode === 'date' ? `ประจำวันที่ ${formatThaiDate(selectedDate)}` : `ประจำเดือน ${formatThaiMonth(selectedMonth)}`}</strong> • รวมทั้งหมด {periodScopedExpenses.length} รายการ ({formatBaht(periodTotalAmount)})
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2">
+            {categoryFilter !== 'all' && (
+              <button
+                type="button"
+                onClick={() => setCategoryFilter('all')}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer border border-rose-200"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>ล้างตัวกรองหมวดหมู่</span>
+              </button>
+            )}
+            <span className="text-[11px] text-slate-400 font-medium">
+              💡 คลิกที่การ์ดหมวดหมู่เพื่อกรองตาราง
+            </span>
+          </div>
+        </div>
+
+        {/* Categories Grid */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 gap-3">
+          {/* Quick Filter: All Categories */}
+          <button
+            type="button"
+            onClick={() => setCategoryFilter('all')}
+            className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+              categoryFilter === 'all'
+                ? 'bg-slate-900 text-white border-slate-900 shadow-md ring-2 ring-slate-900/20'
+                : 'bg-slate-50 hover:bg-slate-100 text-slate-700 border-slate-200/80'
+            }`}
+          >
+            <div className="flex items-center justify-between">
+              <span className={`p-1.5 rounded-lg ${categoryFilter === 'all' ? 'bg-slate-800 text-white' : 'bg-white text-slate-700 shadow-2xs'}`}>
+                <Layers className="w-3.5 h-3.5" />
+              </span>
+              <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${categoryFilter === 'all' ? 'bg-slate-800 text-slate-200' : 'bg-slate-200/70 text-slate-600'}`}>
+                {periodScopedExpenses.length} รายการ
+              </span>
+            </div>
+            <div>
+              <div className={`text-xs font-extrabold truncate ${categoryFilter === 'all' ? 'text-white' : 'text-slate-900'}`}>
+                ทุกหมวดหมู่รวม
+              </div>
+              <div className={`text-sm font-black font-mono mt-0.5 ${categoryFilter === 'all' ? 'text-emerald-400' : 'text-slate-900'}`}>
+                {formatBaht(periodTotalAmount)}
+              </div>
+            </div>
+            <div className="w-full bg-slate-200/60 rounded-full h-1.5 overflow-hidden">
+              <div className="bg-emerald-500 h-full rounded-full w-full"></div>
+            </div>
+            <div className="flex justify-between items-center text-[10px]">
+              <span className={categoryFilter === 'all' ? 'text-slate-300' : 'text-slate-400'}>สัดส่วน</span>
+              <span className="font-bold">100%</span>
+            </div>
+          </button>
+
+          {/* Individual Category Cards */}
+          {categoryBreakdown.map((cat) => {
+            const isSelected = categoryFilter === cat.key;
+            return (
+              <button
+                key={cat.key}
+                type="button"
+                onClick={() => setCategoryFilter(prev => prev === cat.key ? 'all' : cat.key)}
+                className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex flex-col justify-between space-y-2 ${
+                  isSelected
+                    ? `${cat.bgLightClass} ${cat.borderClass} ring-2 ring-indigo-500/50 shadow-md`
+                    : 'bg-white hover:bg-slate-50 text-slate-700 border-slate-200/80 hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center justify-between">
+                  <span className="p-1.5 rounded-lg bg-white border border-slate-100 shadow-2xs">
+                    {cat.icon}
+                  </span>
+                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-md ${cat.count > 0 ? cat.badgeClass : 'bg-slate-100 text-slate-400'}`}>
+                    {cat.count} รายการ
+                  </span>
+                </div>
+                <div>
+                  <div className="text-xs font-extrabold text-slate-900 truncate" title={cat.label}>
+                    {cat.shortLabel}
+                  </div>
+                  <div className={`text-sm font-black font-mono mt-0.5 ${cat.amount > 0 ? cat.colorClass : 'text-slate-400'}`}>
+                    {formatBaht(cat.amount)}
+                  </div>
+                </div>
+
+                {/* Progress bar */}
+                <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
+                  <div 
+                    className={`${cat.barColor} h-full rounded-full transition-all duration-500`}
+                    style={{ width: `${Math.min(100, cat.percentage)}%` }}
+                  ></div>
+                </div>
+
+                <div className="flex justify-between items-center text-[10px] text-slate-500">
+                  <span>สัดส่วน</span>
+                  <span className="font-bold font-mono text-slate-700">
+                    {cat.percentage.toFixed(1)}%
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* 3. Main Content Grid: Entry Form + Filterable Expenses Table */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
         {/* Left Column: Add Expense Entry Form */}
@@ -401,15 +693,13 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
               <select
                 value={expenseCategory}
                 onChange={(e) => setExpenseCategory(e.target.value as any)}
-                className="w-full bg-slate-50 text-slate-800 text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500 font-sans cursor-pointer"
+                className="w-full bg-slate-50 text-slate-800 text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500 font-sans cursor-pointer font-medium"
               >
-                <option value="supplies">🛒 ซื้อวัสดุ/อุปกรณ์เข้าร้าน (Shop Supplies)</option>
-                <option value="utilities">⚡ ค่าน้ำ-ไฟ-อินเทอร์เน็ต (Utilities)</option>
-                <option value="rent">🏢 ค่าเช่าสถานที่/ค่ามัดจำ (Shop Rent)</option>
-                <option value="marketing">📢 ค่าทำโฆษณา/โปรโมทเพจ (Marketing)</option>
-                <option value="salary">🧑‍🔧 สวัสดิการ/ค่าแรงช่างพิเศษ (Specialist Wage)</option>
-                <option value="loans">💰 เบิกถอนเงินโดยเจ้าของร้าน (Owner Cash Outflow)</option>
-                <option value="other">☕ อื่น ๆ / เบ็ดเตล็ดสัญจร (Miscellaneous)</option>
+                {EXPENSE_CATEGORIES.map(c => (
+                  <option key={c.key} value={c.key}>
+                    {c.label} ({c.key})
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -433,7 +723,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                   value={expenseAmount}
                   onChange={(e) => setExpenseAmount(e.target.value)}
                   onFocus={(e) => e.target.select()}
-                  placeholder="ใส่ตัวเลข เช่น 500 หรือ 10000"
+                  placeholder="ใส่ตัวเลข เช่น 500"
                   className="w-full bg-slate-50 text-slate-800 font-mono font-bold text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500 text-rose-700"
                   required
                   min="1"
@@ -447,8 +737,8 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                 type="text"
                 value={expensePayee}
                 onChange={(e) => setExpensePayee(e.target.value)}
-                placeholder="เช่น ช่างเจ, บจก.โฮมโปร, เจ้าของร้านใหญ่"
-                className="w-full bg-slate-50 text-slate-800 text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500"
+                placeholder="เช่น ช่างเจ, บจก.โฮมโปร, เจ้าของร้าน"
+                className="w-full bg-slate-50 text-slate-800 text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500 font-sans"
               />
             </div>
 
@@ -457,7 +747,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
               <textarea
                 value={expenseNotes}
                 onChange={(e) => setExpenseNotes(e.target.value)}
-                placeholder="เช่น ซื้อแชมพูสระผม 5 ขวดใหญ่, เบิกถอนปันส่วนไปเปิดสาขาใหม่"
+                placeholder="เช่น ซื้อแชมพูสระผม 5 ขวดใหญ่, ค่าน้ำประปาประจำเดือน"
                 className="w-full h-20 bg-slate-50 text-slate-800 text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-rose-500 focus:border-rose-500 resize-none font-sans"
                 required
               ></textarea>
@@ -480,6 +770,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
 
           <div className="grid grid-cols-2 gap-3 pt-2">
             <button
+              id="btn-push-draft-expense"
               type="button"
               onClick={handlePushToDraft}
               className="p-3 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1 shadow-2xs cursor-pointer font-sans"
@@ -490,6 +781,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
             </button>
 
             <button
+              id="btn-save-expense-now"
               type="submit"
               className="p-3 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1 shadow-sm hover:shadow-md cursor-pointer font-sans"
               title="ลงบันทึกรายการนี้เป็นรายจ่ายสดเข้าฐานข้อมูลทันที"
@@ -517,14 +809,8 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
               
               <div className="max-h-48 overflow-y-auto space-y-2 pr-1">
                 {draftExpenses.map((draft, idx) => {
-                  let catText = '';
-                  if (draft.category === 'supplies') catText = 'ซื้อของ';
-                  else if (draft.category === 'utilities') catText = 'น้ำไฟเน็ต';
-                  else if (draft.category === 'rent') catText = 'เช่าที่';
-                  else if (draft.category === 'marketing') catText = 'โฆษณา';
-                  else if (draft.category === 'salary') catText = 'ช่วยช่าง';
-                  else if (draft.category === 'loans') catText = 'เบิกเจ้าของ';
-                  else catText = 'เบ็ดเตล็ด';
+                  const catMeta = EXPENSE_CATEGORIES.find(c => c.key === draft.category);
+                  const catText = catMeta?.shortLabel || 'เบ็ดเตล็ด';
 
                   return (
                     <div key={draft.id} className="flex items-center justify-between p-2.5 bg-white rounded-xl border border-amber-200/60 text-[11px] hover:border-amber-300 transition-colors">
@@ -571,7 +857,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
               <div className="flex items-center space-x-2">
                 <Clock className="w-4 h-4 text-indigo-600 shrink-0" />
                 <h3 className="text-sm font-bold text-slate-900">
-                  ประวัติรายการเบิกจ่ายของร้าน
+                  รายการรายจ่ายของร้าน ({filteredExpenses.length} รายการ)
                 </h3>
               </div>
 
@@ -626,14 +912,12 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                   onChange={(e) => setCategoryFilter(e.target.value)}
                   className="w-full bg-transparent text-xs font-semibold text-slate-700 outline-none cursor-pointer font-sans"
                 >
-                  <option value="all">ทุกหมวดหมู่รายจ่าย</option>
-                  <option value="supplies">🛒 ซื้อวัสดุ/อุปกรณ์เข้าร้าน</option>
-                  <option value="utilities">⚡ ค่าน้ำ-ไฟ-อินเทอร์เน็ต</option>
-                  <option value="rent">🏢 ค่าเช่าสถานที่</option>
-                  <option value="marketing">📢 ค่าทำโฆษณา</option>
-                  <option value="salary">🧑‍🔧 สวัสดิการ/ค่าแรงพิเศษ</option>
-                  <option value="loans">💰 เบิกถอนโดยเจ้าของร้าน</option>
-                  <option value="other">☕ อื่น ๆ / เบ็ดเตล็ด</option>
+                  <option value="all">ทุกหมวดหมู่รายจ่าย (ทั้งหมด)</option>
+                  {EXPENSE_CATEGORIES.map(c => (
+                    <option key={c.key} value={c.key}>
+                      {c.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -644,9 +928,18 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
-                  placeholder="ค้นหาชื่อผู้เบิก หรือ หมายเหตุ..."
+                  placeholder="ค้นหาชื่อผู้เบิก, หมายเหตุ, หมวดหมู่..."
                   className="w-full bg-transparent text-xs text-slate-700 outline-none font-sans"
                 />
+                {searchTerm && (
+                  <button
+                    type="button"
+                    onClick={() => setSearchTerm('')}
+                    className="text-slate-400 hover:text-slate-600"
+                  >
+                    <X className="w-3.5 h-3.5" />
+                  </button>
+                )}
               </div>
             </div>
 
@@ -656,6 +949,7 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                 <span className="text-2xl">🌱</span>
                 <p className="text-xs font-semibold text-slate-600 font-sans">
                   ไม่พบรายการเบิกจ่ายเงินใน{filterMode === 'date' ? `วันที่ ${formatThaiDate(selectedDate)}` : `เดือน ${formatThaiMonth(selectedMonth)}`}
+                  {categoryFilter !== 'all' ? ` (หมวดหมู่: ${EXPENSE_CATEGORIES.find(c => c.key === categoryFilter)?.shortLabel})` : ''}
                 </p>
                 <p className="text-[10px] text-slate-400 font-sans max-w-sm">
                   เมื่อมีการซื้อของ ค่าน้ำไฟ หรือเบิกเงินทุน ให้บันทึกงบการเงินทางเมนูด้านซ้ายเพื่อตัดส่งกำไรอย่างถูกต้อง
@@ -676,58 +970,55 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                     </thead>
                     <tbody className="divide-y divide-slate-100">
                       {filteredExpenses.map((exp) => {
-                        let badgeStyle = "bg-slate-100 text-slate-700 border-slate-200";
-                        let catText = "อื่น ๆ";
-                        
-                        if (exp.category === 'supplies') { 
-                          badgeStyle = "bg-blue-50 text-blue-700 border-blue-100";
-                          catText = "ซื้อของเข้าร้าน";
-                        } else if (exp.category === 'utilities') {
-                          badgeStyle = "bg-orange-50 text-orange-700 border-orange-100";
-                          catText = "ค่าน้ำ-ไฟ-อินเทอร์เน็ต";
-                        } else if (exp.category === 'rent') {
-                          badgeStyle = "bg-purple-50 text-purple-700 border-purple-100";
-                          catText = "ค่าเช่าสถานที่";
-                        } else if (exp.category === 'marketing') {
-                          badgeStyle = "bg-pink-50 text-pink-700 border-pink-100";
-                          catText = "ค่าโฆษณาเพจ";
-                        } else if (exp.category === 'salary') {
-                          badgeStyle = "bg-teal-50 text-teal-700 border-teal-100";
-                          catText = "สวัสดิการ/ค่าแรง";
-                        } else if (exp.category === 'loans') {
-                          badgeStyle = "bg-rose-50 text-rose-700 border-rose-200 font-bold";
-                          catText = "เบิกถอนเจ้าของ 💸";
-                        }
+                        const catMeta = EXPENSE_CATEGORIES.find(c => c.key === exp.category) || EXPENSE_CATEGORIES[6];
 
                         return (
                           <tr key={exp.id} className="hover:bg-slate-50/70 transition-colors">
                             <td className="p-3.5 pl-4 space-y-1">
                               <div className="text-[10px] text-slate-400 font-mono">{exp.date}</div>
-                              <span className={`inline-block px-2 py-0.5 border text-[10px] rounded-lg font-bold ${badgeStyle}`}>
-                                {catText}
+                              <span className={`inline-flex items-center gap-1 px-2 py-0.5 border text-[10px] rounded-lg font-bold ${catMeta.badgeClass}`}>
+                                {catMeta.icon}
+                                <span>{catMeta.shortLabel}</span>
                               </span>
                               {exp.isFromDrawer !== false && (
-                                <span className="block text-[8px] text-rose-600 font-extrabold bg-rose-50 px-1 rounded border border-rose-100 max-w-[70px]">
-                                  📥 หักในเก๊ะ
+                                <span className="block text-[8.5px] text-rose-600 font-extrabold bg-rose-50 px-1.5 py-0.5 rounded border border-rose-100 max-w-[85px]">
+                                  💵 หักเงินสดเก๊ะ
                                 </span>
                               )}
                             </td>
                             <td className="p-3.5 font-bold text-slate-800">{exp.payee || 'ทั่วไป'}</td>
-                            <td className="p-3.5 text-slate-500 max-w-[160px] truncate" title={exp.notes}>
-                              {exp.notes}
+                            <td className="p-3.5 text-slate-600 max-w-[180px] font-sans" title={exp.notes}>
+                              <div className="line-clamp-2 leading-relaxed">
+                                {exp.notes}
+                              </div>
                             </td>
-                            <td className="p-3.5 text-right font-mono font-bold text-rose-600 text-sm">
+                            <td className="p-3.5 text-right font-mono font-bold text-rose-600 text-sm whitespace-nowrap">
                               {formatBaht(exp.amount)}
                             </td>
-                            <td className="p-3.5 text-center">
-                              <button
-                                type="button"
-                                onClick={() => handleDeleteExpense(exp.id)}
-                                className="p-1.5 text-slate-400 hover:text-rose-600 rounded-lg hover:bg-rose-50 transition-colors cursor-pointer"
-                                title="ลบรายการนี้"
-                              >
-                                <Trash2 className="w-4 h-4" />
-                              </button>
+                            <td className="p-3.5 text-center whitespace-nowrap">
+                              <div className="flex items-center justify-center space-x-1.5">
+                                {/* Edit Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenEditModal(exp)}
+                                  className="p-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-lg transition-colors cursor-pointer border border-indigo-200/60 shadow-2xs flex items-center space-x-1 text-[11px] font-bold"
+                                  title="แก้ไขรายการรายจ่ายนี้"
+                                >
+                                  <Pencil className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">แก้ไข</span>
+                                </button>
+
+                                {/* Delete Button */}
+                                <button
+                                  type="button"
+                                  onClick={() => handleDeleteExpense(exp)}
+                                  className="p-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 rounded-lg transition-colors cursor-pointer border border-rose-200/60 shadow-2xs flex items-center space-x-1 text-[11px] font-bold"
+                                  title="ลบรายการนี้"
+                                >
+                                  <Trash2 className="w-3.5 h-3.5" />
+                                  <span className="hidden sm:inline">ลบ</span>
+                                </button>
+                              </div>
                             </td>
                           </tr>
                         );
@@ -740,10 +1031,10 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                 <div className="bg-rose-50/40 p-4 rounded-2xl border border-rose-100 flex items-center justify-between">
                   <div className="space-y-0.5">
                     <span className="text-xs font-bold text-rose-900">
-                      รวมยอดรายจ่ายของช่วงเวลาที่เลือก ({filteredExpenses.length} รายการ):
+                      รวมยอดรายจ่ายของรายการที่แสดง ({filteredExpenses.length} รายการ):
                     </span>
                     <p className="text-[10px] text-slate-500">
-                      คำนวณและอัปเดตตรงตามฐานข้อมูลระบบแบบ Real-time
+                      {categoryFilter !== 'all' ? `กรองเฉพาะ: ${EXPENSE_CATEGORIES.find(c => c.key === categoryFilter)?.label}` : 'คำนวณและอัปเดตตรงตามฐานข้อมูลระบบแบบ Real-time'}
                     </p>
                   </div>
                   <div className="text-lg font-black text-rose-700 font-mono">
@@ -759,7 +1050,133 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
 
       </div>
 
-      {/* Confirmation Modal */}
+      {/* 4. EDIT EXPENSE MODAL */}
+      {editingExpense && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+          <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100 p-6 sm:p-7 space-y-5 text-left">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-4">
+              <div className="flex items-center space-x-2.5">
+                <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
+                  <Pencil className="w-5 h-5" />
+                </span>
+                <div>
+                  <h3 className="text-base font-extrabold text-slate-900">
+                    แก้ไขรายการรายจ่าย (Edit Expense)
+                  </h3>
+                  <p className="text-xs text-slate-500">
+                    รหัสอ้างอิง: <span className="font-mono text-[11px] text-slate-700">{editingExpense.id}</span>
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setEditingExpense(null)}
+                className="p-1.5 text-slate-400 hover:text-slate-600 rounded-xl hover:bg-slate-100 transition-colors"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <form onSubmit={handleSaveEditedExpense} className="space-y-4">
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">หมวดหมู่รายจ่าย *</label>
+                <select
+                  value={editFormCategory}
+                  onChange={(e) => setEditFormCategory(e.target.value as any)}
+                  className="w-full bg-slate-50 text-slate-800 text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-sans cursor-pointer font-medium"
+                >
+                  {EXPENSE_CATEGORIES.map(c => (
+                    <option key={c.key} value={c.key}>
+                      {c.label} ({c.key})
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">วันที่ทำรายการ *</label>
+                  <input
+                    type="date"
+                    value={editFormDate}
+                    onChange={(e) => setEditFormDate(e.target.value)}
+                    className="w-full bg-slate-50 text-slate-800 font-mono text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500"
+                    required
+                  />
+                </div>
+                
+                <div>
+                  <label className="block text-[11px] font-bold text-slate-700 mb-1">จำนวนเงิน (บาท) *</label>
+                  <input
+                    type="number"
+                    step="any"
+                    value={editFormAmount}
+                    onChange={(e) => setEditFormAmount(e.target.value)}
+                    onFocus={(e) => e.target.select()}
+                    className="w-full bg-slate-50 text-slate-800 font-mono font-bold text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 text-rose-700"
+                    required
+                    min="1"
+                  />
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">ผู้รับเงิน / ผู้เบิกถอน (Payee)</label>
+                <input
+                  type="text"
+                  value={editFormPayee}
+                  onChange={(e) => setEditFormPayee(e.target.value)}
+                  placeholder="เช่น ช่างเจ, เจ้าของร้าน"
+                  className="w-full bg-slate-50 text-slate-800 text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 font-sans"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-bold text-slate-700 mb-1">รายละเอียดหมายเหตุ * (Audit Notes)</label>
+                <textarea
+                  value={editFormNotes}
+                  onChange={(e) => setEditFormNotes(e.target.value)}
+                  className="w-full h-20 bg-slate-50 text-slate-800 text-xs px-3.5 py-2.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 resize-none font-sans"
+                  required
+                ></textarea>
+              </div>
+
+              <div className="flex items-center space-x-2.5 bg-rose-50/60 border border-rose-100 p-3 rounded-xl">
+                <input
+                  type="checkbox"
+                  id="editExpenseIsFromDrawer"
+                  checked={editFormIsFromDrawer}
+                  onChange={(e) => setEditFormIsFromDrawer(e.target.checked)}
+                  className="w-4 h-4 text-rose-600 border-slate-300 rounded focus:ring-rose-500 cursor-pointer"
+                />
+                <label htmlFor="editExpenseIsFromDrawer" className="text-[11px] font-bold text-rose-950 cursor-pointer select-none flex flex-col font-sans">
+                  <span>💵 ถอน/จ่ายออกด้วยเงินสดจากลิ้นชัก (เก๊ะเงินหน้าร้าน)</span>
+                  <span className="text-[9.5px] text-rose-600/80 font-normal">ระบบจะหักลด "ยอดเงินสดคงในเก๊ะเครื่อง" ของวันนั้นให้อัตโนมัติ</span>
+                </label>
+              </div>
+
+              <div className="flex items-center justify-end space-x-3 pt-3 border-t border-slate-100">
+                <button
+                  type="button"
+                  onClick={() => setEditingExpense(null)}
+                  className="px-4 py-2.5 rounded-xl border border-slate-200 text-slate-600 hover:bg-slate-50 text-xs font-bold transition-all cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="submit"
+                  className="px-5 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-bold transition-all cursor-pointer shadow-sm flex items-center space-x-1.5"
+                >
+                  <Check className="w-4 h-4" />
+                  <span>บันทึกการเปลี่ยนแปลง</span>
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 5. CONFIRMATION DIALOG */}
       {confirmDialog.isOpen && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 p-6 space-y-5 text-left">
@@ -795,3 +1212,4 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
     </div>
   );
 }
+

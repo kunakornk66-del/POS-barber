@@ -380,24 +380,35 @@ export default function AnnualResetModal({
 
   // 4. Download All-in-One 1-Year Backup Package
   const handleDownloadAllBackup = async () => {
+    if (isDownloadingAll) return;
     setIsDownloadingAll(true);
     try {
       // 1. JSON
       handleDownloadJsonBackup();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
       // 2. CSV
-      setTimeout(() => {
-        handleDownloadExcelReport();
-      }, 500);
+      handleDownloadExcelReport();
+      await new Promise((resolve) => setTimeout(resolve, 400));
+
       // 3. PDF
-      setTimeout(async () => {
-        await handleDownloadPdfReport();
-        setIsDownloadingAll(false);
-        setDownloadSuccess('🎉 ดาวน์โหลดชุดสำรองข้อมูลย้อนหลัง 1 ปีครบทุกรูปแบบ (JSON, CSV, PDF สรุป 12 เดือน) สำเร็จสมบูรณ์!');
-        setTimeout(() => setDownloadSuccess(null), 6000);
-      }, 1000);
+      await exportAsyncAnnualPdfReport(
+        shopName,
+        currentYear,
+        sales,
+        expenses,
+        barbers,
+        userEmail
+      );
+
+      setDownloadSuccess('🎉 ดาวน์โหลดชุดสำรองข้อมูลย้อนหลัง 1 ปีครบทุกรูปแบบ (JSON, CSV, PDF สรุป 12 เดือน) สำเร็จสมบูรณ์!');
+      setTimeout(() => setDownloadSuccess(null), 6000);
     } catch (err) {
       console.error('Failed to download complete package:', err);
+      alert('⚠️ การดาวน์โหลด PDF รายงานประจำปีมีข้อขัดข้อง แต่ไฟล์ JSON และ CSV ได้ถูกดาวน์โหลดแล้ว');
+    } finally {
       setIsDownloadingAll(false);
+      setIsGeneratingPdf(false);
     }
   };
 
