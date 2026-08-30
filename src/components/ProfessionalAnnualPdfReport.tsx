@@ -221,19 +221,27 @@ export default function ProfessionalAnnualPdfReport({
         <head>
           <meta charset="utf-8" />
           <title>รายงานสรุปผลประกอบการประจำปี_${currentYear}_${shopName}</title>
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800;900&family=Sarabun:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
           <style>
             @page {
               size: A4 portrait;
-              margin: 8mm;
+              margin: 0;
             }
+            * { box-sizing: border-box; }
             body {
-              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+              font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
               color: #0f172a;
-              background-color: #ffffff;
+              background-color: #f1f5f9;
               margin: 0;
               padding: 0;
               -webkit-print-color-adjust: exact;
               print-color-adjust: exact;
+            }
+            .annual-pdf-page {
+              page-break-after: always;
+              break-after: page;
             }
           </style>
         </head>
@@ -241,8 +249,10 @@ export default function ProfessionalAnnualPdfReport({
           ${htmlBody}
           <script>
             window.onload = function() {
-              window.print();
-              setTimeout(function() { window.close(); }, 600);
+              setTimeout(function() {
+                window.print();
+                setTimeout(function() { window.close(); }, 600);
+              }, 400);
             };
           </script>
         </body>

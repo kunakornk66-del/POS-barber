@@ -1530,6 +1530,7 @@ export async function exportAsyncMonthlyPdfReport(
 
 /**
  * Generate full, clean HTML template for 12-Month Annual Accounting Audit PDF
+ * Structured into clean, high-resolution, perfectly-proportioned A4 pages (Page 1, Page 2, Page 3).
  * Styled exclusively with pure inline CSS (Hex colors only, strictly no OKLCH/Tailwind classes).
  */
 export function generateAnnualHtmlReport(
@@ -1542,11 +1543,19 @@ export function generateAnnualHtmlReport(
 ): string {
   const thaiBuddhistYear = targetYear + 543;
   const cleanShop = (shopName || 'ร้านบาร์เบอร์').trim();
+  const documentId = `ANN-${targetYear}-AUDIT-${Math.floor(1000 + Math.random() * 9000)}`;
+  const printedDateThai = formatThaiDate(new Date().toISOString().split('T')[0]);
+  const printedTimestamp = new Date().toLocaleString('th-TH');
 
   const THAI_MONTH_NAMES_FULL = [
     'มกราคม (Jan)', 'กุมภาพันธ์ (Feb)', 'มีนาคม (Mar)', 'เมษายน (Apr)',
     'พฤษภาคม (May)', 'มิถุนายน (Jun)', 'กรกฎาคม (Jul)', 'สิงหาคม (Aug)',
     'กันยายน (Sep)', 'ตุลาคม (Oct)', 'พฤศจิกายน (Nov)', 'ธันวาคม (Dec)'
+  ];
+
+  const THAI_MONTH_SHORT = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
   ];
 
   // 12-Month schedule aggregation
@@ -1573,6 +1582,7 @@ export function generateAnnualHtmlReport(
     let transferTotal = 0;
     let barberShareTotal = 0;
     let shopShareTotal = 0;
+    let tipTotal = 0;
 
     monthSales.forEach(s => {
       haircutRevenue += s.haircutPrice || 0;
@@ -1582,6 +1592,7 @@ export function generateAnnualHtmlReport(
       customerPaidTotal += s.customerPaid || 0;
       barberShareTotal += s.barberTotalShare || 0;
       shopShareTotal += s.shopTotalShare || 0;
+      tipTotal += s.tip || 0;
 
       const breakdown = getSalePaymentBreakdown(s);
       cashTotal += breakdown.cashAmount;
@@ -1590,11 +1601,14 @@ export function generateAnnualHtmlReport(
 
     const expenseTotal = monthExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
     const netProfit = shopShareTotal - expenseTotal;
+    const grossSubtotal = haircutRevenue + chemicalRevenue + productRevenue;
 
     return {
       monthNum,
       monthNameTh: THAI_MONTH_NAMES_FULL[idx],
+      shortMonthTh: THAI_MONTH_SHORT[idx],
       salesCount: monthSales.length,
+      grossSubtotal,
       haircutRevenue,
       chemicalRevenue,
       productRevenue,
@@ -1605,7 +1619,8 @@ export function generateAnnualHtmlReport(
       barberShareTotal,
       shopShareTotal,
       expenseTotal,
-      netProfit
+      netProfit,
+      tipTotal
     };
   });
 
@@ -1621,7 +1636,33 @@ export function generateAnnualHtmlReport(
   const totalShopShare = monthlyData.reduce((sum, m) => sum + m.shopShareTotal, 0);
   const totalExpenses = monthlyData.reduce((sum, m) => sum + m.expenseTotal, 0);
   const totalNetProfit = totalShopShare - totalExpenses;
+  const totalTips = monthlyData.reduce((sum, m) => sum + m.tipTotal, 0);
+
   const profitMarginPct = totalCustomerPaid > 0 ? (totalNetProfit / totalCustomerPaid) * 100 : 0;
+  const avgMonthlyRevenue = totalCustomerPaid / 12;
+  const avgMonthlyProfit = totalNetProfit / 12;
+  const avgMonthlyExpenses = totalExpenses / 12;
+  const avgTicketSize = totalBills > 0 ? totalCustomerPaid / totalBills : 0;
+  const cashRatioPct = totalCustomerPaid > 0 ? (totalCash / totalCustomerPaid) * 100 : 0;
+  const transferRatioPct = totalCustomerPaid > 0 ? (totalTransfer / totalCustomerPaid) * 100 : 0;
+  const laborCostRatioPct = totalCustomerPaid > 0 ? (totalBarberShare / totalCustomerPaid) * 100 : 0;
+  const expenseRatioPct = totalCustomerPaid > 0 ? (totalExpenses / totalCustomerPaid) * 100 : 0;
+
+  // Quarterly Aggregates (Q1, Q2, Q3, Q4)
+  const quarters = [
+    { name: 'ไตรมาส 1 (ม.ค. - มี.ค.)', qNameEn: 'Q1 (Jan - Mar)', months: monthlyData.slice(0, 3) },
+    { name: 'ไตรมาส 2 (เม.ย. - มิ.ย.)', qNameEn: 'Q2 (Apr - Jun)', months: monthlyData.slice(3, 6) },
+    { name: 'ไตรมาส 3 (ก.ค. - ก.ย.)', qNameEn: 'Q3 (Jul - Sep)', months: monthlyData.slice(6, 9) },
+    { name: 'ไตรมาส 4 (ต.ค. - ธ.ค.)', qNameEn: 'Q4 (Oct - Dec)', months: monthlyData.slice(9, 12) },
+  ].map(q => {
+    const qSales = q.months.reduce((sum, m) => sum + m.customerPaidTotal, 0);
+    const qBills = q.months.reduce((sum, m) => sum + m.salesCount, 0);
+    const qBarber = q.months.reduce((sum, m) => sum + m.barberShareTotal, 0);
+    const qExp = q.months.reduce((sum, m) => sum + m.expenseTotal, 0);
+    const qProfit = q.months.reduce((sum, m) => sum + m.netProfit, 0);
+    const qPct = totalCustomerPaid > 0 ? (qSales / totalCustomerPaid) * 100 : 0;
+    return { ...q, qSales, qBills, qBarber, qExp, qProfit, qPct };
+  });
 
   // Year sales for barber breakdown
   const yearSales = sales.filter(s => {
@@ -1636,12 +1677,14 @@ export function generateAnnualHtmlReport(
     const bProduct = bSales.reduce((sum, s) => sum + (s.productPrice || 0), 0);
     const bCommissions = bSales.reduce((sum, s) => sum + (s.barberTotalShare || 0), 0);
     const bTips = bSales.reduce((sum, s) => sum + (s.tip || 0), 0);
+    const bTotalGenerated = bHaircut + bChemical + bProduct;
     return {
       barber: b,
       clientsCount: bSales.length,
       haircutTotal: bHaircut,
       chemicalTotal: bChemical,
       productTotal: bProduct,
+      totalGenerated: bTotalGenerated,
       commissionTotal: bCommissions,
       tipTotal: bTips
     };
@@ -1664,274 +1707,563 @@ export function generateAnnualHtmlReport(
   const expenseCategoryList = Object.entries(categoryMap).map(([category, data]) => ({
     category,
     count: data.count,
-    total: data.total
+    total: data.total,
+    pct: totalExpenses > 0 ? (data.total / totalExpenses) * 100 : 0
   })).sort((a, b) => b.total - a.total);
 
   return `
-    <div style="background-color: #ffffff; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; padding: 24px; box-sizing: border-box; line-height: 1.4;">
+    <div style="background-color: #f1f5f9; padding: 0; margin: 0; box-sizing: border-box; font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; color: #0f172a; line-height: 1.45;">
       
-      <!-- HEADER -->
-      <div style="border-bottom: 2px solid #0f172a; padding-bottom: 14px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: flex-start;">
+      <!-- ========================================================== -->
+      <!-- PAGE 1: EXECUTIVE FINANCIAL STATEMENT & INCOME STATEMENT   -->
+      <!-- ========================================================== -->
+      <div class="annual-pdf-page" style="width: 820px; min-height: 1160px; max-height: 1160px; background-color: #ffffff; margin: 0 auto 20px auto; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
         <div>
-          <span style="display: inline-block; background-color: #0f172a; color: #ffffff; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 2px 8px; border-radius: 4px; margin-bottom: 6px;">
-            เอกสารทางการสำหรับทำบัญชี & ยื่นภาษี (Official Accounting Report)
-          </span>
-          <h1 style="margin: 0; font-size: 24px; font-weight: 900; text-transform: uppercase; color: #020617; letter-spacing: -0.02em;">
-            ${cleanShop}
-          </h1>
-          <p style="margin: 3px 0 0 0; font-size: 15px; font-weight: 700; color: #b45309;">
-            รายงานสรุปผลประกอบการและยอดขายประจำปี (รอบ 12 เดือน มกราคม – ธันวาคม)
-          </p>
-          <p style="margin: 2px 0 0 0; font-size: 11px; font-weight: 500; color: #64748b;">
-            ANNUAL FINANCIAL & SALES AUDIT STATEMENT • ประจำปี พ.ศ. ${thaiBuddhistYear} (ค.ศ. ${targetYear})
-          </p>
+          <!-- LETTERHEAD HEADER -->
+          <div style="border-bottom: 2.5px solid #0f172a; padding-bottom: 12px; margin-bottom: 14px; display: flex; justify-content: space-between; align-items: flex-start;">
+            <div>
+              <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 4px;">
+                <span style="background-color: #0f172a; color: #ffffff; font-family: 'Prompt', sans-serif; font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.05em; padding: 3px 8px; border-radius: 4px;">
+                  เอกสารบัญชีทางการ (Official Financial Statement)
+                </span>
+                <span style="font-size: 10px; font-weight: 700; color: #64748b; font-family: 'JetBrains Mono', monospace;">
+                  DOC ID: ${documentId}
+                </span>
+              </div>
+              <h1 style="margin: 0; font-family: 'Prompt', sans-serif; font-size: 23px; font-weight: 900; color: #020617; letter-spacing: -0.01em;">
+                ${cleanShop}
+              </h1>
+              <p style="margin: 3px 0 0 0; font-family: 'Prompt', sans-serif; font-size: 13.5px; font-weight: 700; color: #b45309;">
+                รายงานสรุปผลประกอบการและงบการเงินประจำปี (รอบ 12 เดือน มกราคม – ธันวาคม)
+              </p>
+              <p style="margin: 2px 0 0 0; font-size: 11px; font-weight: 500; color: #64748b;">
+                ANNUAL STATEMENT OF COMPREHENSIVE INCOME & FINANCIAL AUDIT • ประจำปี พ.ศ. ${thaiBuddhistYear} (ค.ศ. ${targetYear})
+              </p>
+            </div>
+
+            <div style="text-align: right; font-size: 10.5px; color: #475569;">
+              <div style="background-color: #f8fafc; padding: 6px 12px; border-radius: 6px; border: 1.5px solid #cbd5e1; text-align: right; margin-bottom: 4px;">
+                <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">รอบระยะเวลาบัญชี (Fiscal Period)</div>
+                <div style="font-family: 'Prompt', sans-serif; font-weight: 800; color: #0f172a; font-size: 11.5px;">1 มกราคม – 31 ธันวาคม ${thaiBuddhistYear}</div>
+              </div>
+              <div style="font-size: 9.5px; color: #64748b;">
+                รหัสบัญชีร้าน: <strong style="color: #0f172a; font-family: 'JetBrains Mono', monospace;">${userEmail || 'POS-OFFICIAL'}</strong>
+              </div>
+              <div style="font-size: 9.5px; color: #64748b;">
+                วันที่ออกเอกสาร: <strong style="color: #0f172a;">${printedDateThai}</strong>
+              </div>
+            </div>
+          </div>
+
+          <!-- 6 EXECUTIVE KPI SUMMARY CARDS (3x2 Grid) -->
+          <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 14px;">
+            <!-- Card 1: Gross Sales -->
+            <div style="padding: 9px 12px; background-color: #f0fdf4; border: 1.5px solid #86efac; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 9.5px; font-weight: 800; color: #166534; text-transform: uppercase; font-family: 'Prompt', sans-serif;">1. ยอดขายรวมทั้งปี</span>
+                <span style="font-size: 8.5px; font-weight: 700; color: #15803d; background-color: #dcfce7; padding: 1px 6px; border-radius: 10px;">${totalBills.toLocaleString()} บิล</span>
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 900; color: #14532d; margin-top: 2px;">
+                ${formatBaht(totalCustomerPaid)}
+              </div>
+              <div style="font-size: 8.5px; color: #166534; margin-top: 1px;">รวมยอดชำระจริงจากลูกค้าทั้งหมด</div>
+            </div>
+
+            <!-- Card 2: Barber Commissions -->
+            <div style="padding: 9px 12px; background-color: #fff7ed; border: 1.5px solid #fdba74; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 9.5px; font-weight: 800; color: #9a3412; text-transform: uppercase; font-family: 'Prompt', sans-serif;">2. ส่วนแบ่งช่าง (ต้นทุนแรงงาน)</span>
+                <span style="font-size: 8.5px; font-weight: 700; color: #c2410c; background-color: #ffedd5; padding: 1px 6px; border-radius: 10px;">${laborCostRatioPct.toFixed(1)}% ของยอด</span>
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 900; color: #7c2d12; margin-top: 2px;">
+                ${formatBaht(totalBarberShare)}
+              </div>
+              <div style="font-size: 8.5px; color: #9a3412; margin-top: 1px;">ค่าคอมมิชชั่นสะสมที่จ่ายให้ช่าง</div>
+            </div>
+
+            <!-- Card 3: Operating Expenses -->
+            <div style="padding: 9px 12px; background-color: #fff1f2; border: 1.5px solid #fecdd3; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 9.5px; font-weight: 800; color: #9f1239; text-transform: uppercase; font-family: 'Prompt', sans-serif;">3. ค่าใช้จ่ายดำเนินงานร้าน</span>
+                <span style="font-size: 8.5px; font-weight: 700; color: #be123c; background-color: #ffe4e6; padding: 1px 6px; border-radius: 10px;">${yearExpenses.length} รายการ</span>
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 900; color: #881337; margin-top: 2px;">
+                ${formatBaht(totalExpenses)}
+              </div>
+              <div style="font-size: 8.5px; color: #9f1239; margin-top: 1px;">ค่าใช้จ่ายร้านค้าและเบิกเงินสะสม</div>
+            </div>
+
+            <!-- Card 4: Net Shop Profit -->
+            <div style="padding: 9px 12px; background-color: ${totalNetProfit >= 0 ? '#f0fdfa' : '#fff1f2'}; border: 1.5px solid ${totalNetProfit >= 0 ? '#5eead4' : '#fda4af'}; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 9.5px; font-weight: 800; color: ${totalNetProfit >= 0 ? '#0f766e' : '#be123c'}; text-transform: uppercase; font-family: 'Prompt', sans-serif;">4. กำไรสุทธิของร้าน</span>
+                <span style="font-size: 8.5px; font-weight: 700; color: ${totalNetProfit >= 0 ? '#0d9488' : '#e11d48'}; background-color: ${totalNetProfit >= 0 ? '#ccfbf1' : '#ffe4e6'}; padding: 1px 6px; border-radius: 10px;">Margin: ${profitMarginPct.toFixed(1)}%</span>
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 900; color: ${totalNetProfit >= 0 ? '#115e59' : '#9f1239'}; margin-top: 2px;">
+                ${formatBaht(totalNetProfit)}
+              </div>
+              <div style="font-size: 8.5px; color: ${totalNetProfit >= 0 ? '#0f766e' : '#be123c'}; margin-top: 1px;">กำไรสุทธิหลังหักคอมมิชชั่นและรายจ่าย</div>
+            </div>
+
+            <!-- Card 5: Cash Payment -->
+            <div style="padding: 9px 12px; background-color: #f8fafc; border: 1.5px solid #cbd5e1; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 9.5px; font-weight: 800; color: #334155; text-transform: uppercase; font-family: 'Prompt', sans-serif;">5. ยอดรับเงินสด</span>
+                <span style="font-size: 8.5px; font-weight: 700; color: #475569; background-color: #e2e8f0; padding: 1px 6px; border-radius: 10px;">${cashRatioPct.toFixed(1)}%</span>
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 900; color: #0f172a; margin-top: 2px;">
+                ${formatBaht(totalCash)}
+              </div>
+              <div style="font-size: 8.5px; color: #64748b; margin-top: 1px;">ชำระด้วยเงินสดเข้าเก๊ะร้าน</div>
+            </div>
+
+            <!-- Card 6: Bank Transfer -->
+            <div style="padding: 9px 12px; background-color: #f0f9ff; border: 1.5px solid #bae6fd; border-radius: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center;">
+                <span style="font-size: 9.5px; font-weight: 800; color: #0369a1; text-transform: uppercase; font-family: 'Prompt', sans-serif;">6. ยอดสแกนโอน/QR</span>
+                <span style="font-size: 8.5px; font-weight: 700; color: #0284c7; background-color: #e0f2fe; padding: 1px 6px; border-radius: 10px;">${transferRatioPct.toFixed(1)}%</span>
+              </div>
+              <div style="font-family: 'JetBrains Mono', monospace; font-size: 16px; font-weight: 900; color: #0c4a6e; margin-top: 2px;">
+                ${formatBaht(totalTransfer)}
+              </div>
+              <div style="font-size: 8.5px; color: #0369a1; margin-top: 1px;">โอนผ่านพร้อมเพย์/บัญชีธนาคาร</div>
+            </div>
+          </div>
+
+          <!-- STATEMENT OF COMPREHENSIVE INCOME -->
+          <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 12px 14px; background-color: #f8fafc; margin-bottom: 14px;">
+            <div style="font-family: 'Prompt', sans-serif; font-size: 11.5px; font-weight: 900; color: #020617; text-transform: uppercase; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 5px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: center;">
+              <span>งบกำไรขาดทุนเบื้องต้นสำหรับทำบัญชี (Statement of Comprehensive Income)</span>
+              <span style="font-weight: 600; color: #64748b; font-size: 9.5px;">หน่วย: บาท (THB)</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 16px; font-size: 10.5px;">
+              <!-- Left Column: Revenues & Direct Costs -->
+              <div style="border-right: 1px solid #e2e8f0; padding-right: 14px;">
+                <div style="font-family: 'Prompt', sans-serif; font-weight: 800; color: #0f172a; font-size: 10px; text-transform: uppercase; margin-bottom: 3px;">
+                  I. รายได้จากการประกอบกิจการ (Revenues)
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 6px; color: #334155;">
+                  <span>- รายได้ค่าบริการตัดผม (Haircut Services)</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${formatBaht(totalHaircut)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 6px; color: #334155;">
+                  <span>- รายได้ค่าบริการเคมี/ดัด/ทำสี (Chemical Treatments)</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${formatBaht(totalChemical)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 6px; color: #334155;">
+                  <span>- รายได้ขายผลิตภัณฑ์บำรุงผม (Retail Products)</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">${formatBaht(totalProduct)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 6px; color: #be123c;">
+                  <span>- หัก: ส่วนลดการค้าและโปรโมชั่น (Discounts)</span>
+                  <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">-${formatBaht(totalDiscounts)}</span>
+                </div>
+                <div style="display: flex; justify-content: space-between; padding: 4px 8px; font-weight: 800; background-color: #ecfdf5; border-radius: 4px; color: #065f46; margin-top: 3px; font-family: 'Prompt', sans-serif;">
+                  <span>รวมรายได้สุทธิจากลูกค้า (Gross Turnover)</span>
+                  <span style="font-family: 'JetBrains Mono', monospace;">${formatBaht(totalCustomerPaid)}</span>
+                </div>
+
+                <div style="margin-top: 8px;">
+                  <div style="font-family: 'Prompt', sans-serif; font-weight: 800; color: #0f172a; font-size: 10px; text-transform: uppercase; margin-bottom: 3px;">
+                    II. ต้นทุนแรงงานทางตรง (Direct Labor Cost)
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 6px; color: #c2410c;">
+                    <span>- ค่าคอมมิชชั่น/ส่วนแบ่งช่างตัดผม (Barber Share)</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600;">-${formatBaht(totalBarberShare)}</span>
+                  </div>
+                  <div style="display: flex; justify-content: space-between; padding: 4px 8px; font-weight: 800; background-color: #eff6ff; border-radius: 4px; color: #1e40af; margin-top: 3px; font-family: 'Prompt', sans-serif;">
+                    <span>กำไรขั้นต้นส่วนของร้าน (Shop Gross Revenue)</span>
+                    <span style="font-family: 'JetBrains Mono', monospace;">${formatBaht(totalShopShare)}</span>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Right Column: Operating Expenses & Net Income -->
+              <div style="padding-left: 2px;">
+                <div style="font-family: 'Prompt', sans-serif; font-weight: 800; color: #0f172a; font-size: 10px; text-transform: uppercase; margin-bottom: 3px;">
+                  III. ค่าใช้จ่ายในการดำเนินงาน (Operating Expenses)
+                </div>
+                ${expenseCategoryList.slice(0, 4).map(c => `
+                  <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 6px; color: #334155;">
+                    <span>- ${c.category} (${c.count} รายการ)</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #9f1239;">-${formatBaht(c.total)}</span>
+                  </div>
+                `).join('')}
+                ${expenseCategoryList.length > 4 ? `
+                  <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 6px; color: #334155;">
+                    <span>- หมวดหมู่อื่นๆ (${expenseCategoryList.slice(4).reduce((s, x) => s + x.count, 0)} รายการ)</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-weight: 600; color: #9f1239;">-${formatBaht(expenseCategoryList.slice(4).reduce((s, x) => s + x.total, 0))}</span>
+                  </div>
+                ` : ''}
+                ${expenseCategoryList.length === 0 ? '<div style="font-size: 9.5px; color: #94a3b8; padding: 2px 6px; font-style: italic;">ไม่มีบันทึกรายการค่าใช้จ่ายดำเนินงาน</div>' : ''}
+
+                <div style="display: flex; justify-content: space-between; padding: 4px 8px; font-weight: 800; background-color: #fff1f2; border-radius: 4px; color: #9f1239; margin-top: 3px; font-family: 'Prompt', sans-serif;">
+                  <span>รวมค่าใช้จ่ายดำเนินงานทั้งสิ้น (Total Expenses)</span>
+                  <span style="font-family: 'JetBrains Mono', monospace;">-${formatBaht(totalExpenses)}</span>
+                </div>
+
+                <div style="margin-top: 8px;">
+                  <div style="font-family: 'Prompt', sans-serif; font-weight: 800; color: #0f172a; font-size: 10px; text-transform: uppercase; margin-bottom: 3px;">
+                    IV. สรุปผลกำไรสุทธิประจำปี (Net Income)
+                  </div>
+                  <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 10px; font-weight: 900; background-color: #0f172a; color: #ffffff; border-radius: 6px; font-size: 11px; margin-top: 3px; font-family: 'Prompt', sans-serif;">
+                    <span>กำไรสุทธิก่อนภาษี (Net Operating Profit)</span>
+                    <span style="font-family: 'JetBrains Mono', monospace; font-size: 13.5px; color: #fde047;">${formatBaht(totalNetProfit)}</span>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- KEY ANNUAL METRICS & AVERAGES -->
+          <div style="border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 14px; background-color: #ffffff;">
+            <div style="font-family: 'Prompt', sans-serif; font-size: 10.5px; font-weight: 800; color: #1e293b; text-transform: uppercase; margin-bottom: 6px;">
+              📊 ค่าเฉลี่ยและสถิติสำคัญประจำปี (Annual Financial Highlights & Key Averages)
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; text-align: center; font-size: 10px;">
+              <div style="padding: 6px; background-color: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div style="color: #64748b; font-size: 8.5px; font-weight: 700;">ยอดขายเฉลี่ย / เดือน</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #166534; font-size: 12px; margin-top: 1px;">${formatBaht(avgMonthlyRevenue)}</div>
+              </div>
+              <div style="padding: 6px; background-color: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div style="color: #64748b; font-size: 8.5px; font-weight: 700;">กำไรสุทธิเฉลี่ย / เดือน</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: ${avgMonthlyProfit >= 0 ? '#0f766e' : '#be123c'}; font-size: 12px; margin-top: 1px;">${formatBaht(avgMonthlyProfit)}</div>
+              </div>
+              <div style="padding: 6px; background-color: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div style="color: #64748b; font-size: 8.5px; font-weight: 700;">ยอดเฉลี่ยต่อบิล (Ticket Size)</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #1e293b; font-size: 12px; margin-top: 1px;">${formatBaht(avgTicketSize)}</div>
+              </div>
+              <div style="padding: 6px; background-color: #f8fafc; border-radius: 6px; border: 1px solid #e2e8f0;">
+                <div style="color: #64748b; font-size: 8.5px; font-weight: 700;">สัดส่วนต้นทุนแรงงานช่าง</div>
+                <div style="font-family: 'JetBrains Mono', monospace; font-weight: 800; color: #c2410c; font-size: 12px; margin-top: 1px;">${laborCostRatioPct.toFixed(1)}%</div>
+              </div>
+            </div>
+          </div>
         </div>
 
-        <div style="text-align: right; font-size: 11px; color: #475569;">
-          <div style="background-color: #f1f5f9; padding: 6px 12px; border-radius: 6px; border: 1px solid #cbd5e1; text-align: right;">
-            <div style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase;">รอบระยะเวลาบัญชี (Fiscal Period)</div>
-            <div style="font-weight: 800; color: #0f172a; font-size: 12px;">1 มกราคม – 31 ธันวาคม ${thaiBuddhistYear}</div>
-          </div>
-          <div style="font-size: 10px; color: #94a3b8; margin-top: 4px;">
-            รหัสบัญชีร้าน: <strong style="color: #334155;">${userEmail || 'POS-SYSTEM'}</strong>
-          </div>
-          <div style="font-size: 10px; color: #94a3b8;">
-            วันที่จัดทำ: <strong style="color: #334155;">${formatThaiDate(new Date().toISOString().split('T')[0])}</strong>
-          </div>
+        <!-- PAGE 1 FOOTER -->
+        <div style="border-top: 1.5px solid #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 8.5px; color: #64748b;">
+          <span>ระบบ POS Barbershop Cloud • ข้อมูลผ่านการประมวลผลทางการเงินและตรวจสอบอัตโนมัติ</span>
+          <span style="font-weight: 700; color: #0f172a;">หน้า 1 จาก 3 • ออกเอกสารเมื่อ ${printedTimestamp} น.</span>
         </div>
       </div>
 
-      <!-- 4 EXECUTIVE KPI SUMMARY BOXES -->
-      <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;">
-        <div style="padding: 10px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; text-align: center;">
-          <span style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">1. ยอดขายรวมทั้งปี</span>
-          <span style="font-size: 16px; font-weight: 900; color: #15803d; margin-top: 2px; display: block;">${formatBaht(totalCustomerPaid)}</span>
-          <span style="font-size: 9px; color: #64748b;">${totalBills.toLocaleString()} รายการบิล</span>
-        </div>
 
-        <div style="padding: 10px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; text-align: center;">
-          <span style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">2. ส่วนแบ่งช่าง (ต้นทุน)</span>
-          <span style="font-size: 16px; font-weight: 900; color: #ea580c; margin-top: 2px; display: block;">${formatBaht(totalBarberShare)}</span>
-          <span style="font-size: 9px; color: #64748b;">ค่าคอมมิชชั่นสะสม</span>
-        </div>
-
-        <div style="padding: 10px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; text-align: center;">
-          <span style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">3. ค่าใช้จ่ายดำเนินงานร้าน</span>
-          <span style="font-size: 16px; font-weight: 900; color: #e11d48; margin-top: 2px; display: block;">${formatBaht(totalExpenses)}</span>
-          <span style="font-size: 9px; color: #64748b;">${yearExpenses.length} รายการจ่าย</span>
-        </div>
-
-        <div style="padding: 10px; background-color: #f8fafc; border: 1px solid #cbd5e1; border-radius: 8px; text-align: center;">
-          <span style="font-size: 9px; font-weight: 700; color: #64748b; text-transform: uppercase; display: block;">4. กำไรสุทธิของร้าน</span>
-          <span style="font-size: 16px; font-weight: 900; color: ${totalNetProfit >= 0 ? '#0f766e' : '#be123c'}; margin-top: 2px; display: block;">${formatBaht(totalNetProfit)}</span>
-          <span style="font-size: 9px; font-weight: 700; color: #475569;">Margin: ${profitMarginPct.toFixed(1)}%</span>
-        </div>
-      </div>
-
-      <!-- STATEMENT OF COMPREHENSIVE INCOME -->
-      <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 12px; background-color: #f8fafc; margin-bottom: 16px;">
-        <div style="font-size: 11px; font-weight: 900; color: #020617; text-transform: uppercase; border-bottom: 1px solid #cbd5e1; padding-bottom: 6px; margin-bottom: 8px; display: flex; justify-content: space-between;">
-          <span>งบกำไรขาดทุนเบื้องต้น (Statement of Comprehensive Income)</span>
-          <span style="font-weight: 400; color: #64748b;">หน่วย: บาท (THB)</span>
-        </div>
-
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; font-size: 11px;">
-          <!-- Left Column -->
-          <div style="border-right: 1px solid #e2e8f0; padding-right: 12px;">
-            <div style="font-weight: 800; color: #1e293b; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">I. รายได้จากการประกอบกิจการ (Revenues)</div>
-            <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 8px; color: #334155;">
-              <span>- ค่าบริการตัดผม (Haircut Services)</span>
-              <span style="font-weight: 600;">${formatBaht(totalHaircut)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 8px; color: #334155;">
-              <span>- ค่าบริการเคมี (Chemical Treatments)</span>
-              <span style="font-weight: 600;">${formatBaht(totalChemical)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 8px; color: #334155;">
-              <span>- ขายผลิตภัณฑ์ (Retail Products)</span>
-              <span style="font-weight: 600;">${formatBaht(totalProduct)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 8px; color: #be123c;">
-              <span>- หัก: ส่วนลดและโปรโมชั่น</span>
-              <span style="font-weight: 600;">-${formatBaht(totalDiscounts)}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; padding: 4px 8px; font-weight: 800; background-color: #ecfdf5; border-radius: 4px; color: #065f46; margin-top: 4px;">
-              <span>รวมรายได้สุทธิจากลูกค้า (Gross Turnover)</span>
-              <span>${formatBaht(totalCustomerPaid)}</span>
-            </div>
-
-            <div style="margin-top: 8px;">
-              <div style="font-weight: 800; color: #1e293b; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">II. ต้นทุนค่าบริการช่าง (Direct Labor Cost)</div>
-              <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 8px; color: #c2410c;">
-                <span>- ส่วนแบ่งช่างตัดผม (Barber Share)</span>
-                <span style="font-weight: 600;">-${formatBaht(totalBarberShare)}</span>
+      <!-- ========================================================== -->
+      <!-- PAGE 2: 12-MONTH PERFORMANCE MASTER SCHEDULE TABLE         -->
+      <!-- ========================================================== -->
+      <div class="annual-pdf-page" style="width: 820px; min-height: 1160px; max-height: 1160px; background-color: #ffffff; margin: 0 auto 20px auto; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+        <div>
+          <!-- PAGE 2 HEADER -->
+          <div style="border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <div style="font-family: 'Prompt', sans-serif; font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">
+                ${cleanShop} • 12-MONTH MASTER ACCOUNTING SCHEDULE
               </div>
-              <div style="display: flex; justify-content: space-between; padding: 4px 8px; font-weight: 800; background-color: #eff6ff; border-radius: 4px; color: #1e40af; margin-top: 4px;">
-                <span>กำไรขั้นต้นส่วนของร้าน (Shop Gross Revenue)</span>
-                <span>${formatBaht(totalShopShare)}</span>
-              </div>
+              <h2 style="margin: 2px 0 0 0; font-family: 'Prompt', sans-serif; font-size: 16px; font-weight: 900; color: #020617;">
+                ตารางสรุปรายรับ-รายจ่ายรายเดือน 12 เดือน (มกราคม – ธันวาคม พ.ศ. ${thaiBuddhistYear})
+              </h2>
+            </div>
+            <div style="text-align: right; font-size: 9.5px; color: #64748b;">
+              <span>ประจำปี ค.ศ. ${targetYear}</span> • <strong style="color: #0f172a;">หน้า 2 จาก 3</strong>
             </div>
           </div>
 
-          <!-- Right Column -->
-          <div style="padding-left: 4px;">
-            <div style="font-weight: 800; color: #1e293b; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">III. ค่าใช้จ่ายในการดำเนินงาน (Operating Expenses)</div>
-            ${expenseCategoryList.slice(0, 4).map(c => `
-              <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 8px; color: #334155;">
-                <span>- ${c.category} (${c.count} รายการ)</span>
-                <span style="font-weight: 600;">-${formatBaht(c.total)}</span>
-              </div>
-            `).join('')}
-            ${expenseCategoryList.length > 4 ? `
-              <div style="display: flex; justify-content: space-between; padding: 2px 0 2px 8px; color: #334155;">
-                <span>- หมวดหมู่อื่นๆ (${expenseCategoryList.slice(4).reduce((s, x) => s + x.count, 0)} รายการ)</span>
-                <span style="font-weight: 600;">-${formatBaht(expenseCategoryList.slice(4).reduce((s, x) => s + x.total, 0))}</span>
-              </div>
-            ` : ''}
-            ${expenseCategoryList.length === 0 ? '<div style="font-size: 10px; color: #94a3b8; padding: 4px 8px; font-style: italic;">ไม่มีบันทึกรายการค่าใช้จ่ายดำเนินงาน</div>' : ''}
-
-            <div style="display: flex; justify-content: space-between; padding: 4px 8px; font-weight: 800; background-color: #fff1f2; border-radius: 4px; color: #9f1239; margin-top: 4px;">
-              <span>รวมค่าใช้จ่ายดำเนินงานทั้งสิ้น (Total Expenses)</span>
-              <span>-${formatBaht(totalExpenses)}</span>
-            </div>
-
-            <div style="margin-top: 8px;">
-              <div style="font-weight: 800; color: #1e293b; font-size: 10px; text-transform: uppercase; margin-bottom: 4px;">IV. สรุปผลกำไรสุทธิประจำปี (Net Income)</div>
-              <div style="display: flex; justify-content: space-between; padding: 6px 10px; font-weight: 900; background-color: #0f172a; color: #ffffff; border-radius: 6px; font-size: 12px; margin-top: 4px;">
-                <span>กำไรสุทธิก่อนภาษี (Net Profit Before Tax)</span>
-                <span style="color: #fde047;">${formatBaht(totalNetProfit)}</span>
-              </div>
-            </div>
-
-            <div style="display: flex; justify-content: space-between; font-size: 9px; color: #64748b; margin-top: 6px; padding: 0 4px;">
-              <span>💵 เงินสด: <strong>${formatBaht(totalCash)}</strong></span>
-              <span>📲 โอน/QR: <strong>${formatBaht(totalTransfer)}</strong></span>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <!-- 12-MONTH SCHEDULE TABLE -->
-      <div style="margin-bottom: 16px;">
-        <div style="font-size: 11px; font-weight: 900; color: #020617; text-transform: uppercase; border-bottom: 2px solid #0f172a; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-          <span>ตารางสรุปรายรับ-รายจ่าย 12 เดือน (มกราคม – ธันวาคม ${thaiBuddhistYear})</span>
-          <span style="font-weight: 400; color: #64748b; font-size: 9px;">12-Month Master Accounting Schedule</span>
-        </div>
-
-        <table style="width: 100%; border-collapse: collapse; font-size: 9px; border: 1px solid #cbd5e1;">
-          <thead>
-            <tr style="background-color: #1e293b; color: #ffffff; text-align: center; font-weight: bold;">
-              <th style="padding: 4px 6px; text-align: left; border: 1px solid #334155;">เดือน</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">ยอดขายรวม</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">ตัดผม</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">เคมี</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">สินค้า</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">ส่วนลด</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">เงินสด</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">เงินโอน</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">ส่วนแบ่งช่าง</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">รายจ่ายร้าน</th>
-              <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155;">กำไรสุทธิ</th>
-              <th style="padding: 4px 6px; text-align: center; border: 1px solid #334155;">บิล</th>
-            </tr>
-          </thead>
-          <tbody>
-            ${monthlyData.map((m, idx) => `
-              <tr style="border-bottom: 1px solid #cbd5e1; text-align: right; background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                <td style="padding: 3px 6px; text-align: left; font-weight: bold; border-right: 1px solid #cbd5e1; color: #0f172a;">${idx + 1}. ${m.monthNameTh.split(' ')[0]}</td>
-                <td style="padding: 3px 6px; font-weight: bold; border-right: 1px solid #cbd5e1; color: #0f172a;">${m.customerPaidTotal > 0 ? formatBaht(m.customerPaidTotal) : '-'}</td>
-                <td style="padding: 3px 6px; border-right: 1px solid #cbd5e1; color: #334155;">${m.haircutRevenue > 0 ? formatBaht(m.haircutRevenue) : '-'}</td>
-                <td style="padding: 3px 6px; border-right: 1px solid #cbd5e1; color: #334155;">${m.chemicalRevenue > 0 ? formatBaht(m.chemicalRevenue) : '-'}</td>
-                <td style="padding: 3px 6px; border-right: 1px solid #cbd5e1; color: #334155;">${m.productRevenue > 0 ? formatBaht(m.productRevenue) : '-'}</td>
-                <td style="padding: 3px 6px; border-right: 1px solid #cbd5e1; color: #e11d48;">${m.discountTotal > 0 ? `-${formatBaht(m.discountTotal)}` : '-'}</td>
-                <td style="padding: 3px 6px; border-right: 1px solid #cbd5e1; color: #334155;">${m.cashTotal > 0 ? formatBaht(m.cashTotal) : '-'}</td>
-                <td style="padding: 3px 6px; border-right: 1px solid #cbd5e1; color: #334155;">${m.transferTotal > 0 ? formatBaht(m.transferTotal) : '-'}</td>
-                <td style="padding: 3px 6px; border-right: 1px solid #cbd5e1; color: #c2410c;">${m.barberShareTotal > 0 ? formatBaht(m.barberShareTotal) : '-'}</td>
-                <td style="padding: 3px 6px; border-right: 1px solid #cbd5e1; color: #be123c;">${m.expenseTotal > 0 ? formatBaht(m.expenseTotal) : '-'}</td>
-                <td style="padding: 3px 6px; font-weight: bold; border-right: 1px solid #cbd5e1; color: ${m.netProfit >= 0 ? '#0f766e' : '#be123c'};">${m.customerPaidTotal > 0 || m.expenseTotal > 0 ? formatBaht(m.netProfit) : '-'}</td>
-                <td style="padding: 3px 6px; text-align: center; color: #64748b; font-family: monospace;">${m.salesCount > 0 ? m.salesCount : '-'}</td>
-              </tr>
-            `).join('')}
-
-            <!-- TOTAL ROW -->
-            <tr style="background-color: #0f172a; color: #ffffff; font-weight: bold; text-align: right; border-top: 2px solid #0f172a;">
-              <td style="padding: 5px 6px; text-align: left; border-right: 1px solid #334155;">รวมทั้งปี (12 เดือน)</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155; color: #fde047;">${formatBaht(totalCustomerPaid)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155;">${formatBaht(totalHaircut)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155;">${formatBaht(totalChemical)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155;">${formatBaht(totalProduct)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155; color: #fda4af;">-${formatBaht(totalDiscounts)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155;">${formatBaht(totalCash)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155;">${formatBaht(totalTransfer)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155; color: #fdba74;">${formatBaht(totalBarberShare)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155; color: #fda4af;">${formatBaht(totalExpenses)}</td>
-              <td style="padding: 5px 6px; border-right: 1px solid #334155; color: #86efac;">${formatBaht(totalNetProfit)}</td>
-              <td style="padding: 5px 6px; text-align: center; font-family: monospace;">${totalBills}</td>
-            </tr>
-          </tbody>
-        </table>
-      </div>
-
-      <!-- BARBER SUMMARY TABLE -->
-      ${barberStats.length > 0 ? `
-        <div style="margin-bottom: 16px;">
-          <div style="font-size: 11px; font-weight: 900; color: #020617; text-transform: uppercase; border-bottom: 2px solid #0f172a; padding-bottom: 4px; margin-bottom: 6px; display: flex; justify-content: space-between;">
-            <span>สรุปค่าคอมมิชชั่นและการให้บริการของช่างรายบุคคลตลอดปี (Barber Commission Audit)</span>
-            <span style="font-weight: 400; color: #64748b; font-size: 9px;">รวมช่าง ${barberStats.length} ท่าน</span>
-          </div>
-
-          <table style="width: 100%; border-collapse: collapse; font-size: 9px; border: 1px solid #cbd5e1;">
-            <thead>
-              <tr style="background-color: #f1f5f9; color: #1e293b; font-weight: bold; border-bottom: 1px solid #cbd5e1;">
-                <th style="padding: 4px 6px; text-align: left; border-right: 1px solid #cbd5e1;">ชื่อช่าง</th>
-                <th style="padding: 4px 6px; text-align: left; border-right: 1px solid #cbd5e1;">ตำแหน่ง</th>
-                <th style="padding: 4px 6px; text-align: center; border-right: 1px solid #cbd5e1;">จำนวนลูกค้า</th>
-                <th style="padding: 4px 6px; text-align: right; border-right: 1px solid #cbd5e1;">ยอดตัดผม</th>
-                <th style="padding: 4px 6px; text-align: right; border-right: 1px solid #cbd5e1;">ยอดเคมี</th>
-                <th style="padding: 4px 6px; text-align: right; border-right: 1px solid #cbd5e1;">ยอดสินค้า</th>
-                <th style="padding: 4px 6px; text-align: right; border-right: 1px solid #cbd5e1;">ส่วนแบ่งที่จ่ายจริง</th>
-                <th style="padding: 4px 6px; text-align: right;">ทิปสะสม</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${barberStats.map((b, idx) => `
-                <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
-                  <td style="padding: 3px 6px; font-weight: bold; border-right: 1px solid #cbd5e1; color: #0f172a;">${b.barber.name}</td>
-                  <td style="padding: 3px 6px; color: #64748b; border-right: 1px solid #cbd5e1;">${b.barber.position || 'ช่างประจำ'}</td>
-                  <td style="padding: 3px 6px; text-align: center; font-weight: bold; border-right: 1px solid #cbd5e1; color: #334155; font-family: monospace;">${b.clientsCount}</td>
-                  <td style="padding: 3px 6px; text-align: right; border-right: 1px solid #cbd5e1; color: #334155;">${formatBaht(b.haircutTotal)}</td>
-                  <td style="padding: 3px 6px; text-align: right; border-right: 1px solid #cbd5e1; color: #334155;">${formatBaht(b.chemicalTotal)}</td>
-                  <td style="padding: 3px 6px; text-align: right; border-right: 1px solid #cbd5e1; color: #334155;">${formatBaht(b.productTotal)}</td>
-                  <td style="padding: 3px 6px; text-align: right; font-weight: bold; border-right: 1px solid #cbd5e1; color: #c2410c;">${formatBaht(b.commissionTotal)}</td>
-                  <td style="padding: 3px 6px; text-align: right; color: #15803d;">${formatBaht(b.tipTotal)}</td>
+          <!-- 12-MONTH MASTER TABLE -->
+          <div style="margin-bottom: 14px;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 9.5px; border: 1.5px solid #cbd5e1;">
+              <thead>
+                <tr style="background-color: #0f172a; color: #ffffff; text-align: center; font-family: 'Prompt', sans-serif; font-weight: 700;">
+                  <th style="padding: 5px 6px; text-align: left; border: 1px solid #334155; width: 14%;">เดือน</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 11%;">ยอดขายรวม</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 9%;">ตัดผม</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 8%;">เคมี</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 8%;">สินค้า</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 8%;">ส่วนลด</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 9%;">เงินสด</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 9%;">เงินโอน</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 9%;">ส่วนแบ่งช่าง</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 8%;">รายจ่าย</th>
+                  <th style="padding: 5px 4px; text-align: right; border: 1px solid #334155; width: 10%;">กำไรสุทธิ</th>
+                  <th style="padding: 5px 4px; text-align: center; border: 1px solid #334155; width: 5%;">บิล</th>
                 </tr>
+              </thead>
+              <tbody>
+                ${monthlyData.map((m, idx) => `
+                  <tr style="border-bottom: 1px solid #e2e8f0; text-align: right; background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'}; font-family: 'JetBrains Mono', monospace;">
+                    <td style="padding: 3.5px 6px; text-align: left; font-weight: 700; border-right: 1px solid #cbd5e1; color: #0f172a; font-family: 'Prompt', sans-serif;">
+                      ${idx + 1}. ${m.monthNameTh.split(' ')[0]}
+                    </td>
+                    <td style="padding: 3.5px 4px; font-weight: 700; border-right: 1px solid #cbd5e1; color: #0f172a;">
+                      ${m.customerPaidTotal > 0 ? formatBaht(m.customerPaidTotal) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; border-right: 1px solid #cbd5e1; color: #334155;">
+                      ${m.haircutRevenue > 0 ? formatBaht(m.haircutRevenue) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; border-right: 1px solid #cbd5e1; color: #334155;">
+                      ${m.chemicalRevenue > 0 ? formatBaht(m.chemicalRevenue) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; border-right: 1px solid #cbd5e1; color: #334155;">
+                      ${m.productRevenue > 0 ? formatBaht(m.productRevenue) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; border-right: 1px solid #cbd5e1; color: #be123c;">
+                      ${m.discountTotal > 0 ? `-${formatBaht(m.discountTotal)}` : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; border-right: 1px solid #cbd5e1; color: #166534;">
+                      ${m.cashTotal > 0 ? formatBaht(m.cashTotal) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; border-right: 1px solid #cbd5e1; color: #0369a1;">
+                      ${m.transferTotal > 0 ? formatBaht(m.transferTotal) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; border-right: 1px solid #cbd5e1; color: #c2410c;">
+                      ${m.barberShareTotal > 0 ? formatBaht(m.barberShareTotal) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; border-right: 1px solid #cbd5e1; color: #be123c;">
+                      ${m.expenseTotal > 0 ? formatBaht(m.expenseTotal) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; font-weight: 700; border-right: 1px solid #cbd5e1; color: ${m.netProfit >= 0 ? '#0f766e' : '#be123c'};">
+                      ${m.customerPaidTotal > 0 || m.expenseTotal > 0 ? formatBaht(m.netProfit) : '-'}
+                    </td>
+                    <td style="padding: 3.5px 4px; text-align: center; color: #64748b;">
+                      ${m.salesCount > 0 ? m.salesCount : '-'}
+                    </td>
+                  </tr>
+                `).join('')}
+
+                <!-- TOTAL ROW (12 MONTHS) -->
+                <tr style="background-color: #0f172a; color: #ffffff; font-weight: 800; text-align: right; border-top: 2px solid #0f172a; font-family: 'JetBrains Mono', monospace; font-size: 10px;">
+                  <td style="padding: 6px 6px; text-align: left; border-right: 1px solid #334155; font-family: 'Prompt', sans-serif;">รวมทั้งปี (12 เดือน)</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155; color: #fde047;">${formatBaht(totalCustomerPaid)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155;">${formatBaht(totalHaircut)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155;">${formatBaht(totalChemical)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155;">${formatBaht(totalProduct)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155; color: #fda4af;">-${formatBaht(totalDiscounts)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155; color: #86efac;">${formatBaht(totalCash)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155; color: #7dd3fc;">${formatBaht(totalTransfer)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155; color: #fdba74;">${formatBaht(totalBarberShare)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155; color: #fda4af;">${formatBaht(totalExpenses)}</td>
+                  <td style="padding: 6px 4px; border-right: 1px solid #334155; color: #6ee7b7;">${formatBaht(totalNetProfit)}</td>
+                  <td style="padding: 6px 4px; text-align: center; color: #ffffff;">${totalBills}</td>
+                </tr>
+
+                <!-- AVERAGE ROW -->
+                <tr style="background-color: #f1f5f9; color: #1e293b; font-weight: 700; text-align: right; font-family: 'JetBrains Mono', monospace; font-size: 9px;">
+                  <td style="padding: 4px 6px; text-align: left; border-right: 1px solid #cbd5e1; font-family: 'Prompt', sans-serif;">เฉลี่ยต่อเดือน</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1; color: #166534;">${formatBaht(avgMonthlyRevenue)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1;">${formatBaht(totalHaircut / 12)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1;">${formatBaht(totalChemical / 12)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1;">${formatBaht(totalProduct / 12)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1; color: #be123c;">-${formatBaht(totalDiscounts / 12)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1;">${formatBaht(totalCash / 12)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1;">${formatBaht(totalTransfer / 12)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1; color: #c2410c;">${formatBaht(totalBarberShare / 12)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1; color: #be123c;">${formatBaht(avgMonthlyExpenses)}</td>
+                  <td style="padding: 4px 4px; border-right: 1px solid #cbd5e1; color: ${avgMonthlyProfit >= 0 ? '#0f766e' : '#be123c'};">${formatBaht(avgMonthlyProfit)}</td>
+                  <td style="padding: 4px 4px; text-align: center;">${(totalBills / 12).toFixed(0)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- QUARTERLY PERFORMANCE SUMMARY (Q1 - Q4) -->
+          <div style="border: 1.5px solid #cbd5e1; border-radius: 8px; padding: 12px; background-color: #f8fafc;">
+            <div style="font-family: 'Prompt', sans-serif; font-size: 11px; font-weight: 800; color: #020617; text-transform: uppercase; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 4px; margin-bottom: 8px; display: flex; justify-content: space-between;">
+              <span>สรุปผลการดำเนินงานแยกตามรายไตรมาส (Quarterly Performance Breakdown)</span>
+              <span style="font-size: 9px; color: #64748b; font-weight: 500;">รอบระยะเวลา 4 ไตรมาส</span>
+            </div>
+
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px;">
+              ${quarters.map((q, idx) => `
+                <div style="padding: 8px 10px; background-color: #ffffff; border: 1px solid #e2e8f0; border-radius: 6px; text-align: left;">
+                  <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; border-bottom: 1px dashed #cbd5e1; padding-bottom: 3px;">
+                    <span style="font-family: 'Prompt', sans-serif; font-size: 10px; font-weight: 800; color: #0f172a;">${q.name.split(' ')[0]} ${q.name.split(' ')[1]}</span>
+                    <span style="font-size: 8px; font-weight: 700; color: #475569; background-color: #f1f5f9; padding: 1px 4px; border-radius: 4px;">${q.qBills} บิล</span>
+                  </div>
+                  <div style="font-size: 9px; color: #475569; display: flex; justify-content: space-between; padding: 1px 0;">
+                    <span>ยอดขาย:</span>
+                    <strong style="color: #166534; font-family: 'JetBrains Mono', monospace;">${formatBaht(q.qSales)}</strong>
+                  </div>
+                  <div style="font-size: 9px; color: #475569; display: flex; justify-content: space-between; padding: 1px 0;">
+                    <span>ส่วนแบ่งช่าง:</span>
+                    <span style="color: #c2410c; font-family: 'JetBrains Mono', monospace;">-${formatBaht(q.qBarber)}</span>
+                  </div>
+                  <div style="font-size: 9px; color: #475569; display: flex; justify-content: space-between; padding: 1px 0;">
+                    <span>รายจ่ายร้าน:</span>
+                    <span style="color: #be123c; font-family: 'JetBrains Mono', monospace;">-${formatBaht(q.qExp)}</span>
+                  </div>
+                  <div style="font-size: 9.5px; font-weight: 800; display: flex; justify-content: space-between; padding: 3px 0 0 0; margin-top: 2px; border-top: 1px solid #f1f5f9; color: ${q.qProfit >= 0 ? '#0f766e' : '#be123c'};">
+                    <span>กำไรสุทธิ:</span>
+                    <span style="font-family: 'JetBrains Mono', monospace;">${formatBaht(q.qProfit)}</span>
+                  </div>
+                </div>
               `).join('')}
-            </tbody>
-          </table>
-        </div>
-      ` : ''}
-
-      <!-- SIGNATURE BLOCKS -->
-      <div style="border-top: 2px solid #0f172a; padding-top: 14px; margin-top: 16px;">
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 24px; text-align: center; font-size: 11px; color: #334155;">
-          <div style="padding: 12px; border: 1px dashed #cbd5e1; border-radius: 8px; background-color: #f8fafc;">
-            <div style="font-weight: bold; color: #0f172a; margin-bottom: 24px;">ผู้จัดทำบัญชี / สมุห์บัญชี (Prepared by)</div>
-            <div style="border-bottom: 1px solid #94a3b8; width: 180px; margin: 0 auto 6px auto;"></div>
-            <div>( .......................................................................... )</div>
-            <div style="font-size: 9px; color: #64748b; margin-top: 4px;">วันที่ ........ / .................... / พ.ศ. ........</div>
-          </div>
-
-          <div style="padding: 12px; border: 1px dashed #cbd5e1; border-radius: 8px; background-color: #f8fafc;">
-            <div style="font-weight: bold; color: #0f172a; margin-bottom: 24px;">ผู้มีอำนาจลงนาม / เจ้าของกิจการ (Approved by)</div>
-            <div style="border-bottom: 1px solid #94a3b8; width: 180px; margin: 0 auto 6px auto;"></div>
-            <div>( .......................................................................... )</div>
-            <div style="font-size: 9px; color: #64748b; margin-top: 4px;">วันที่ ........ / .................... / พ.ศ. ........</div>
+            </div>
           </div>
         </div>
 
-        <div style="margin-top: 10px; padding-top: 8px; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; font-size: 8px; color: #94a3b8;">
-          <span>รายงานนี้สร้างขึ้นโดยระบบ POS Barbershop Cloud • ข้อมูลผ่านการคำนวณและตรวจสอบความถูกต้องอัตโนมัติ</span>
-          <span>หน้า 1 จาก 1 • ออกเอกสารเมื่อ ${new Date().toLocaleString('th-TH')}</span>
+        <!-- PAGE 2 FOOTER -->
+        <div style="border-top: 1.5px solid #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 8.5px; color: #64748b;">
+          <span>ระบบ POS Barbershop Cloud • ข้อมูลผ่านการประมวลผลทางการเงินและตรวจสอบอัตโนมัติ</span>
+          <span style="font-weight: 700; color: #0f172a;">หน้า 2 จาก 3 • ออกเอกสารเมื่อ ${printedTimestamp} น.</span>
+        </div>
+      </div>
+
+
+      <!-- ========================================================== -->
+      <!-- PAGE 3: EXPENSES, BARBER AUDIT & OFFICIAL SIGNATURES       -->
+      <!-- ========================================================== -->
+      <div class="annual-pdf-page" style="width: 820px; min-height: 1160px; max-height: 1160px; background-color: #ffffff; margin: 0 auto; padding: 28px 32px; box-sizing: border-box; display: flex; flex-direction: column; justify-content: space-between; position: relative;">
+        <div>
+          <!-- PAGE 3 HEADER -->
+          <div style="border-bottom: 2px solid #0f172a; padding-bottom: 8px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: flex-end;">
+            <div>
+              <div style="font-family: 'Prompt', sans-serif; font-size: 9px; font-weight: 800; text-transform: uppercase; color: #64748b; letter-spacing: 0.05em;">
+                ${cleanShop} • EXPENSE BREAKDOWN & BARBER AUDIT
+              </div>
+              <h2 style="margin: 2px 0 0 0; font-family: 'Prompt', sans-serif; font-size: 16px; font-weight: 900; color: #020617;">
+                บัญชีแจกแจงรายจ่าย ผลงานช่างรายบุคคล และการรับรองเอกสาร
+              </h2>
+            </div>
+            <div style="text-align: right; font-size: 9.5px; color: #64748b;">
+              <span>ประจำปี พ.ศ. ${thaiBuddhistYear}</span> • <strong style="color: #0f172a;">หน้า 3 จาก 3</strong>
+            </div>
+          </div>
+
+          <!-- SECTION 1: EXPENSE BREAKDOWN BY CATEGORY -->
+          <div style="margin-bottom: 12px;">
+            <div style="font-family: 'Prompt', sans-serif; font-size: 10.5px; font-weight: 800; color: #020617; text-transform: uppercase; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 3px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+              <span>1. สรุปรายจ่ายดำเนินงานร้านแยกตามหมวดหมู่ (Annual Operating Expense Breakdown)</span>
+              <span style="font-size: 9px; color: #64748b; font-weight: 500;">รวมรายจ่าย ${totalExpenses > 0 ? formatBaht(totalExpenses) : '0.00 บาท'}</span>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; font-size: 9px; border: 1.5px solid #cbd5e1;">
+              <thead>
+                <tr style="background-color: #be123c; color: #ffffff; font-family: 'Prompt', sans-serif; font-weight: 700;">
+                  <th style="padding: 4px 6px; text-align: center; border: 1px solid #9f1239; width: 8%;">ลำดับ</th>
+                  <th style="padding: 4px 6px; text-align: left; border: 1px solid #9f1239; width: 34%;">หมวดหมู่รายจ่าย</th>
+                  <th style="padding: 4px 6px; text-align: center; border: 1px solid #9f1239; width: 16%;">จำนวนรายการ</th>
+                  <th style="padding: 4px 6px; text-align: right; border: 1px solid #9f1239; width: 22%;">ยอดเงินรวม (บาท)</th>
+                  <th style="padding: 4px 6px; text-align: right; border: 1px solid #9f1239; width: 20%;">สัดส่วน %</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${expenseCategoryList.length > 0 ? expenseCategoryList.map((c, idx) => `
+                  <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${idx % 2 === 0 ? '#ffffff' : '#fff1f2'};">
+                    <td style="padding: 3px 6px; text-align: center; font-weight: 700; color: #64748b; border-right: 1px solid #cbd5e1;">${idx + 1}</td>
+                    <td style="padding: 3px 6px; font-weight: 700; color: #0f172a; border-right: 1px solid #cbd5e1; font-family: 'Prompt', sans-serif;">${c.category}</td>
+                    <td style="padding: 3px 6px; text-align: center; color: #475569; border-right: 1px solid #cbd5e1; font-family: 'JetBrains Mono', monospace;">${c.count} รายการ</td>
+                    <td style="padding: 3px 6px; text-align: right; font-weight: 700; color: #be123c; border-right: 1px solid #cbd5e1; font-family: 'JetBrains Mono', monospace;">${formatBaht(c.total)}</td>
+                    <td style="padding: 3px 6px; text-align: right; font-weight: 700; color: #64748b; font-family: 'JetBrains Mono', monospace;">${c.pct.toFixed(1)}%</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="5" style="padding: 8px; text-align: center; color: #94a3b8; font-style: italic;">ไม่มีรายการบันทึกค่าใช้จ่ายดำเนินงานตลอดปี</td>
+                  </tr>
+                `}
+                <tr style="background-color: #881337; color: #ffffff; font-weight: 800; font-family: 'Prompt', sans-serif; font-size: 9.5px;">
+                  <td colspan="3" style="padding: 5px 8px; text-align: left;">รวมค่าใช้จ่ายดำเนินงานทั้งสิ้น (Total Operating Expenses)</td>
+                  <td style="padding: 5px 6px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #fde047;">${formatBaht(totalExpenses)}</td>
+                  <td style="padding: 5px 6px; text-align: right; font-family: 'JetBrains Mono', monospace;">100.0%</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- SECTION 2: BARBER ANNUAL PERFORMANCE & COMMISSION AUDIT -->
+          <div style="margin-bottom: 12px;">
+            <div style="font-family: 'Prompt', sans-serif; font-size: 10.5px; font-weight: 800; color: #020617; text-transform: uppercase; border-bottom: 1.5px solid #cbd5e1; padding-bottom: 3px; margin-bottom: 6px; display: flex; justify-content: space-between; align-items: center;">
+              <span>2. สรุปค่าคอมมิชชั่นและการให้บริการของช่างรายบุคคลตลอดปี (Barber Audit)</span>
+              <span style="font-size: 9px; color: #64748b; font-weight: 500;">รวมช่าง ${barberStats.length} ท่าน</span>
+            </div>
+
+            <table style="width: 100%; border-collapse: collapse; font-size: 9px; border: 1.5px solid #cbd5e1;">
+              <thead>
+                <tr style="background-color: #1e293b; color: #ffffff; font-family: 'Prompt', sans-serif; font-weight: 700;">
+                  <th style="padding: 4px 6px; text-align: left; border: 1px solid #334155; width: 20%;">ชื่อช่าง</th>
+                  <th style="padding: 4px 6px; text-align: left; border: 1px solid #334155; width: 14%;">ตำแหน่ง</th>
+                  <th style="padding: 4px 6px; text-align: center; border: 1px solid #334155; width: 11%;">ลูกค้า (บิล)</th>
+                  <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155; width: 13%;">ยอดตัดผม</th>
+                  <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155; width: 13%;">ยอดเคมี</th>
+                  <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155; width: 15%;">ส่วนแบ่งจ่ายจริง</th>
+                  <th style="padding: 4px 6px; text-align: right; border: 1px solid #334155; width: 14%;">ทิปสะสม</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${barberStats.length > 0 ? barberStats.map((b, idx) => `
+                  <tr style="border-bottom: 1px solid #e2e8f0; background-color: ${idx % 2 === 0 ? '#ffffff' : '#f8fafc'};">
+                    <td style="padding: 3px 6px; font-weight: 700; color: #0f172a; border-right: 1px solid #cbd5e1; font-family: 'Prompt', sans-serif;">${b.barber.name}</td>
+                    <td style="padding: 3px 6px; color: #64748b; border-right: 1px solid #cbd5e1;">${b.barber.position || 'ช่างประจำ'}</td>
+                    <td style="padding: 3px 6px; text-align: center; font-weight: 700; color: #334155; border-right: 1px solid #cbd5e1; font-family: 'JetBrains Mono', monospace;">${b.clientsCount}</td>
+                    <td style="padding: 3px 6px; text-align: right; border-right: 1px solid #cbd5e1; color: #334155; font-family: 'JetBrains Mono', monospace;">${formatBaht(b.haircutTotal)}</td>
+                    <td style="padding: 3px 6px; text-align: right; border-right: 1px solid #cbd5e1; color: #334155; font-family: 'JetBrains Mono', monospace;">${formatBaht(b.chemicalTotal)}</td>
+                    <td style="padding: 3px 6px; text-align: right; font-weight: 700; border-right: 1px solid #cbd5e1; color: #c2410c; font-family: 'JetBrains Mono', monospace;">${formatBaht(b.commissionTotal)}</td>
+                    <td style="padding: 3px 6px; text-align: right; font-weight: 700; color: #166534; font-family: 'JetBrains Mono', monospace;">${formatBaht(b.tipTotal)}</td>
+                  </tr>
+                `).join('') : `
+                  <tr>
+                    <td colspan="7" style="padding: 8px; text-align: center; color: #94a3b8; font-style: italic;">ไม่มีบันทึกข้อมูลบริการของช่างในปีนี้</td>
+                  </tr>
+                `}
+                <tr style="background-color: #0f172a; color: #ffffff; font-weight: 800; font-family: 'Prompt', sans-serif; font-size: 9.5px;">
+                  <td colspan="2" style="padding: 5px 8px; text-align: left;">รวมผลตอบแทนช่างทั้งหมด (Total Payroll)</td>
+                  <td style="padding: 5px 6px; text-align: center; font-family: 'JetBrains Mono', monospace;">${barberStats.reduce((sum, b) => sum + b.clientsCount, 0)}</td>
+                  <td style="padding: 5px 6px; text-align: right; font-family: 'JetBrains Mono', monospace;">${formatBaht(totalHaircut)}</td>
+                  <td style="padding: 5px 6px; text-align: right; font-family: 'JetBrains Mono', monospace;">${formatBaht(totalChemical)}</td>
+                  <td style="padding: 5px 6px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #fdba74;">${formatBaht(totalBarberShare)}</td>
+                  <td style="padding: 5px 6px; text-align: right; font-family: 'JetBrains Mono', monospace; color: #86efac;">${formatBaht(totalTips)}</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <!-- SECTION 3: AUDIT NOTES -->
+          <div style="border: 1px solid #cbd5e1; border-radius: 8px; padding: 10px 14px; background-color: #f8fafc; margin-bottom: 14px;">
+            <div style="font-family: 'Prompt', sans-serif; font-size: 10px; font-weight: 800; color: #020617; text-transform: uppercase; margin-bottom: 4px;">
+              📝 บันทึกและข้อสังเกตทางการเงิน (Accounting & Audit Notes)
+            </div>
+            <ul style="margin: 0; padding-left: 18px; font-size: 9.5px; color: #334155; line-height: 1.6;">
+              <li>ยอดเงินสดคงค้างและเงินโอนผ่านระบบทั้งหมด ได้รับการตรวจสอบตรงตามสมุดบัญชีรายวันและใบเสร็จรับเงิน</li>
+              <li>สัดส่วนต้นทุนแรงงานโดยตรง (ช่างตัดผม) คิดเป็น <b>${laborCostRatioPct.toFixed(1)}%</b> ของยอดขายรวมทั้งปี</li>
+              <li>กำไรสุทธิจากการดำเนินงานของทางร้านหลังจากหักต้นทุนช่างและค่าใช้จ่าย คิดเป็นอัตรากำไร <b>${profitMarginPct.toFixed(1)}%</b></li>
+            </ul>
+          </div>
+
+          <!-- SECTION 4: 3 OFFICIAL SIGNATURE BLOCKS -->
+          <div style="border-top: 2px solid #0f172a; padding-top: 10px;">
+            <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; text-align: center; font-size: 10px; color: #334155;">
+              
+              <!-- Signature 1: Cashier / Prepared by -->
+              <div style="padding: 10px 8px; border: 1.5px dashed #cbd5e1; border-radius: 8px; background-color: #ffffff;">
+                <div style="font-family: 'Prompt', sans-serif; font-weight: 800; color: #0f172a; margin-bottom: 26px;">ผู้จัดทำบัญชี / แคชเชียร์ (Prepared by)</div>
+                <div style="border-bottom: 1px solid #475569; width: 140px; margin: 0 auto 5px auto;"></div>
+                <div style="color: #475569;">( ..................................................... )</div>
+                <div style="font-size: 8.5px; color: #64748b; margin-top: 3px;">วันที่ ........ / .................... / พ.ศ. ........</div>
+              </div>
+
+              <!-- Signature 2: Auditor / Reviewed by -->
+              <div style="padding: 10px 8px; border: 1.5px dashed #cbd5e1; border-radius: 8px; background-color: #ffffff;">
+                <div style="font-family: 'Prompt', sans-serif; font-weight: 800; color: #0f172a; margin-bottom: 26px;">ผู้ตรวจสอบบัญชี (Reviewed by)</div>
+                <div style="border-bottom: 1px solid #475569; width: 140px; margin: 0 auto 5px auto;"></div>
+                <div style="color: #475569;">( ..................................................... )</div>
+                <div style="font-size: 8.5px; color: #64748b; margin-top: 3px;">วันที่ ........ / .................... / พ.ศ. ........</div>
+              </div>
+
+              <!-- Signature 3: Business Owner / Approved by -->
+              <div style="padding: 10px 8px; border: 1.5px dashed #cbd5e1; border-radius: 8px; background-color: #ffffff;">
+                <div style="font-family: 'Prompt', sans-serif; font-weight: 800; color: #0f172a; margin-bottom: 26px;">เจ้าของกิจการ / ผู้อนุมัติ (Approved by)</div>
+                <div style="border-bottom: 1px solid #475569; width: 140px; margin: 0 auto 5px auto;"></div>
+                <div style="color: #475569;">( ..................................................... )</div>
+                <div style="font-size: 8.5px; color: #64748b; margin-top: 3px;">วันที่ ........ / .................... / พ.ศ. ........</div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- PAGE 3 FOOTER -->
+        <div style="border-top: 1.5px solid #cbd5e1; padding-top: 8px; display: flex; justify-content: space-between; align-items: center; font-size: 8.5px; color: #64748b;">
+          <span>ระบบ POS Barbershop Cloud • ข้อมูลผ่านการประมวลผลทางการเงินและตรวจสอบอัตโนมัติ</span>
+          <span style="font-weight: 700; color: #0f172a;">หน้า 3 จาก 3 • ออกเอกสารเมื่อ ${printedTimestamp} น.</span>
         </div>
       </div>
 
@@ -1941,7 +2273,7 @@ export function generateAnnualHtmlReport(
 
 /**
  * Export Annual Accountant 12-Month Statement as High-Resolution A4 PDF.
- * Safe from OKLCH CSS parser issues.
+ * Uses exact page-by-page rendering into jsPDF without blind slicing errors.
  */
 export async function exportAsyncAnnualPdfReport(
   shopName: string,
@@ -1951,7 +2283,6 @@ export async function exportAsyncAnnualPdfReport(
   barbers: Barber[] = [],
   userEmail: string = ''
 ): Promise<void> {
-  const thaiBuddhistYear = targetYear + 543;
   const cleanShop = (shopName || 'ร้านบาร์เบอร์').trim().replace(/[^a-zA-Z0-9ก-๙_-]/g, '_');
   const fileName = `รายงานการเงินสรุปยอดขาย12เดือน_มค-ธค_${targetYear}_ร้าน${cleanShop}.pdf`;
 
@@ -1964,64 +2295,105 @@ export async function exportAsyncAnnualPdfReport(
     userEmail
   );
 
-  const canvas = await renderHtmlContentToCanvas(htmlContent, 840);
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.top = '0';
+  iframe.style.left = '-9999px';
+  iframe.style.width = '840px';
+  iframe.style.height = '4200px';
+  iframe.style.border = 'none';
+  iframe.style.visibility = 'hidden';
+  iframe.style.zIndex = '-9999';
+  document.body.appendChild(iframe);
 
-  const pdf = new jsPDF({
-    orientation: 'portrait',
-    unit: 'mm',
-    format: 'a4'
-  });
-
-  const pdfWidth = 210;
-  const pdfHeight = 297;
-  const margin = 8;
-  const imgWidth = pdfWidth - (margin * 2);
-  const printableHeightMM = pdfHeight - (margin * 2);
-
-  const pxPageHeight = (canvas.width / imgWidth) * printableHeightMM;
-  const totalCanvasHeight = canvas.height;
-
-  let srcY = 0;
-  let pageCount = 0;
-
-  while (srcY < totalCanvasHeight) {
-    if (pageCount > 0) {
-      pdf.addPage();
+  try {
+    const iframeDoc = iframe.contentDocument || iframe.contentWindow?.document;
+    if (!iframeDoc) {
+      throw new Error('Unable to access iframe document for annual PDF generation');
     }
 
-    const sliceHeight = Math.min(pxPageHeight, totalCanvasHeight - srcY);
+    iframeDoc.open();
+    iframeDoc.write(`
+      <!DOCTYPE html>
+      <html>
+        <head>
+          <meta charset="utf-8" />
+          <link rel="preconnect" href="https://fonts.googleapis.com">
+          <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+          <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800;900&family=Sarabun:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+          <style>
+            * { box-sizing: border-box; }
+            body { 
+              margin: 0; 
+              padding: 0; 
+              background: #f1f5f9; 
+              color: #0f172a; 
+              font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+            }
+          </style>
+        </head>
+        <body>
+          ${htmlContent}
+        </body>
+      </html>
+    `);
+    iframeDoc.close();
 
-    const sliceCanvas = document.createElement('canvas');
-    sliceCanvas.width = canvas.width;
-    sliceCanvas.height = sliceHeight;
+    // Wait for Google fonts to finish downloading and rendering
+    if (iframeDoc.fonts && iframeDoc.fonts.ready) {
+      await iframeDoc.fonts.ready;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 350));
 
-    const ctx = sliceCanvas.getContext('2d');
-    if (ctx) {
-      ctx.fillStyle = '#ffffff';
-      ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
-      ctx.drawImage(
-        canvas,
-        0,
-        srcY,
-        canvas.width,
-        sliceHeight,
-        0,
-        0,
-        canvas.width,
-        sliceHeight
-      );
+    const pageElements = iframeDoc.querySelectorAll('.annual-pdf-page');
+
+    const pdf = new jsPDF({
+      orientation: 'portrait',
+      unit: 'mm',
+      format: 'a4'
+    });
+
+    const pdfWidthMM = 210;
+    const pdfHeightMM = 297;
+
+    if (pageElements && pageElements.length > 0) {
+      for (let i = 0; i < pageElements.length; i++) {
+        if (i > 0) {
+          pdf.addPage();
+        }
+
+        const pageEl = pageElements[i] as HTMLElement;
+        const pageCanvas = await html2canvas(pageEl, {
+          scale: 2,
+          useCORS: true,
+          allowTaint: true,
+          backgroundColor: '#ffffff',
+          logging: false,
+          windowWidth: 840
+        });
+
+        const imgData = pageCanvas.toDataURL('image/png');
+        pdf.addImage(imgData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM);
+      }
+    } else {
+      // Fallback
+      const canvas = await html2canvas(iframeDoc.body, {
+        scale: 2,
+        useCORS: true,
+        backgroundColor: '#ffffff',
+        logging: false,
+        windowWidth: 840
+      });
+      const imgData = canvas.toDataURL('image/png');
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM);
     }
 
-    const sliceData = sliceCanvas.toDataURL('image/png');
-    const renderedImgHeightMM = (sliceHeight * imgWidth) / canvas.width;
-
-    pdf.addImage(sliceData, 'PNG', margin, margin, imgWidth, renderedImgHeightMM);
-
-    srcY += sliceHeight;
-    pageCount++;
+    pdf.save(fileName);
+  } finally {
+    if (document.body.contains(iframe)) {
+      document.body.removeChild(iframe);
+    }
   }
-
-  pdf.save(fileName);
 }
 
 // Barber Visual Palette & Emojis
