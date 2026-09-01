@@ -13,11 +13,12 @@ export async function renderHtmlContentToCanvas(
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
   iframe.style.top = '0';
-  iframe.style.left = '-9999px';
+  iframe.style.left = '0';
   iframe.style.width = `${width}px`;
   iframe.style.height = '1200px';
   iframe.style.border = 'none';
-  iframe.style.visibility = 'hidden';
+  iframe.style.opacity = '0';
+  iframe.style.pointerEvents = 'none';
   iframe.style.zIndex = '-9999';
   document.body.appendChild(iframe);
 
@@ -27,26 +28,47 @@ export async function renderHtmlContentToCanvas(
       throw new Error('Unable to access iframe document');
     }
 
+    // Clean up content if it was wrapped with negative positioning
+    const cleanedContent = htmlContent
+      .replace(/position:\s*absolute;\s*left:\s*-[0-9]+px;?\s*top:\s*-[0-9]+px;?/gi, 'position: relative; left: 0; top: 0;')
+      .replace(/visibility:\s*hidden;?/gi, 'visibility: visible;');
+
     iframeDoc.open();
-    iframeDoc.write(`
-      <!DOCTYPE html>
-      <html>
-        <head>
-          <meta charset="utf-8" />
-          <style>
-            * { box-sizing: border-box; }
-            body { margin: 0; padding: 0; background: #ffffff; color: #0f172a; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; }
-          </style>
-        </head>
-        <body>
-          ${htmlContent}
-        </body>
-      </html>
-    `);
+    if (cleanedContent.includes('<!DOCTYPE') || cleanedContent.includes('<html')) {
+      iframeDoc.write(cleanedContent);
+    } else {
+      iframeDoc.write(`
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta charset="utf-8" />
+            <link rel="preconnect" href="https://fonts.googleapis.com">
+            <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+            <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@400;500;600;700;800;900&family=Sarabun:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;700;800&display=swap" rel="stylesheet">
+            <style>
+              * { box-sizing: border-box; }
+              body { 
+                margin: 0; 
+                padding: 0; 
+                background: #ffffff; 
+                color: #0f172a; 
+                font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
+              }
+            </style>
+          </head>
+          <body>
+            ${cleanedContent}
+          </body>
+        </html>
+      `);
+    }
     iframeDoc.close();
 
-    // Allow browser to calculate layout and dimensions
-    await new Promise((resolve) => setTimeout(resolve, 150));
+    // Allow browser & webfonts to calculate layout and dimensions
+    if (iframeDoc.fonts && iframeDoc.fonts.ready) {
+      await iframeDoc.fonts.ready;
+    }
+    await new Promise((resolve) => setTimeout(resolve, 250));
 
     const bodyHeight = Math.max(
       iframeDoc.body.scrollHeight,
@@ -63,12 +85,16 @@ export async function renderHtmlContentToCanvas(
       logging: false,
       windowWidth: width,
       width: width,
-      height: bodyHeight
+      height: bodyHeight,
+      scrollX: 0,
+      scrollY: 0,
+      x: 0,
+      y: 0
     });
 
-    // Safety timeout: 10 seconds max
+    // Safety timeout: 15 seconds max
     const timeoutPromise = new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error('PDF Canvas generation timed out')), 10000)
+      setTimeout(() => reject(new Error('PDF Canvas generation timed out')), 15000)
     );
 
     const canvas = await Promise.race([canvasPromise, timeoutPromise]);
@@ -89,7 +115,7 @@ export async function renderHtml2CanvasSafely(
   options?: any
 ): Promise<HTMLCanvasElement> {
   const width = options?.windowWidth || options?.width || element.offsetWidth || 840;
-  const content = element.outerHTML || element.innerHTML;
+  const content = element.innerHTML || element.outerHTML;
   return renderHtmlContentToCanvas(content, width);
 }
 
@@ -192,14 +218,18 @@ export function getSalePaymentBreakdown(s: Partial<SaleRecord>, excludeTip: bool
   return { cashAmount, transferAmount, memberCreditAmount };
 }
 
-// Generate MS Excel (XML Spreadsheet or CSV with BOM)
+// Generate MS Excel (CSV with UTF-8 BOM and clean formatting)
 export function downloadExcelReport(title: string, dataRows: string[][], headers: string[]): void {
-  // Use UTF-8 with BOM (\uFEFF) so Excel opens Thai characters correctly
+  // Use UTF-8 with BOM (\uFEFF) so Microsoft Excel and Numbers open Thai text cleanly without corrupted fonts
   const bom = '\uFEFF';
   const csvContent = [
-    headers.join(','),
-    ...dataRows.map(row => row.map(cell => `"${(cell || '').replace(/"/g, '""')}"`).join(','))
-  ].join('\n');
+    headers.map(h => `"${(h ?? '').replace(/"/g, '""')}"`).join(','),
+    ...dataRows.map(row => 
+      row.length === 0 
+        ? '' 
+        : row.map(cell => `"${(cell ?? '').replace(/"/g, '""')}"`).join(',')
+    )
+  ].join('\r\n');
   
   const blob = new Blob([bom + csvContent], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
@@ -209,15 +239,16 @@ export function downloadExcelReport(title: string, dataRows: string[][], headers
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-// Generate Word Report (.doc as formatted HTML)
+// Generate Word Report (.doc as formatted HTML with UTF-8 support)
 export function downloadWordReport(title: string, htmlContent: string): void {
-  const header = `<html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><title>${title}</title><style>body { font-family: 'Sarabun', 'Helvetica', sans-serif; } table { border-collapse: collapse; width: 100%; } th, td { border: 1px solid #ddd; padding: 8px; text-align: left; } th { background-color: #f2f2f2; }</style></head><body>`;
+  const header = `<!DOCTYPE html><html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'><head><meta charset='utf-8'><title>${title}</title><style>body { font-family: 'Sarabun', -apple-system, sans-serif; color: #0f172a; margin: 20px; } table { border-collapse: collapse; width: 100%; margin-bottom: 20px; } th, td { border: 1px solid #cbd5e1; padding: 8px 10px; text-align: left; } th { background-color: #1e293b; color: #ffffff; }</style></head><body>`;
   const footer = "</body></html>";
   const sourceHTML = header + htmlContent + footer;
   
-  const blob = new Blob(['\ufeff' + sourceHTML], { type: 'application/msword' });
+  const blob = new Blob(['\ufeff' + sourceHTML], { type: 'application/msword;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
   const link = document.createElement('a');
   link.setAttribute('href', url);
@@ -225,34 +256,37 @@ export function downloadWordReport(title: string, htmlContent: string): void {
   document.body.appendChild(link);
   link.click();
   document.body.removeChild(link);
+  setTimeout(() => URL.revokeObjectURL(url), 2000);
 }
 
-// Generate plain text / SVG mock image download (PNG / JPG / PDF)
-// To fully satisfy "PDF, JPG, PNG", we create downloadables that can be saved directly, 
-// and we'll also recommend beautiful native print modes.
-export function downloadPlainReport(
+// Generate plain text / image download (PNG / JPG / PDF)
+export async function downloadPlainReport(
   title: string, 
   textSummary: string, 
   extension: 'txt' | 'pdf' | 'jpg' | 'png' | 'html', 
   htmlContent?: string,
   shopName: string = "ทองหล่อ บาร์เบอร์ สตูดิโอ"
-): void {
+): Promise<void> {
   const shopNameInCaps = (shopName || "ทองหล่อ บาร์เบอร์ สตูดิโอ").toUpperCase();
+  const formattedDateString = new Date().toLocaleDateString('th-TH', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
   if (extension === 'html') {
     const finalContent = htmlContent || `
+      <!DOCTYPE html>
       <html>
       <head>
+        <meta charset="utf-8" />
         <title>${title}</title>
         <style>
-          body { font-family: system-ui, sans-serif; padding: 40px; color: #1f2937; line-height: 1.5; background: #f9fafb; }
+          body { font-family: 'Sarabun', system-ui, sans-serif; padding: 40px; color: #1f2937; line-height: 1.5; background: #f9fafb; }
           .container { max-width: 800px; margin: 0 auto; background: white; padding: 45px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
           h1 { color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px; font-size: 24px; }
           pre { white-space: pre-wrap; font-family: monospace; background: #f3f4f6; padding: 20px; border-radius: 6px; font-size: 14px; overflow-x: auto; }
           .footer { margin-top: 30px; font-size: 12px; color: #6b7280; text-align: center; }
-          @media print {
-            body { background: white; padding: 0; }
-            .container { box-shadow: none; padding: 0; }
-          }
         </style>
       </head>
       <body>
@@ -272,159 +306,113 @@ export function downloadPlainReport(
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   } else if (extension === 'pdf') {
-    const finalContent = htmlContent || `
-      <html>
-      <head>
-        <title>${title}</title>
-        <style>
-          body { font-family: system-ui, sans-serif; padding: 40px; color: #1f2937; line-height: 1.5; background: #f9fafb; }
-          .container { max-width: 800px; margin: 0 auto; background: white; padding: 45px; border-radius: 8px; box-shadow: 0 4px 6px rgba(0,0,0,0.05); }
-          h1 { color: #111827; border-bottom: 2px solid #e5e7eb; padding-bottom: 12px; font-size: 24px; }
-          pre { white-space: pre-wrap; font-family: monospace; background: #f3f4f6; padding: 20px; border-radius: 6px; font-size: 14px; overflow-x: auto; }
-          .footer { margin-top: 30px; font-size: 12px; color: #6b7280; text-align: center; }
-          @media print {
-            body { background: white; padding: 0; }
-            .container { box-shadow: none; padding: 0; }
-          }
-        </style>
-      </head>
-      <body>
-        <div class="container">
-          <h1>${title}</h1>
-          <pre>${textSummary}</pre>
-          <div class="footer">พิมพ์รายงานเมื่อ: ${new Date().toLocaleString('th-TH')} • ระบบคิดเงินร้านตัดผม ${shopName} POS</div>
+    // Generate real, high-resolution direct PDF download
+    const reportHtml = htmlContent || `
+      <div style="padding: 30px; background-color: #ffffff; font-family: 'Sarabun', sans-serif; color: #0f172a;">
+        <div style="background-color: #1e293b; color: #ffffff; padding: 20px 24px; border-radius: 8px; margin-bottom: 20px;">
+          <h1 style="margin: 0; font-size: 22px; font-weight: 800;">${shopNameInCaps}</h1>
+          <p style="margin: 4px 0 0 0; font-size: 12px; color: #cbd5e1;">OFFICIAL FINANCIAL STATEMENT & DAILY AUDIT</p>
+          <p style="margin: 8px 0 0 0; font-size: 11px; color: #94a3b8;">วันที่จัดพิมพ์: ${formattedDateString}</p>
         </div>
-      </body>
-      </html>
-    `;
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert('กรุณาอนุญาตให้สิทธิ์เปิดหน้าต่างภายนอก (Popups) ในเบราว์เซอร์ของคุณ เพื่อจำลองและสั่งพิมพ์บันทึกรายงานเป็น PDF');
-      return;
-    }
-    printWindow.document.write(finalContent);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => {
-      printWindow.print();
-    }, 500);
-  } else if (extension === 'png' || extension === 'jpg') {
-    // Generate a beautiful, genuine high-resolution PNG or JPG image using html2canvas!
-    const tempContainer = document.createElement('div');
-    tempContainer.style.position = 'absolute';
-    tempContainer.style.left = '-9999px';
-    tempContainer.style.top = '-9999px';
-    tempContainer.style.width = '800px';
-    tempContainer.style.background = '#0f172a';
-    tempContainer.style.padding = '35px';
-    tempContainer.style.boxSizing = 'border-box';
-    tempContainer.style.borderRadius = '24px';
-    
-    const formattedDateString = new Date().toLocaleDateString('th-TH', {
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric'
-    });
-    
-    tempContainer.innerHTML = `
-      <div style="background: #ffffff; border-radius: 16px; border: 2px solid #e2e8f0; overflow: hidden; box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);">
-        <div style="background: #4f46e5; padding: 30px; color: white;">
-          <h1 style="margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -0.025em; font-family: system-ui, sans-serif;">${shopNameInCaps}</h1>
-          <p style="margin: 4px 0 0 0; font-size: 12px; font-weight: bold; color: #c7d2fe; letter-spacing: 0.05em; text-transform: uppercase; font-family: system-ui, sans-serif;">OFFICIAL FINANCIAL STATEMENT REPORT</p>
-          <p style="margin: 12px 0 0 0; font-size: 11px; color: #e0e7ff; opacity: 0.9; font-family: system-ui, sans-serif;">จัดพิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')}</p>
+        <div style="border-bottom: 2px solid #1e293b; padding-bottom: 8px; margin-bottom: 16px;">
+          <h2 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">${title.replace(/_/g, ' ')}</h2>
         </div>
-        <div style="padding: 30px; background: white;">
-          <div style="border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center; font-family: system-ui, sans-serif;">
-            <h2 style="margin: 0; font-size: 18px; font-weight: 800; color: #0f172a;">${title.replace(/_/g, ' ')}</h2>
-            <span style="font-size: 11px; font-weight: bold; background-color: #e0e7ff; color: #4f46e5; padding: 4px 12px; border-radius: 99px;">ตรวจสอบแล้ว</span>
-          </div>
-          <div style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; padding: 22px; white-space: pre-wrap; font-family: monospace; font-size: 13px; color: #334155; line-height: 1.6; overflow-x: auto;">${textSummary.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
-        </div>
-        <div style="padding: 20px 30px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center; font-family: system-ui, sans-serif;">
-          <span style="font-size: 10px; font-weight: bold; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.05em;">รายงานตรวจบัญชีและสถิติดิจิทัล • ${shopNameInCaps} POS</span>
-          <span style="font-size: 10px; font-weight: bold; color: #4f46e5; letter-spacing: 0.05em;">STABLE ARCHIVE</span>
+        <div style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 18px; white-space: pre-wrap; font-family: monospace; font-size: 12px; line-height: 1.6; color: #334155;">${textSummary.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+        <div style="margin-top: 24px; padding-top: 12px; border-top: 1px solid #cbd5e1; font-size: 10px; color: #64748b; text-align: center;">
+          ระบบคิดเงินและจัดทำบัญชีร้านตัดผม ${shopName} POS • จัดทำเมื่อ ${new Date().toLocaleString('th-TH')}
         </div>
       </div>
     `;
-    
-    document.body.appendChild(tempContainer);
-    
-    renderHtml2CanvasSafely(tempContainer, {
-      scale: 2, // High DPI for crisp look
-      useCORS: true,
-      backgroundColor: '#0f172a',
-      logging: false
-    }).then((canvas) => {
-      const mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
-      
-      canvas.toBlob((blob) => {
-        if (!blob) {
-          console.error('Failed to create blob from canvas');
-          return;
+
+    try {
+      const canvas = await renderHtmlContentToCanvas(reportHtml, 800);
+      const pdf = new jsPDF({
+        orientation: 'portrait',
+        unit: 'mm',
+        format: 'a4'
+      });
+
+      const pdfWidth = 210;
+      const pdfHeight = 297;
+      const margin = 10;
+      const imgWidth = pdfWidth - (margin * 2);
+      const printableHeightMM = pdfHeight - (margin * 2);
+      const pxPageHeight = (canvas.width / imgWidth) * printableHeightMM;
+      const totalCanvasHeight = canvas.height;
+
+      let srcY = 0;
+      let pageCount = 0;
+
+      while (srcY < totalCanvasHeight) {
+        if (pageCount > 0) {
+          pdf.addPage();
         }
-        
-        // Create Object URL with precise content type
-        const blobUrl = URL.createObjectURL(blob);
-        
-        // 1. Open the image directly in a new tab for seamless in-browser preview
-        const previewWindow = window.open(blobUrl, '_blank');
-        if (!previewWindow) {
-          console.log('Popup blocked, falling back to direct download');
+
+        const sliceHeight = Math.min(pxPageHeight, totalCanvasHeight - srcY);
+        const sliceCanvas = document.createElement('canvas');
+        sliceCanvas.width = canvas.width;
+        sliceCanvas.height = sliceHeight;
+
+        const ctx = sliceCanvas.getContext('2d');
+        if (ctx) {
+          ctx.fillStyle = '#ffffff';
+          ctx.fillRect(0, 0, sliceCanvas.width, sliceCanvas.height);
+          ctx.drawImage(canvas, 0, srcY, canvas.width, sliceHeight, 0, 0, canvas.width, sliceHeight);
         }
-        
-        // 2. Perform automated file download
-        const link = document.createElement('a');
-        link.setAttribute('href', blobUrl);
-        link.setAttribute('download', `${title.replace(/\s+/g, '_')}_Report_Backup.${extension === 'png' ? 'png' : 'jpg'}`);
-        document.body.appendChild(link);
-        link.click();
-        
-        // Cleanup DOM and memory
-        document.body.removeChild(link);
-        document.body.removeChild(tempContainer);
-        
-        setTimeout(() => {
-          URL.revokeObjectURL(blobUrl);
-        }, 5000);
-      }, mimeType, 0.95);
-    }).catch((err) => {
-      console.error('Error rendering report image:', err);
-      // Fallback: If html2canvas fails, download as SVG
-      const bgGradient = extension === 'png' ? '#0f172a' : '#1e293b';
-      const svgString = `
-        <svg xmlns="http://www.w3.org/2000/svg" width="900" height="980" viewBox="0 0 900 980">
-          <rect width="900" height="980" fill="${bgGradient}"/>
-          <rect x="35" y="35" width="830" height="910" rx="20" fill="#ffffff" stroke="#e2e8f0" stroke-width="2"/>
-          <rect x="35" y="35" width="830" height="150" rx="20" fill="#4f46e5"/>
-          <text x="70" y="95" font-family="system-ui, sans-serif" font-weight="900" font-size="28" fill="#ffffff">${shopNameInCaps}</text>
-          <text x="70" y="130" font-family="system-ui, sans-serif" font-size="14" font-weight="bold" fill="#c7d2fe">OFFICIAL FINANCIAL STATEMENT REPORT</text>
-          <text x="830" y="115" font-family="system-ui, sans-serif" font-size="13" font-weight="bold" fill="#ffffff" text-anchor="end">พิมพ์: ${formattedDateString}</text>
-          <foreignObject x="70" y="205" width="760" height="690">
-            <div xmlns="http://www.w3.org/1999/xhtml" style="color: #1e293b; font-family: 'Helvetica Neue', Helvetica, 'Sarabun', Arial, sans-serif; font-size: 13px; line-height: 1.6;">
-              <div style="border-bottom: 2px solid #4f46e5; padding-bottom: 12px; margin-bottom: 18px; display: flex; justify-content: space-between; align-items: center;">
-                <h2 style="margin: 0; font-size: 20px; font-weight: 800; color: #0f172a;">${title.replace(/_/g, ' ')}</h2>
-                <span style="font-size: 12px; font-weight: bold; background-color: #e0e7ff; color: #4f46e5; padding: 4px 10px; border-radius: 99px;">ตรวจสอบแล้ว</span>
-              </div>
-              <div style="background-color: #f8fafc; border-radius: 12px; border: 1px solid #e2e8f0; padding: 22px; white-space: pre-wrap; font-family: monospace; font-size: 12.5px; color: #334155; max-height: 580px; overflow-y: auto;">${textSummary.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+
+        const sliceData = sliceCanvas.toDataURL('image/png');
+        const renderedImgHeightMM = (sliceHeight * imgWidth) / canvas.width;
+        pdf.addImage(sliceData, 'PNG', margin, margin, imgWidth, renderedImgHeightMM);
+
+        srcY += sliceHeight;
+        pageCount++;
+      }
+
+      pdf.save(`${title.replace(/\s+/g, '_')}_OfficialReport.pdf`);
+    } catch (err) {
+      console.error('Error generating PDF:', err);
+      alert('เกิดข้อผิดพลาดในการสร้างไฟล์ PDF');
+    }
+  } else if (extension === 'png' || extension === 'jpg') {
+    const cardHtml = `
+      <div style="background: #0f172a; padding: 24px; border-radius: 16px; font-family: 'Sarabun', sans-serif;">
+        <div style="background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
+          <div style="background: #1e293b; padding: 24px; color: white;">
+            <h1 style="margin: 0; font-size: 22px; font-weight: 800;">${shopNameInCaps}</h1>
+            <p style="margin: 4px 0 0 0; font-size: 11px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">OFFICIAL FINANCIAL STATEMENT REPORT</p>
+            <p style="margin: 10px 0 0 0; font-size: 10px; color: #cbd5e1;">จัดพิมพ์เมื่อ: ${new Date().toLocaleString('th-TH')}</p>
+          </div>
+          <div style="padding: 24px; background: white;">
+            <div style="border-bottom: 2px solid #1e293b; padding-bottom: 10px; margin-bottom: 16px; display: flex; justify-content: space-between; align-items: center;">
+              <h2 style="margin: 0; font-size: 16px; font-weight: 700; color: #0f172a;">${title.replace(/_/g, ' ')}</h2>
+              <span style="font-size: 10px; font-weight: bold; background-color: #dbeafe; color: #1e40af; padding: 3px 10px; border-radius: 99px;">ตรวจสอบแล้ว</span>
             </div>
-          </foreignObject>
-          <line x1="70" y1="910" x2="830" y2="910" stroke="#e2e8f0" stroke-width="1.5"/>
-          <text x="70" y="930" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#94a3b8">รายงานตรวจบัญชีและสถิติดิจิทัล • ${shopNameInCaps} POS</text>
-          <text x="830" y="930" font-family="system-ui, sans-serif" font-weight="bold" font-size="11" fill="#4f46e5" text-anchor="end">STABLE ARCHIVE</text>
-        </svg>
-      `;
-      const blob = new Blob([svgString], { type: 'image/svg+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
+            <div style="background-color: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; padding: 18px; white-space: pre-wrap; font-family: monospace; font-size: 11.5px; color: #334155; line-height: 1.6;">${textSummary.replace(/</g, '&lt;').replace(/>/g, '&gt;')}</div>
+          </div>
+          <div style="padding: 14px 24px; background: #f8fafc; border-top: 1px solid #e2e8f0; display: flex; justify-content: space-between; align-items: center;">
+            <span style="font-size: 9px; font-weight: bold; color: #94a3b8; text-transform: uppercase;">รายงานตรวจบัญชีและสถิติดิจิทัล • ${shopNameInCaps} POS</span>
+            <span style="font-size: 9px; font-weight: bold; color: #2563eb;">OFFICIAL AUDIT</span>
+          </div>
+        </div>
+      </div>
+    `;
+
+    try {
+      const canvas = await renderHtmlContentToCanvas(cardHtml, 800);
+      const mimeType = extension === 'png' ? 'image/png' : 'image/jpeg';
+      const imgData = canvas.toDataURL(mimeType, 0.95);
       const link = document.createElement('a');
-      link.setAttribute('href', url);
-      link.setAttribute('download', `${title.replace(/\s+/g, '_')}_Report_Backup.svg`);
+      link.setAttribute('href', imgData);
+      link.setAttribute('download', `${title.replace(/\s+/g, '_')}_Report.${extension}`);
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
-      document.body.removeChild(tempContainer);
-    });
+    } catch (err) {
+      console.error('Error generating image:', err);
+      alert('เกิดข้อผิดพลาดในการบันทึกรูปภาพรายงาน');
+    }
   } else {
     // Plain text
     const blob = new Blob(['\ufeff' + textSummary], { type: 'text/plain;charset=utf-8;' });
@@ -435,6 +423,7 @@ export function downloadPlainReport(
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 2000);
   }
 }
 
@@ -1425,7 +1414,8 @@ export async function exportAsyncMonthlyPdfReport(
   billingRange?: { startDate: string; endDate: string }
 ): Promise<void> {
   const formattedMonth = formatThaiMonth(monthStr);
-  const fileName = `รายงานสรุปบัญชีรายเดือน_${formattedMonth.replace(/\s+/g, '_')}_OFFICIAL.pdf`;
+  const cleanShop = (shopName || 'ร้านบาร์เบอร์').trim().replace(/[^a-zA-Z0-9ก-๙_-]/g, '_');
+  const fileName = `รายงานสรุปบัญชีรายเดือน_${formattedMonth.replace(/\s+/g, '_')}_ร้าน${cleanShop}.pdf`;
 
   const htmlContent = generateMonthlyHtmlReport(
     shopName,
@@ -1438,27 +1428,8 @@ export async function exportAsyncMonthlyPdfReport(
     billingRange
   );
 
-  const tempContainer = document.createElement('div');
-  tempContainer.style.position = 'absolute';
-  tempContainer.style.left = '-9999px';
-  tempContainer.style.top = '-9999px';
-  tempContainer.style.width = '880px';
-  tempContainer.style.background = '#ffffff';
-  tempContainer.style.padding = '0px';
-  tempContainer.style.boxSizing = 'border-box';
-  tempContainer.style.color = '#0f172a';
-  tempContainer.style.fontFamily = `'Sarabun', 'Helvetica Neue', Helvetica, Arial, sans-serif`;
-
-  tempContainer.innerHTML = htmlContent;
-  document.body.appendChild(tempContainer);
-
   try {
-    const canvas = await renderHtml2CanvasSafely(tempContainer, {
-      scale: 2,
-      useCORS: true,
-      logging: false,
-      backgroundColor: '#ffffff'
-    });
+    const canvas = await renderHtmlContentToCanvas(htmlContent, 820);
 
     const pdf = new jsPDF({
       orientation: 'portrait',
@@ -1468,9 +1439,9 @@ export async function exportAsyncMonthlyPdfReport(
 
     const pdfWidth = 210; // A4 width in mm
     const pdfHeight = 297; // A4 height in mm
-    const margin = 10; // 10mm margins
-    const imgWidth = pdfWidth - (margin * 2); // 190mm
-    const printableHeightMM = pdfHeight - (margin * 2); // 277mm
+    const margin = 8; // 8mm margins
+    const imgWidth = pdfWidth - (margin * 2); // 194mm
+    const printableHeightMM = pdfHeight - (margin * 2); // 281mm
 
     // Calculate height of 1 A4 printable page in canvas pixels
     const pxPageHeight = (canvas.width / imgWidth) * printableHeightMM;
@@ -1521,10 +1492,6 @@ export async function exportAsyncMonthlyPdfReport(
   } catch (err) {
     console.error('Error generating PDF:', err);
     alert('เกิดข้อผิดพลาดในการสร้างไฟล์ PDF โปรดลองอีกครั้ง');
-  } finally {
-    if (document.body.contains(tempContainer)) {
-      document.body.removeChild(tempContainer);
-    }
   }
 }
 
@@ -2298,11 +2265,12 @@ export async function exportAsyncAnnualPdfReport(
   const iframe = document.createElement('iframe');
   iframe.style.position = 'fixed';
   iframe.style.top = '0';
-  iframe.style.left = '-9999px';
+  iframe.style.left = '0';
   iframe.style.width = '840px';
   iframe.style.height = '4200px';
   iframe.style.border = 'none';
-  iframe.style.visibility = 'hidden';
+  iframe.style.opacity = '0';
+  iframe.style.pointerEvents = 'none';
   iframe.style.zIndex = '-9999';
   document.body.appendChild(iframe);
 
@@ -2326,7 +2294,7 @@ export async function exportAsyncAnnualPdfReport(
             body { 
               margin: 0; 
               padding: 0; 
-              background: #f1f5f9; 
+              background: #ffffff; 
               color: #0f172a; 
               font-family: 'Sarabun', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; 
             }
@@ -2369,7 +2337,11 @@ export async function exportAsyncAnnualPdfReport(
           allowTaint: true,
           backgroundColor: '#ffffff',
           logging: false,
-          windowWidth: 840
+          windowWidth: 840,
+          scrollX: 0,
+          scrollY: 0,
+          x: 0,
+          y: 0
         });
 
         const imgData = pageCanvas.toDataURL('image/png');
@@ -2380,9 +2352,12 @@ export async function exportAsyncAnnualPdfReport(
       const canvas = await html2canvas(iframeDoc.body, {
         scale: 2,
         useCORS: true,
+        allowTaint: true,
         backgroundColor: '#ffffff',
         logging: false,
-        windowWidth: 840
+        windowWidth: 840,
+        scrollX: 0,
+        scrollY: 0
       });
       const imgData = canvas.toDataURL('image/png');
       pdf.addImage(imgData, 'PNG', 0, 0, pdfWidthMM, pdfHeightMM);

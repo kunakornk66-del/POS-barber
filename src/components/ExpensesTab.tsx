@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Expense, SaleRecord } from '../types';
 import { formatBaht, formatThaiDate, formatThaiMonth } from '../utils';
+import { ExpenseCategoryPieChart } from './ExpenseCategoryPieChart';
 import { 
   ArrowDownCircle, 
   PlusCircle, 
@@ -58,6 +59,7 @@ export interface ExpenseCategoryMeta {
   bgLightClass: string;
   borderClass: string;
   barColor: string;
+  hexColor: string;
 }
 
 export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
@@ -70,7 +72,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
     badgeClass: 'bg-blue-50 text-blue-700 border-blue-200',
     bgLightClass: 'bg-blue-50/70',
     borderClass: 'border-blue-200',
-    barColor: 'bg-blue-500'
+    barColor: 'bg-blue-500',
+    hexColor: '#3b82f6'
   },
   {
     key: 'utilities',
@@ -81,7 +84,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
     badgeClass: 'bg-amber-50 text-amber-700 border-amber-200',
     bgLightClass: 'bg-amber-50/70',
     borderClass: 'border-amber-200',
-    barColor: 'bg-amber-500'
+    barColor: 'bg-amber-500',
+    hexColor: '#f59e0b'
   },
   {
     key: 'rent',
@@ -92,7 +96,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
     badgeClass: 'bg-purple-50 text-purple-700 border-purple-200',
     bgLightClass: 'bg-purple-50/70',
     borderClass: 'border-purple-200',
-    barColor: 'bg-purple-500'
+    barColor: 'bg-purple-500',
+    hexColor: '#a855f7'
   },
   {
     key: 'marketing',
@@ -103,7 +108,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
     badgeClass: 'bg-pink-50 text-pink-700 border-pink-200',
     bgLightClass: 'bg-pink-50/70',
     borderClass: 'border-pink-200',
-    barColor: 'bg-pink-500'
+    barColor: 'bg-pink-500',
+    hexColor: '#ec4899'
   },
   {
     key: 'salary',
@@ -114,7 +120,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
     badgeClass: 'bg-teal-50 text-teal-700 border-teal-200',
     bgLightClass: 'bg-teal-50/70',
     borderClass: 'border-teal-200',
-    barColor: 'bg-teal-500'
+    barColor: 'bg-teal-500',
+    hexColor: '#14b8a6'
   },
   {
     key: 'loans',
@@ -125,7 +132,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
     badgeClass: 'bg-rose-50 text-rose-700 border-rose-200',
     bgLightClass: 'bg-rose-50/70',
     borderClass: 'border-rose-200',
-    barColor: 'bg-rose-500'
+    barColor: 'bg-rose-500',
+    hexColor: '#f43f5e'
   },
   {
     key: 'other',
@@ -136,7 +144,8 @@ export const EXPENSE_CATEGORIES: ExpenseCategoryMeta[] = [
     badgeClass: 'bg-slate-100 text-slate-700 border-slate-200',
     bgLightClass: 'bg-slate-100/70',
     borderClass: 'border-slate-200',
-    barColor: 'bg-slate-500'
+    barColor: 'bg-slate-500',
+    hexColor: '#64748b'
   }
 ];
 
@@ -550,16 +559,25 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
         </div>
       </div>
 
-      {/* 2. CATEGORY BREAKDOWN SUMMARY SECTION */}
+      {/* 2. EXPENSE CATEGORY PIE CHART (สัดส่วนรายจ่ายแยกตามหมวดหมู่) */}
+      <ExpenseCategoryPieChart
+        expenses={periodScopedExpenses}
+        periodLabel={filterMode === 'date' ? `ประจำวันที่ ${formatThaiDate(selectedDate)}` : `ประจำเดือน ${formatThaiMonth(selectedMonth)}`}
+        totalAmount={periodTotalAmount}
+        selectedCategory={categoryFilter}
+        onSelectCategory={(cat) => setCategoryFilter(cat)}
+      />
+
+      {/* 3. CATEGORY QUICK-SELECT BADGES & CARDS */}
       <div id="category-breakdown-card" className="bg-white rounded-3xl p-6 border border-slate-100 shadow-xs space-y-5 text-left">
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4">
           <div className="flex items-center space-x-2.5">
             <span className="p-2 bg-indigo-50 text-indigo-600 rounded-xl">
-              <PieChart className="w-5 h-5" />
+              <Layers className="w-5 h-5" />
             </span>
             <div>
               <h2 className="text-base font-extrabold text-slate-900">
-                สรุปสัดส่วนรายจ่ายแยกตามหมวดหมู่ (Category Breakdown)
+                สรุปยอดตามหมวดหมู่ (Category Quick Filter)
               </h2>
               <p className="text-xs text-slate-500">
                 ช่วงเวลา: <strong className="text-slate-800 font-semibold">{filterMode === 'date' ? `ประจำวันที่ ${formatThaiDate(selectedDate)}` : `ประจำเดือน ${formatThaiMonth(selectedMonth)}`}</strong> • รวมทั้งหมด {periodScopedExpenses.length} รายการ ({formatBaht(periodTotalAmount)})
