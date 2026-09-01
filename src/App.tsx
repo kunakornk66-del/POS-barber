@@ -17,6 +17,7 @@ import ConfigTab from './components/ConfigTab';
 import CashCounterTab from './components/CashCounterTab';
 import PayslipsTab from './components/PayslipsTab';
 import AnnualResetModal from './components/AnnualResetModal';
+import DeleteMonthModal from './components/DeleteMonthModal';
 import { ExpensesTab } from './components/ExpensesTab';
 import { PinModal } from './components/PinModal';
 import { 
@@ -284,6 +285,19 @@ export default function App() {
   const [showAnnualResetModal, setShowAnnualResetModal] = useState<boolean>(false);
   const [annualDaysElapsed, setAnnualDaysElapsed] = useState<number>(0);
   const [annualDaysRemaining, setAnnualDaysRemaining] = useState<number>(30);
+  
+  // Delete Month Modal State
+  const [deleteMonthModalState, setDeleteMonthModalState] = useState<{ isOpen: boolean; initialMonth?: string }>({
+    isOpen: false,
+    initialMonth: undefined
+  });
+
+  const handleOpenDeleteMonthModal = (month?: string) => {
+    setDeleteMonthModalState({
+      isOpen: true,
+      initialMonth: month
+    });
+  };
   
   // Offline & Pending Sync State
   const [isOnline, setIsOnline] = useState<boolean>(typeof navigator !== 'undefined' ? navigator.onLine : true);
@@ -1052,6 +1066,100 @@ export default function App() {
       handleFirestoreError(err, OperationType.DELETE, `salons/${userEmail}/sales`);
       throw err;
     }
+  };
+
+  const handleDeleteMonthData = async (
+    monthStr: string,
+    options: {
+      deleteSales: boolean;
+      deleteExpenses: boolean;
+      deletePayslips: boolean;
+    } = { deleteSales: true, deleteExpenses: true, deletePayslips: true }
+  ): Promise<{ deletedSalesCount: number; deletedExpensesCount: number; deletedPayslipsCount: number }> => {
+    if (!userEmail) return { deletedSalesCount: 0, deletedExpensesCount: 0, deletedPayslipsCount: 0 };
+
+    const { deleteSales = true, deleteExpenses = true, deletePayslips = true } = options;
+
+    // 1. Identify sales in target month
+    const salesToDelete = deleteSales
+      ? sales.filter((s) => {
+          const sDate = s.date || (s.timestamp ? s.timestamp.split('T')[0] : '');
+          return sDate && sDate.startsWith(monthStr);
+        })
+      : [];
+
+    // 2. Identify expenses in target month
+    const expensesToDelete = deleteExpenses
+      ? expenses.filter((e) => {
+          const eDate = e.date || '';
+          return eDate && eDate.startsWith(monthStr);
+        })
+      : [];
+
+    // 3. Identify payslips in target month
+    const payslipsToDelete = deletePayslips
+      ? payslips.filter((p) => {
+          return p.month === monthStr || (p.timestamp && p.timestamp.startsWith(monthStr));
+        })
+      : [];
+
+    // Execute deletions:
+    // A. Delete sales from React state and Firestore subcollection
+    if (salesToDelete.length > 0) {
+      const saleIdsToDelete = new Set(salesToDelete.map((s) => s.id));
+      setSales((prev) => prev.filter((s) => !saleIdsToDelete.has(s.id)));
+
+      try {
+        const BATCH_SIZE = 450;
+        for (let i = 0; i < salesToDelete.length; i += BATCH_SIZE) {
+          const chunk = salesToDelete.slice(i, i + BATCH_SIZE);
+          const batch = writeBatch(db);
+          chunk.forEach((sale) => {
+            const sRef = doc(db, "salons", userEmail, "sales", sale.id);
+            batch.delete(sRef);
+          });
+          await batch.commit();
+        }
+      } catch (err) {
+        handleFirestoreError(err, OperationType.DELETE, `salons/${userEmail}/sales`);
+      }
+    }
+
+    // B. Delete expenses from React state and Firestore document
+    if (deleteExpenses && expensesToDelete.length > 0) {
+      const expenseIdsToDelete = new Set(expensesToDelete.map((e) => e.id));
+      const remainingExpenses = expenses.filter((e) => !expenseIdsToDelete.has(e.id));
+      setExpenses(remainingExpenses);
+
+      try {
+        const docRef = doc(db, "salons", userEmail);
+        await setDoc(docRef, cleanUndefined({ expenses: remainingExpenses, updatedAt: new Date().toISOString() }), { merge: true });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+      }
+    }
+
+    // C. Delete payslips from React state and Firestore document
+    if (deletePayslips && payslipsToDelete.length > 0) {
+      const payslipIdsToDelete = new Set(payslipsToDelete.map((p) => p.id));
+      const remainingPayslips = payslips.filter((p) => !payslipIdsToDelete.has(p.id));
+      setPayslips(remainingPayslips);
+
+      try {
+        const docRef = doc(db, "salons", userEmail);
+        await setDoc(docRef, cleanUndefined({ payslips: remainingPayslips, updatedAt: new Date().toISOString() }), { merge: true });
+      } catch (err) {
+        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+      }
+    }
+
+    console.log(`🟢 [Firebase] ลบข้อมูลประจำเดือน ${monthStr} สำเร็จ (บิลขาย: ${salesToDelete.length}, รายจ่าย: ${expensesToDelete.length}, สลิป: ${payslipsToDelete.length})`);
+
+    return {
+      deletedSalesCount: salesToDelete.length,
+      deletedExpensesCount: expensesToDelete.length,
+      deletedPayslipsCount: payslipsToDelete.length
+    };
   };
 
   const handleDeleteSale = (saleId: string) => {
@@ -2064,6 +2172,7 @@ export default function App() {
               onDeleteSale={handleDeleteSale}
               onUpdateSalePaymentMethod={handleUpdateSalePaymentMethod}
               onUpdateSale={handleUpdateSale}
+              onOpenDeleteMonthModal={handleOpenDeleteMonthModal}
             />
           </div>
         )}
@@ -2075,6 +2184,7 @@ export default function App() {
               expenses={expenses}
               sales={correctedSales}
               onUpdateExpenses={handleUpdateExpenses}
+              onOpenDeleteMonthModal={handleOpenDeleteMonthModal}
             />
           </div>
         )}
@@ -2094,6 +2204,7 @@ export default function App() {
                 annualDaysElapsed={annualDaysElapsed}
                 annualDaysRemaining={annualDaysRemaining}
                 onOpenAnnualModal={() => setShowAnnualResetModal(true)}
+                onOpenDeleteMonthModal={handleOpenDeleteMonthModal}
                 onDownloadFullBackup={handleDownloadFullBackupNow}
                 onLockSettingsNow={handleLockSettingsNow}
                 onUpdateBarbers={handleUpdateBarbers}
@@ -2377,10 +2488,23 @@ export default function App() {
         payslips={payslips}
         cashCounter={cashCounter}
         shopName={shopConfig.shopName}
+        onOpenDeleteMonthModal={handleOpenDeleteMonthModal}
         onTriggerFactoryResetNow={() => {
           setShowAnnualResetModal(false);
           confirmFullReset();
         }}
+      />
+
+      {/* Delete Specific Month Modal */}
+      <DeleteMonthModal
+        isOpen={deleteMonthModalState.isOpen}
+        onClose={() => setDeleteMonthModalState({ isOpen: false, initialMonth: undefined })}
+        initialMonth={deleteMonthModalState.initialMonth}
+        sales={correctedSales}
+        expenses={expenses}
+        payslips={payslips}
+        shopConfig={shopConfig}
+        onDeleteMonth={handleDeleteMonthData}
       />
 
       {/* 6. Custom Logout Confirmation Modal */}

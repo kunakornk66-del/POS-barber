@@ -40,6 +40,7 @@ import {
   RotateCcw,
   RefreshCw,
   Clock,
+  Calendar,
   ShieldAlert,
   ShieldCheck,
   Lock,
@@ -74,6 +75,7 @@ interface ConfigTabProps {
   onClearSales?: () => void;
   onClearSalesOlderThanOneYear?: () => Promise<number>;
   onFullReset?: () => void;
+  onOpenDeleteMonthModal?: (month?: string) => void;
 }
 
 export default function ConfigTab({
@@ -99,6 +101,7 @@ export default function ConfigTab({
   onClearSales,
   onClearSalesOlderThanOneYear,
   onFullReset,
+  onOpenDeleteMonthModal,
 }: ConfigTabProps) {
   
   // Custom Confirmation Dialog State
@@ -2121,8 +2124,8 @@ export default function ConfigTab({
           </div>
         </div>
 
-        {/* 3 Maintenance Actions */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        {/* 4 Maintenance Actions */}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           
           {/* Option A: Clear Sales Records */}
           <div className="p-5 bg-amber-50/60 rounded-2xl border border-amber-200/80 flex flex-col justify-between space-y-4">
@@ -2169,14 +2172,36 @@ export default function ConfigTab({
             </button>
           </div>
 
-          {/* Option C: Factory Reset */}
-          <div className="p-5 bg-rose-50/60 rounded-2xl border border-rose-200/80 flex flex-col justify-between space-y-4">
+          {/* Option C: Delete Specific Month Data */}
+          <div className="p-5 bg-rose-50/50 rounded-2xl border border-rose-200/90 flex flex-col justify-between space-y-4">
             <div className="space-y-2">
-              <div className="flex items-center space-x-2 text-rose-900 font-extrabold text-sm">
-                <ShieldAlert className="w-4 h-4 text-rose-600 shrink-0" />
-                <span>3. คืนค่าเริ่มต้นจากโรงงาน</span>
+              <div className="flex items-center space-x-2 text-rose-950 font-extrabold text-sm">
+                <Calendar className="w-4 h-4 text-rose-600 shrink-0" />
+                <span>3. ลบข้อมูลรายเดือน (เลือกเดือน)</span>
               </div>
               <p className="text-xs text-rose-800/80 leading-relaxed font-medium">
+                เลือกเฉพาะเดือนที่บันทึกข้อมูลไม่ครบหรือไม่ตรง เพื่อลบข้อมูลบิลและรายจ่ายออก โดยไม่กระทบกับข้อมูลเดือนอื่นๆ
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => onOpenDeleteMonthModal && onOpenDeleteMonthModal()}
+              className="w-full py-2.5 bg-gradient-to-r from-rose-600 to-amber-600 hover:from-rose-700 hover:to-amber-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-98"
+            >
+              <Trash2 className="w-3.5 h-3.5" />
+              <span>เลือกลบข้อมูลรายเดือน...</span>
+            </button>
+          </div>
+
+          {/* Option D: Factory Reset */}
+          <div className="p-5 bg-red-50/60 rounded-2xl border border-red-200/90 flex flex-col justify-between space-y-4">
+            <div className="space-y-2">
+              <div className="flex items-center space-x-2 text-red-950 font-extrabold text-sm">
+                <ShieldAlert className="w-4 h-4 text-red-600 shrink-0" />
+                <span>4. คืนค่าเริ่มต้นจากโรงงาน</span>
+              </div>
+              <p className="text-xs text-red-800/80 leading-relaxed font-medium">
                 ล้างข้อมูลร้าน บิลขาย รายชื่อช่าง และสินค้าทั้งหมด คืนค่าระบบกลับสู่สถานะเริ่มต้นใหม่ทั้งหมด
               </p>
             </div>
@@ -2184,7 +2209,7 @@ export default function ConfigTab({
             <button
               type="button"
               onClick={onFullReset}
-              className="w-full py-2.5 bg-rose-600 hover:bg-rose-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-98"
+              className="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer active:scale-98"
             >
               <AlertTriangle className="w-3.5 h-3.5" />
               <span>รีเซ็ตระบบทั้งหมด (Reset All)</span>

@@ -24,6 +24,7 @@ interface AnnualResetModalProps {
   cashCounter?: any;
   shopName: string;
   onTriggerFactoryResetNow: () => void;
+  onOpenDeleteMonthModal?: (month?: string) => void;
 }
 
 const THAI_MONTH_NAMES_FULL = [
@@ -66,7 +67,8 @@ export default function AnnualResetModal({
   payslips = [],
   cashCounter,
   shopName,
-  onTriggerFactoryResetNow
+  onTriggerFactoryResetNow,
+  onOpenDeleteMonthModal
 }: AnnualResetModalProps) {
   const [downloadSuccess, setDownloadSuccess] = useState<string | null>(null);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);

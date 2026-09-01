@@ -45,7 +45,8 @@ import {
   Clock,
   ArrowUpRight,
   Percent,
-  FileText
+  FileText,
+  Trash2
 } from 'lucide-react';
 import ProfessionalAnnualPdfReport from './ProfessionalAnnualPdfReport';
 
@@ -87,6 +88,7 @@ interface AnnualOverviewProps {
   barbers?: Barber[];
   payslips?: Payslip[];
   onSelectMonth?: (month: string) => void;
+  onOpenDeleteMonthModal?: (month?: string) => void;
   firstLoginDate?: string;
   className?: string;
 }
@@ -109,6 +111,7 @@ export const AnnualOverview: React.FC<AnnualOverviewProps> = ({
   barbers = [],
   payslips = [],
   onSelectMonth,
+  onOpenDeleteMonthModal,
   firstLoginDate,
   className = ''
 }) => {
@@ -1207,18 +1210,31 @@ export const AnnualOverview: React.FC<AnnualOverviewProps> = ({
                     </td>
 
                     {/* Drill down action button */}
-                    <td className="p-3 text-center pr-4">
-                      {onSelectMonth && (
-                        <button
-                          type="button"
-                          onClick={() => onSelectMonth(m.monthKey)}
-                          className="px-2 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 rounded-lg text-[11px] font-bold transition-colors inline-flex items-center gap-0.5 cursor-pointer"
-                          title={`เปิดหน้ารายงานรายเดือนของ ${m.monthNameTh}`}
-                        >
-                          <span>ดูเดือนนี้</span>
-                          <ChevronRight className="w-3 h-3" />
-                        </button>
-                      )}
+                    <td className="p-3 text-center pr-4 whitespace-nowrap">
+                      <div className="flex items-center justify-center gap-1">
+                        {onSelectMonth && (
+                          <button
+                            type="button"
+                            onClick={() => onSelectMonth(m.monthKey)}
+                            className="px-2 py-1 bg-slate-100 hover:bg-indigo-50 hover:text-indigo-700 text-slate-700 rounded-lg text-[11px] font-bold transition-colors inline-flex items-center gap-0.5 cursor-pointer"
+                            title={`เปิดหน้ารายงานรายเดือนของ ${m.monthNameTh}`}
+                          >
+                            <span>ดูเดือนนี้</span>
+                            <ChevronRight className="w-3 h-3" />
+                          </button>
+                        )}
+
+                        {onOpenDeleteMonthModal && (m.billsCount > 0 || m.expenses > 0) && (
+                          <button
+                            type="button"
+                            onClick={() => onOpenDeleteMonthModal(m.monthKey)}
+                            className="p-1 bg-slate-100 hover:bg-rose-50 hover:text-rose-700 text-slate-400 hover:border-rose-200 border border-transparent rounded-lg transition-colors cursor-pointer"
+                            title={`ลบข้อมูลของเดือน ${m.monthNameTh}`}
+                          >
+                            <Trash2 className="w-3.5 h-3.5" />
+                          </button>
+                        )}
+                      </div>
                     </td>
                   </tr>
                 ))}

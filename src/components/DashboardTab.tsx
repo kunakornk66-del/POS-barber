@@ -76,6 +76,7 @@ interface DashboardTabProps {
   onUpdateSale?: (saleId: string, updates: Partial<SaleRecord>) => void;
   expenses?: Expense[];
   onUpdateExpenses?: (expenses: Expense[]) => void;
+  onOpenDeleteMonthModal?: (month?: string) => void;
 }
 
 export default function DashboardTab({ 
@@ -89,7 +90,8 @@ export default function DashboardTab({
   onUpdateSalePaymentMethod,
   onUpdateSale,
   expenses = [],
-  onUpdateExpenses
+  onUpdateExpenses,
+  onOpenDeleteMonthModal
 }: DashboardTabProps) {
   // Helpers to get dynamic local dates
   const getLocalDateString = (): string => {
@@ -3016,12 +3018,12 @@ export default function DashboardTab({
             </div>
           </div>
 
-          <div className="flex items-center space-x-2">
+          <div className="flex flex-wrap items-center gap-2">
             <span className="text-sm font-semibold text-slate-600">เลือกเดือน:</span>
             <select
               value={selectedMonth}
               onChange={(e) => setSelectedMonth(e.target.value)}
-              className="px-3 py-1.5 border border-slate-200 rounded-xl outline-none bg-white text-sm font-mono focus:ring-1 focus:ring-amber-500 focus:border-amber-500"
+              className="px-3 py-1.5 border border-slate-200 rounded-xl outline-none bg-white text-sm font-mono focus:ring-1 focus:ring-amber-500 focus:border-amber-500 shadow-2xs cursor-pointer"
             >
               {availableMonths.map(m => (
                 <option key={m} value={m}>
@@ -3029,13 +3031,35 @@ export default function DashboardTab({
                 </option>
               ))}
             </select>
+
+            {onOpenDeleteMonthModal && (
+              <button
+                type="button"
+                onClick={() => onOpenDeleteMonthModal(selectedMonth)}
+                className="px-3 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300 rounded-xl text-xs font-bold transition-all flex items-center space-x-1.5 shadow-2xs cursor-pointer active:scale-98"
+                title={`ลบข้อมูลของเดือน ${formatThaiMonth(selectedMonth)}`}
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span className="hidden sm:inline">ลบข้อมูลเดือนนี้</span>
+              </button>
+            )}
           </div>
         </div>
 
         {monthlySales.length === 0 ? (
-          <div className="p-10 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200">
-            <Calculator className="w-10 h-10 text-slate-400 mx-auto mb-3" />
+          <div className="p-10 text-center bg-slate-50 rounded-xl border border-dashed border-slate-200 space-y-3">
+            <Calculator className="w-10 h-10 text-slate-400 mx-auto mb-1" />
             <p className="text-sm text-slate-600 font-semibold">ไม่พบข้อมูลยอดสะสมในรอบเดือน {formatThaiMonth(selectedMonth)}</p>
+            {onOpenDeleteMonthModal && (
+              <button
+                type="button"
+                onClick={() => onOpenDeleteMonthModal(selectedMonth)}
+                className="px-3.5 py-1.5 bg-white hover:bg-rose-50 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all inline-flex items-center gap-1.5 shadow-2xs cursor-pointer"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                <span>จัดการหรือลบข้อมูลค้างในเดือนนี้</span>
+              </button>
+            )}
           </div>
         ) : (
           <div className="space-y-8">
@@ -3648,6 +3672,18 @@ export default function DashboardTab({
                   <ImageIcon className="w-3.5 h-3.5 text-purple-600" />
                   <span>รูปภาพ (PNG / Graphic)</span>
                 </button>
+
+                {onOpenDeleteMonthModal && (
+                  <button
+                    type="button"
+                    onClick={() => onOpenDeleteMonthModal(selectedMonth)}
+                    className="flex items-center space-x-1.5 px-3 py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 hover:border-rose-300 rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer active:scale-98"
+                    title={`ลบข้อมูลทั้งหมดในเดือน ${formatThaiMonth(selectedMonth)}`}
+                  >
+                    <Trash2 className="w-3.5 h-3.5 text-rose-600" />
+                    <span>ลบข้อมูลเดือนนี้</span>
+                  </button>
+                )}
               </div>
             </div>
 
@@ -3817,6 +3853,7 @@ export default function DashboardTab({
           shopConfig={shopConfig}
           barbers={barbers}
           payslips={payslips}
+          onOpenDeleteMonthModal={onOpenDeleteMonthModal}
           onSelectMonth={(m) => {
             setSelectedMonth(m);
             setDashboardViewMode('monthly');

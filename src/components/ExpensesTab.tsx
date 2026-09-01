@@ -154,9 +154,10 @@ interface ExpensesTabProps {
   expenses: Expense[];
   sales: SaleRecord[];
   onUpdateExpenses: (expenses: Expense[]) => void;
+  onOpenDeleteMonthModal?: (month?: string) => void;
 }
 
-export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: ExpensesTabProps) {
+export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses, onOpenDeleteMonthModal }: ExpensesTabProps) {
   const [selectedDate, setSelectedDate] = useState<string>(getLocalDateString());
   const [selectedMonth, setSelectedMonth] = useState<string>(getLocalMonthString());
   const [categoryFilter, setCategoryFilter] = useState<string>('all');
@@ -910,12 +911,25 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses }: Ex
                     className="bg-slate-50 text-slate-700 font-mono text-xs px-3 py-1.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500"
                   />
                 ) : (
-                  <input
-                    type="month"
-                    value={selectedMonth}
-                    onChange={(e) => setSelectedMonth(e.target.value)}
-                    className="bg-slate-50 text-slate-700 font-mono text-xs px-3 py-1.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500"
-                  />
+                  <div className="flex items-center gap-1.5">
+                    <input
+                      type="month"
+                      value={selectedMonth}
+                      onChange={(e) => setSelectedMonth(e.target.value)}
+                      className="bg-slate-50 text-slate-700 font-mono text-xs px-3 py-1.5 border border-slate-200 rounded-xl outline-none focus:ring-1 focus:ring-indigo-500"
+                    />
+                    {onOpenDeleteMonthModal && (
+                      <button
+                        type="button"
+                        onClick={() => onOpenDeleteMonthModal(selectedMonth)}
+                        className="px-2.5 py-1.5 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-xs font-bold transition-all flex items-center space-x-1 cursor-pointer"
+                        title="ลบข้อมูลรายจ่ายและบิลของเดือนนี้"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span className="hidden sm:inline">ลบเดือนนี้</span>
+                      </button>
+                    )}
+                  </div>
                 )}
               </div>
             </div>
