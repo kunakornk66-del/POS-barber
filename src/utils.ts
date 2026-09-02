@@ -2559,4 +2559,106 @@ export function exportFullSystemBackupJson(
   }
 }
 
+/**
+ * Parses time strings such as "10:00", "09:30", "14.00", "14:00:00" into total minutes from 00:00 (0..1439).
+ * Returns -1 if invalid.
+ */
+export function parseTimeToMinutes(t: any): number {
+  if (!t || typeof t !== 'string') return -1;
+  const match = t.trim().match(/(\d{1,2})[:.](\d{2})/);
+  if (!match) return -1;
+  const h = parseInt(match[1], 10);
+  const m = parseInt(match[2], 10);
+  if (isNaN(h) || isNaN(m) || h < 0 || h > 23 || m < 0 || m > 59) return -1;
+  return h * 60 + m;
+}
+
+/**
+ * Normalizes any date representation (YYYY-MM-DD, ISO string, or Date) into standard YYYY-MM-DD format.
+ */
+export function normalizeDateString(d: any): string {
+  if (!d) return '';
+  if (typeof d !== 'string') {
+    if (d instanceof Date) {
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      return `${year}-${month}-${day}`;
+    }
+    return '';
+  }
+  const clean = d.trim();
+  if (clean.includes('T')) return clean.split('T')[0].trim();
+  return clean;
+}
+
+export interface BookingSlot {
+  id?: string;
+  barberId?: string;
+  date: string;
+  startTime: string;
+  endTime?: string;
+  status?: string;
+}
+
+/**
+ * Accurately compares two booking time slots.
+ * Returns true ONLY when:
+ * 1. Both slots have valid barber IDs and match the exact same barber
+ * 2. Both slots are on the exact same date (YYYY-MM-DD)
+ * 3. Neither slot is in 'completed' or 'cancelled' status
+ * 4. The time intervals [startA, endA) and [startB, endB) strictly overlap
+ */
+export function checkBookingTimeOverlap(
+  slotA: BookingSlot,
+  slotB: BookingSlot,
+  defaultDurationMinutes = 30
+): boolean {
+  if (!slotA || !slotB) return false;
+
+  // If either slot is completed or cancelled, it does not conflict
+  if (slotA.status === 'completed' || slotA.status === 'cancelled') return false;
+  if (slotB.status === 'completed' || slotB.status === 'cancelled') return false;
+
+  // Barber check: both must specify a valid barberId, and they must be strictly identical
+  const barberA = String(slotA.barberId || '').trim();
+  const barberB = String(slotB.barberId || '').trim();
+  if (!barberA || !barberB || barberA !== barberB) {
+    return false;
+  }
+
+  // Date check: must be on the exact same date
+  const dateA = normalizeDateString(slotA.date);
+  const dateB = normalizeDateString(slotB.date);
+  if (!dateA || !dateB || dateA !== dateB) {
+    return false;
+  }
+
+  // Time interval parsing
+  const sA = parseTimeToMinutes(slotA.startTime);
+  let eA = parseTimeToMinutes(slotA.endTime);
+  const sB = parseTimeToMinutes(slotB.startTime);
+  let eB = parseTimeToMinutes(slotB.endTime);
+
+  if (sA < 0 || sB < 0) return false;
+
+  // Fallback if end time is missing or <= start time
+  if (eA <= sA) eA = sA + defaultDurationMinutes;
+  if (eB <= sB) eB = sB + defaultDurationMinutes;
+
+  // Cap unrealistically long slot durations
+  if (eA - sA > 180) eA = sA + 60;
+  if (eB - sB > 180) eB = sB + 60;
+
+  // Disjoint interval check:
+  // If slotA ends before or at slotB's start, NO overlap
+  // If slotA starts after or at slotB's end, NO overlap
+  if (eA <= sB || sA >= eB) {
+    return false;
+  }
+
+  return true;
+}
+
+
 

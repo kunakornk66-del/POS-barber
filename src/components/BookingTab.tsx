@@ -1,7 +1,7 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Booking, Barber, Member, ShopConfig } from '../types';
-import { formatThaiDate } from '../utils';
+import { formatThaiDate, parseTimeToMinutes, normalizeDateString } from '../utils';
 import { 
   Calendar, 
   Clock, 
@@ -17,8 +17,8 @@ import {
   PhoneCall, 
   Copy, 
   CalendarDays, 
+  CalendarRange,
   Sparkles, 
-  AlertTriangle,
   LayoutGrid,
   Table,
   CreditCard,
@@ -29,7 +29,11 @@ import {
   GripVertical,
   ArrowUpDown,
   Filter,
-  CheckCheck
+  CheckCheck,
+  ChevronLeft,
+  ChevronRight,
+  Info,
+  Layers
 } from 'lucide-react';
 
 interface BookingTabProps {
@@ -40,6 +44,7 @@ interface BookingTabProps {
   onSaveBooking: (booking: Booking) => void;
   onUpdateBooking: (booking: Booking) => void;
   onDeleteBooking: (bookingId: string) => void;
+  onClearAllBookings?: () => void;
   onStartServiceSale?: (booking: Booking) => void;
   onUpdateShopConfig?: (config: ShopConfig) => void;
 }
@@ -51,6 +56,23 @@ const THAI_TIME_OPTIONS = Array.from({ length: 36 }, (_, i) => {
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
 });
 
+export const TIMELINE_TIME_SLOTS = [
+  '08:00', '08:30', '09:00', '09:30', '10:00', '10:30',
+  '11:00', '11:30', '12:00', '12:30', '13:00', '13:30',
+  '14:00', '14:30', '15:00', '15:30', '16:00', '16:30',
+  '17:00', '17:30', '18:00', '18:30', '19:00', '19:30',
+  '20:00', '20:30', '21:00'
+];
+
+export const isBookingOverlappingSlot = (booking: Booking, slotStart: string, slotEnd: string) => {
+  const bStart = parseTimeToMinutes(booking.startTime);
+  const bEnd = parseTimeToMinutes(booking.endTime);
+  const sStart = parseTimeToMinutes(slotStart);
+  const sEnd = parseTimeToMinutes(slotEnd);
+  if (bStart < 0 || bEnd < 0 || sStart < 0 || sEnd < 0) return false;
+  return bStart < sEnd && bEnd > sStart;
+};
+
 export default function BookingTab({
   bookings,
   barbers,
@@ -59,6 +81,7 @@ export default function BookingTab({
   onSaveBooking,
   onUpdateBooking,
   onDeleteBooking,
+  onClearAllBookings,
   onStartServiceSale,
   onUpdateShopConfig
 }: BookingTabProps) {
@@ -127,7 +150,7 @@ export default function BookingTab({
   const [selectedBarberFilter, setSelectedBarberFilter] = useState<string>('all');
   const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'completed'>('all');
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [viewMode, setViewMode] = useState<'table' | 'cards' | 'board'>('table');
+  const [viewMode, setViewMode] = useState<'table' | 'timeline' | 'cards' | 'board'>('table');
 
   // Active edit state
   const [editingBooking, setEditingBooking] = useState<Booking | null>(null);
@@ -237,58 +260,6 @@ export default function BookingTab({
     setDragOverStatus(null);
   };
 
-  // Check for time overlap conflicts with same barber (only active pending bookings)
-  const conflictingBookings = useMemo(() => {
-    if (!formBarberId || !formDate || !formStartTime || !formEndTime) return [];
-    const parseMins = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return (h || 0) * 60 + (m || 0);
-    };
-    const startA = parseMins(formStartTime);
-    const endA = parseMins(formEndTime);
-    if (startA >= endA) return [];
-
-    return bookings.filter(b => {
-      if (editingBooking && b.id === editingBooking.id) return false;
-      if (b.barberId !== formBarberId || b.date !== formDate) return false;
-      // If a booking is already completed, it does not conflict with new bookings
-      if (b.status === 'completed') return false;
-      const startB = parseMins(b.startTime);
-      const endB = parseMins(b.endTime);
-      return startA < endB && endA > startB;
-    });
-  }, [formBarberId, formDate, formStartTime, formEndTime, bookings, editingBooking]);
-
-  const hasConflict = conflictingBookings.length > 0;
-
-  // Find other available barbers at this specific date & time slot
-  const availableAlternativeBarbers = useMemo(() => {
-    if (!formDate || !formStartTime || !formEndTime) return [];
-    const parseMins = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return (h || 0) * 60 + (m || 0);
-    };
-    const startA = parseMins(formStartTime);
-    const endA = parseMins(formEndTime);
-    if (startA >= endA) return [];
-
-    return barbers.filter(barber => {
-      if (barber.id === formBarberId) return false;
-      const hasOtherConflict = bookings.some(b => {
-        if (editingBooking && b.id === editingBooking.id) return false;
-        if (b.barberId !== barber.id || b.date !== formDate) return false;
-        if (b.status === 'completed') return false;
-        const startB = parseMins(b.startTime);
-        const endB = parseMins(b.endTime);
-        return startA < endB && endA > startB;
-      });
-      return !hasOtherConflict;
-    });
-  }, [formBarberId, formDate, formStartTime, formEndTime, bookings, barbers, editingBooking]);
-
-  // Conflict Modal State
-  const [conflictModalOpen, setConflictModalOpen] = useState<boolean>(false);
-
   // Core function to actually persist the booking
   const executeSaveBooking = () => {
     const barberObj = barbers.find(b => b.id === formBarberId);
@@ -336,7 +307,6 @@ export default function BookingTab({
       setFormNotes('');
       setFormMemberId('');
     }
-    setConflictModalOpen(false);
   };
 
   // Handle Form Submit
@@ -355,24 +325,15 @@ export default function BookingTab({
       return;
     }
 
-    const parseMins = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return (h || 0) * 60 + (m || 0);
-    };
-    const startA = parseMins(formStartTime);
-    const endA = parseMins(formEndTime);
+    const startA = parseTimeToMinutes(formStartTime);
+    const endA = parseTimeToMinutes(formEndTime);
 
-    if (startA >= endA) {
-      alert('⚠️ เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น');
+    if (startA >= 0 && endA >= 0 && startA >= endA) {
+      alert('⚠️ เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น (ภายในวันเดียวกัน)');
       return;
     }
 
-    // VALIDATION BLOCK: If time overlaps with another booking for the same barber
-    if (hasConflict) {
-      setConflictModalOpen(true);
-      return;
-    }
-
+    // Direct save without any blocking modals
     executeSaveBooking();
   };
 
@@ -423,6 +384,122 @@ export default function BookingTab({
     const uniqueBarbers = new Set(list.map(b => b.barberId)).size;
     return { total, pendingCount, completedCount, uniqueBarbers };
   }, [bookings, selectedDate]);
+
+  // Calculate open time slots for selected barber on formDate for the booking form
+  const formBarberSlots = useMemo(() => {
+    if (!formBarberId || !formDate) return [];
+    
+    // Generate slots across operating hours
+    return TIMELINE_TIME_SLOTS.slice(0, -1).map((slotStart) => {
+      const slotEnd = calcEndTime(slotStart, durationMinutes);
+      
+      // Check if any booking overlaps with this time slot
+      const overlapping = bookings.find(b => {
+        if (b.barberId !== formBarberId || b.date !== formDate) return false;
+        if (editingBooking && b.id === editingBooking.id) return false;
+        return isBookingOverlappingSlot(b, slotStart, slotEnd);
+      });
+
+      return {
+        startTime: slotStart,
+        endTime: slotEnd,
+        isAvailable: !overlapping,
+        booking: overlapping
+      };
+    });
+  }, [formBarberId, formDate, bookings, durationMinutes, editingBooking]);
+
+  const freeFormSlotsCount = useMemo(() => {
+    return formBarberSlots.filter(s => s.isAvailable).length;
+  }, [formBarberSlots]);
+
+  // Target date for Timeline View
+  const timelineDate = selectedDate === 'all' ? todayStr : selectedDate;
+
+  // Timeline Matrix data for all barbers on timelineDate
+  const timelineBarbersData = useMemo(() => {
+    // Filter barbers if selectedBarberFilter is active
+    const targetBarbers = selectedBarberFilter === 'all' 
+      ? barbers 
+      : barbers.filter(b => b.id === selectedBarberFilter);
+
+    return targetBarbers.map(barber => {
+      const barberBookings = bookings.filter(b => b.barberId === barber.id && b.date === timelineDate);
+      
+      const slots = TIMELINE_TIME_SLOTS.slice(0, -1).map((slotStart, idx) => {
+        const slotEnd = TIMELINE_TIME_SLOTS[idx + 1] || calcEndTime(slotStart, 30);
+        
+        // Find if any booking overlaps this slot
+        const booking = barberBookings.find(b => isBookingOverlappingSlot(b, slotStart, slotEnd));
+        
+        return {
+          slotStart,
+          slotEnd,
+          isFree: !booking,
+          booking
+        };
+      });
+
+      const freeCount = slots.filter(s => s.isFree).length;
+      const bookedCount = barberBookings.length;
+      const totalSlots = slots.length;
+
+      return {
+        barber,
+        barberBookings,
+        slots,
+        freeCount,
+        bookedCount,
+        totalSlots,
+        occupancyPct: totalSlots > 0 ? Math.round(((totalSlots - freeCount) / totalSlots) * 100) : 0
+      };
+    });
+  }, [barbers, bookings, timelineDate, selectedBarberFilter]);
+
+  // Overall timeline stats for the day
+  const timelineDayStats = useMemo(() => {
+    let totalFree = 0;
+    let totalSlots = 0;
+    let totalBooked = 0;
+    timelineBarbersData.forEach(d => {
+      if (d.barber.isWorking) {
+        totalFree += d.freeCount;
+        totalSlots += d.totalSlots;
+        totalBooked += d.barberBookings.length;
+      }
+    });
+    return {
+      totalFree,
+      totalSlots,
+      totalBooked,
+      occupancyRate: totalSlots > 0 ? Math.round(((totalSlots - totalFree) / totalSlots) * 100) : 0
+    };
+  }, [timelineBarbersData]);
+
+  // Date jumper helper
+  const handleShiftTimelineDate = (days: number) => {
+    const current = new Date(timelineDate);
+    if (isNaN(current.getTime())) return;
+    current.setDate(current.getDate() + days);
+    const y = current.getFullYear();
+    const m = String(current.getMonth() + 1).padStart(2, '0');
+    const d = String(current.getDate()).padStart(2, '0');
+    const newDate = `${y}-${m}-${d}`;
+    setSelectedDate(newDate);
+    setFormDate(newDate);
+  };
+
+  // Select slot directly from Timeline grid
+  const handleSelectSlotFromTimeline = (barberId: string, slotStartTime: string) => {
+    setFormBarberId(barberId);
+    setFormDate(timelineDate);
+    handleStartTimeChange(slotStartTime);
+    const barberObj = barbers.find(b => b.id === barberId);
+    showToast(`✂️ เลือกช่าง${barberObj?.name || ''} เวลา ${slotStartTime} น. แล้ว กรอกชื่อลูกค้าได้ทันที`);
+    if (formRef.current) {
+      formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  };
 
   return (
     <motion.div 
@@ -577,19 +654,6 @@ export default function BookingTab({
           {/* Form Content */}
           <form onSubmit={handleSubmitForm} className="p-4 sm:p-5 space-y-3.5 text-xs">
             
-            {/* Overlap Conflict Warning if detected */}
-            {hasConflict && (
-              <div className="p-3 bg-amber-50 border border-amber-200 rounded-2xl flex items-start gap-2 text-xs text-amber-900 animate-pulse">
-                <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
-                <div>
-                  <strong className="font-black">คำเตือน: เวลาอาจชนกับคิวอื่นของช่างคนนี้!</strong>
-                  <p className="text-slate-600 text-[11px] mt-0.5">
-                    ช่างคนนี้มีคิวอื่นคาบเกี่ยวกันอยู่ในวันเดียวกัน คุณสามารถตรวจสอบเวลาหรือยืนยันบันทึกต่อไปได้
-                  </p>
-                </div>
-              </div>
-            )}
-
             {/* 1. เลือกช่างประจำคิว */}
             <div className="space-y-1.5">
               <label className="block text-xs font-black text-slate-700">
@@ -699,36 +763,52 @@ export default function BookingTab({
                 </div>
               </div>
 
-              {/* Real-time Conflict Alert Box */}
-              {hasConflict && (
-                <div className="p-3 bg-rose-50 border border-rose-200 rounded-2xl space-y-2 animate-fade-in text-left">
-                  <div className="flex items-start gap-2">
-                    <div className="w-6 h-6 rounded-lg bg-rose-100 text-rose-700 flex items-center justify-center shrink-0 mt-0.5">
-                      <AlertTriangle className="w-3.5 h-3.5 stroke-[2.5]" />
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <p className="text-xs font-black text-rose-900 flex items-center gap-1">
-                        <span>เวลาจองซ้ำซ้อนกับคิวเดิม!</span>
-                      </p>
-                      <p className="text-[11px] text-rose-700 mt-0.5 leading-relaxed">
-                        ช่าง <span className="font-bold text-rose-950">{barbers.find(b => b.id === formBarberId)?.name || 'ที่เลือก'}</span> มีคิวของ{' '}
-                        <span className="font-bold underline text-rose-950">
-                          คุณ{conflictingBookings[0]?.customerName}
-                        </span>{' '}
-                        เวลา <span className="font-mono font-bold text-rose-950">{conflictingBookings[0]?.startTime} - {conflictingBookings[0]?.endTime} น.</span>
-                      </p>
-                    </div>
+              {/* Visual Availability Slots Selector */}
+              <div className="mt-2 p-2.5 bg-slate-50 rounded-2xl border border-slate-200 space-y-1.5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1.5">
+                    <Sparkles className="w-3.5 h-3.5 text-emerald-600" />
+                    <span className="text-[11px] font-black text-slate-800">
+                      เวลาว่างของช่าง{barbers.find(b => b.id === formBarberId)?.name || ''}
+                    </span>
                   </div>
-
-                  <button
-                    type="button"
-                    onClick={() => setConflictModalOpen(true)}
-                    className="w-full py-1.5 px-2 bg-white hover:bg-rose-100/70 text-rose-700 border border-rose-200 rounded-xl text-[11px] font-bold transition-all flex items-center justify-center gap-1.5 cursor-pointer shadow-2xs"
-                  >
-                    <span>⚠️ คลิกดูรายละเอียดคิวที่ทับซ้อน</span>
-                  </button>
+                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 border border-emerald-200">
+                    🟢 ว่าง {freeFormSlotsCount}/{formBarberSlots.length} สล็อต
+                  </span>
                 </div>
-              )}
+
+                <div className="grid grid-cols-4 gap-1 max-h-36 overflow-y-auto pr-0.5 custom-scrollbar">
+                  {formBarberSlots.map((slot) => {
+                    const isSelected = formStartTime === slot.startTime;
+                    return (
+                      <button
+                        key={slot.startTime}
+                        type="button"
+                        onClick={() => {
+                          handleStartTimeChange(slot.startTime);
+                        }}
+                        className={`py-1.5 px-1 rounded-lg text-[10.5px] font-mono font-black transition-all text-center cursor-pointer border ${
+                          isSelected
+                            ? 'bg-slate-900 text-amber-300 border-slate-900 shadow-xs ring-2 ring-amber-400'
+                            : slot.isAvailable
+                              ? 'bg-emerald-50 hover:bg-emerald-100 text-emerald-900 border-emerald-200'
+                              : 'bg-slate-100 text-slate-400 border-slate-200/60 line-through opacity-60'
+                        }`}
+                        title={
+                          slot.isAvailable
+                            ? `🟢 เวลาว่าง ${slot.startTime} - ${slot.endTime} น. (คลิกเพื่อเลือกเวลานี้)`
+                            : `🔴 มีคิวแล้ว: คุณ${slot.booking?.customerName || ''} (${slot.booking?.startTime} - ${slot.booking?.endTime} น.)`
+                        }
+                      >
+                        {slot.startTime}
+                      </button>
+                    );
+                  })}
+                </div>
+                <p className="text-[9.5px] text-slate-400 text-center">
+                  💡 คลิกที่ปุ่มเวลาสีเขียวเพื่อเลือกเวลาว่างได้ทันที
+                </p>
+              </div>
             </div>
 
             {/* 4. ชื่อลูกค้า & เบอร์โทร */}
@@ -862,6 +942,23 @@ export default function BookingTab({
                 >
                   ดูทุกวัน ({bookings.length})
                 </button>
+
+                {onClearAllBookings && bookings.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (window.confirm('ยืนยันการล้างรายการจองคิวทั้งหมดหรือไม่?')) {
+                        onClearAllBookings();
+                        showToast('🗑️ ล้างรายการจองคิวทั้งหมดเรียบร้อยแล้ว');
+                      }
+                    }}
+                    className="px-2.5 py-1 rounded-xl text-xs font-bold bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 transition-all flex items-center gap-1 cursor-pointer"
+                    title="ล้างรายการจองคิวทั้งหมด"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    <span>ล้างคิวทั้งหมด</span>
+                  </button>
+                )}
               </div>
 
               {/* Search Box */}
@@ -956,6 +1053,19 @@ export default function BookingTab({
                 </button>
                 <button
                   type="button"
+                  onClick={() => setViewMode('timeline')}
+                  className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                    viewMode === 'timeline' 
+                      ? 'bg-white text-slate-900 shadow-2xs' 
+                      : 'text-slate-600 hover:text-slate-900'
+                  }`}
+                  title="ดูไทม์ไลน์เวลาว่างของช่างทุกคน"
+                >
+                  <CalendarRange className="w-3.5 h-3.5 text-emerald-600" />
+                  <span>ไทม์ไลน์เวลาว่าง</span>
+                </button>
+                <button
+                  type="button"
                   onClick={() => setViewMode('cards')}
                   className={`flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
                     viewMode === 'cards' 
@@ -985,8 +1095,239 @@ export default function BookingTab({
             </div>
           </div>
 
-          {/* 4. Display Area (Table / Cards / Board) */}
-          {filteredBookings.length === 0 ? (
+          {/* 4. Display Area (Timeline / Table / Cards / Board) */}
+          {viewMode === 'timeline' ? (
+            /* Visual Timeline Schedule Grid */
+            <div className="bg-white rounded-3xl border border-slate-200/90 shadow-sm p-4 sm:p-5 space-y-4">
+              {/* Timeline Top Control & Stats Header */}
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-3 p-3.5 bg-slate-50 rounded-2xl border border-slate-200">
+                {/* Date Navigation */}
+                <div className="flex items-center gap-1.5">
+                  <button
+                    type="button"
+                    onClick={() => handleShiftTimelineDate(-1)}
+                    className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                    title="วันก่อนหน้า"
+                  >
+                    <ChevronLeft className="w-4 h-4" />
+                  </button>
+                  <div className="px-3 py-1.5 bg-white rounded-xl border border-slate-200 text-xs font-bold text-slate-800 flex items-center gap-1.5 shadow-2xs">
+                    <Calendar className="w-3.5 h-3.5 text-indigo-600" />
+                    <span>{formatThaiDate(timelineDate)}</span>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => handleShiftTimelineDate(1)}
+                    className="p-1.5 bg-white hover:bg-slate-100 text-slate-700 rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                    title="วันถัดไป"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setSelectedDate(todayStr);
+                      setFormDate(todayStr);
+                    }}
+                    className={`px-2.5 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                      timelineDate === todayStr ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-white hover:bg-slate-100 text-slate-700 border border-slate-200'
+                    }`}
+                  >
+                    วันนี้
+                  </button>
+                </div>
+
+                {/* Availability Metrics */}
+                <div className="flex flex-wrap items-center gap-2 text-xs">
+                  <span className="px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-900 border border-emerald-200 font-bold flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+                    <span>สล็อตว่าง: {timelineDayStats.totalFree} ช่วง</span>
+                  </span>
+                  <span className="px-2.5 py-1 rounded-xl bg-amber-100 text-amber-900 border border-amber-200 font-bold flex items-center gap-1">
+                    <Clock4 className="w-3 h-3 text-amber-700" />
+                    <span>จองแล้ว: {timelineDayStats.totalBooked} คิว</span>
+                  </span>
+                  <span className="px-2.5 py-1 rounded-xl bg-slate-200/80 text-slate-800 font-bold">
+                    ความหนาแน่น: {timelineDayStats.occupancyRate}%
+                  </span>
+                </div>
+              </div>
+
+              {/* Legend */}
+              <div className="flex flex-wrap items-center gap-3 text-[11px] text-slate-600 px-1 font-bold">
+                <span className="text-slate-400">คำอธิบาย:</span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded bg-emerald-100 border border-emerald-400" />
+                  <span className="text-emerald-800">ช่องว่าง (คลิกเพื่อจองเวลา)</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded bg-amber-400" />
+                  <span className="text-amber-950">รอดำเนินการ</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded bg-emerald-600" />
+                  <span className="text-white bg-emerald-600 px-1 rounded text-[10px]">เสร็จสิ้น</span>
+                </span>
+                <span className="flex items-center gap-1">
+                  <span className="w-2.5 h-2.5 rounded bg-slate-200" />
+                  <span className="text-slate-500">ช่างหยุดงาน</span>
+                </span>
+              </div>
+
+              {/* Timeline Matrix Grid */}
+              <div className="overflow-x-auto border border-slate-200 rounded-2xl">
+                <table className="w-full text-left text-xs border-collapse min-w-[900px]">
+                  <thead>
+                    <tr className="bg-slate-900 text-white font-bold text-[11px]">
+                      <th className="py-3 px-4 w-48 sticky left-0 z-20 bg-slate-900 border-r border-slate-800 shadow-xs">
+                        ช่างประจำร้าน
+                      </th>
+                      {TIMELINE_TIME_SLOTS.slice(0, -1).map((slot) => (
+                        <th key={slot} className="py-3 px-2 text-center font-mono border-r border-slate-800/80 min-w-[72px]">
+                          {slot}
+                        </th>
+                      ))}
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 font-medium">
+                    {timelineBarbersData.map(({ barber, slots, freeCount, totalSlots }) => {
+                      return (
+                        <tr key={barber.id} className="hover:bg-slate-50/60 transition-colors">
+                          {/* Barber Info (Sticky Left Column) */}
+                          <td className="py-3 px-3.5 sticky left-0 z-10 bg-white border-r border-slate-200 shadow-2xs">
+                            <div className="space-y-1">
+                              <div className="flex items-center justify-between">
+                                <p className="font-black text-slate-900 text-xs truncate">
+                                  ช่าง{barber.name}
+                                </p>
+                                <span className={`text-[9.5px] font-black px-1.5 py-0.2 rounded-full ${
+                                  barber.isWorking ? 'bg-emerald-100 text-emerald-800' : 'bg-slate-100 text-slate-500'
+                                }`}>
+                                  {barber.isWorking ? 'ทำงาน' : 'หยุด'}
+                                </span>
+                              </div>
+                              {barber.isWorking && (
+                                <div className="flex items-center justify-between text-[10px] text-slate-500 font-bold">
+                                  <span>ว่าง {freeCount}/{totalSlots} ช่วง</span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      setFormBarberId(barber.id);
+                                      setFormDate(timelineDate);
+                                      if (formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth' });
+                                    }}
+                                    className="text-indigo-600 hover:text-indigo-800 text-[10px] font-black cursor-pointer"
+                                  >
+                                    + ลงคิว
+                                  </button>
+                                </div>
+                              )}
+                            </div>
+                          </td>
+
+                          {/* Slots per Barber */}
+                          {!barber.isWorking ? (
+                            <td colSpan={TIMELINE_TIME_SLOTS.length - 1} className="py-4 px-3 text-center bg-slate-50/70 text-slate-400 italic text-[11px]">
+                              ⚪ ช่างหยุดงานในวันนี้
+                            </td>
+                          ) : (
+                            slots.map((slot) => {
+                              const booking = slot.booking;
+                              if (booking) {
+                                const isCompleted = booking.status === 'completed';
+                                return (
+                                  <td
+                                    key={slot.slotStart}
+                                    className="p-1 border-r border-slate-100 align-top"
+                                  >
+                                    <div
+                                      className={`p-1.5 rounded-xl border text-[10.5px] space-y-1 transition-all shadow-2xs ${
+                                        isCompleted
+                                          ? 'bg-emerald-500 text-white border-emerald-600'
+                                          : 'bg-amber-400 text-slate-950 border-amber-500 font-bold'
+                                      }`}
+                                    >
+                                      <div className="flex items-center justify-between gap-1">
+                                        <span className="font-mono text-[9.5px] font-black leading-none">
+                                          {booking.startTime}
+                                        </span>
+                                        <button
+                                          type="button"
+                                          onClick={() => handleToggleStatus(booking)}
+                                          className={`text-[9px] font-black px-1 py-0.2 rounded cursor-pointer ${
+                                            isCompleted ? 'bg-white/20 text-white' : 'bg-slate-900 text-white'
+                                          }`}
+                                          title="คลิกเพื่อสลับสถานะ"
+                                        >
+                                          {isCompleted ? '✓ เสร็จ' : 'รอ'}
+                                        </button>
+                                      </div>
+                                      <p className="font-black truncate text-[11px]" title={booking.customerName}>
+                                        {booking.customerName}
+                                      </p>
+                                      <div className="flex items-center justify-between pt-0.5 opacity-90 text-[9.5px]">
+                                        {booking.customerPhone ? (
+                                          <a href={`tel:${booking.customerPhone}`} className="hover:underline truncate font-mono" title="โทร">
+                                            {booking.customerPhone}
+                                          </a>
+                                        ) : (
+                                          <span>-</span>
+                                        )}
+                                        <div className="flex items-center gap-0.5">
+                                          <button
+                                            type="button"
+                                            onClick={() => handleStartEdit(booking)}
+                                            className="p-0.5 hover:opacity-100 cursor-pointer"
+                                            title="แก้ไข"
+                                          >
+                                            <Edit3 className="w-2.5 h-2.5" />
+                                          </button>
+                                          <button
+                                            type="button"
+                                            onClick={() => setDeleteConfirmId(booking.id)}
+                                            className="p-0.5 hover:opacity-100 cursor-pointer text-rose-800"
+                                            title="ลบ"
+                                          >
+                                            <Trash2 className="w-2.5 h-2.5" />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    </div>
+                                  </td>
+                                );
+                              }
+
+                              // Free slot
+                              return (
+                                <td
+                                  key={slot.slotStart}
+                                  className="p-1 border-r border-slate-100 align-middle"
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => handleSelectSlotFromTimeline(barber.id, slot.slotStart)}
+                                    className="w-full h-14 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/40 hover:bg-emerald-100/90 text-emerald-800 hover:text-emerald-950 transition-all flex flex-col items-center justify-center gap-0.5 cursor-pointer group shadow-2xs"
+                                    title={`สล็อตว่าง ${slot.slotStart} - ${slot.slotEnd} น. (คลิกเพื่อลงคิวเวลานี้)`}
+                                  >
+                                    <span className="text-[10px] font-mono font-bold text-emerald-700 group-hover:scale-105 transition-transform">
+                                      {slot.slotStart}
+                                    </span>
+                                    <span className="text-[9.5px] font-black text-emerald-600 group-hover:text-emerald-900 bg-white/80 px-1.5 py-0.2 rounded-md shadow-2xs">
+                                      + ว่าง
+                                    </span>
+                                  </button>
+                                </td>
+                              );
+                            })
+                          )}
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          ) : filteredBookings.length === 0 ? (
             <div className="p-12 text-center bg-white rounded-3xl border border-dashed border-slate-300 space-y-2">
               <div className="w-12 h-12 bg-indigo-50 text-indigo-500 rounded-2xl flex items-center justify-center mx-auto shadow-2xs">
                 <CalendarDays className="w-6 h-6" />
@@ -1506,119 +1847,6 @@ export default function BookingTab({
                 ยืนยันลบ
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* 6. Conflict & Duplicate Booking Validation Modal */}
-      {conflictModalOpen && (
-        <div className="fixed inset-0 bg-slate-950/75 backdrop-blur-sm flex items-center justify-center z-50 p-4 animate-fade-in text-left">
-          <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-rose-100 space-y-4">
-            
-            {/* Header Icon */}
-            <div className="flex items-center gap-3">
-              <div className="w-12 h-12 rounded-2xl bg-rose-100 text-rose-600 flex items-center justify-center shrink-0 shadow-inner">
-                <AlertTriangle className="w-6 h-6 stroke-[2.5]" />
-              </div>
-              <div>
-                <h4 className="text-base font-black text-slate-900 leading-tight">
-                  ⚠️ เวลาจองซ้ำซ้อนกับคิวเดิม!
-                </h4>
-                <p className="text-xs text-rose-600 font-bold mt-0.5">
-                  ระบบบล็อกการลงคิวซ้ำ เพื่อป้องกันการชนเวลาของช่าง
-                </p>
-              </div>
-            </div>
-
-            {/* Conflict Details Card */}
-            <div className="p-3.5 bg-rose-50/80 rounded-2xl border border-rose-200 space-y-2.5 text-xs text-slate-800">
-              <div className="flex items-center justify-between pb-2 border-b border-rose-200/70">
-                <span className="text-slate-600 font-bold">ช่างที่เลือก:</span>
-                <span className="font-black text-slate-900 bg-white px-2 py-0.5 rounded-lg border border-rose-200">
-                  {barbers.find(b => b.id === formBarberId)?.name || 'ช่างที่เลือก'}
-                </span>
-              </div>
-              <div className="flex items-center justify-between pb-2 border-b border-rose-200/70">
-                <span className="text-slate-600 font-bold">เวลาที่พยายามจอง:</span>
-                <span className="font-mono font-black text-rose-700 bg-white px-2 py-0.5 rounded-lg border border-rose-200">
-                  {formStartTime} - {formEndTime} น.
-                </span>
-              </div>
-
-              {/* Conflicting Booking List */}
-              <div className="space-y-1.5 pt-1">
-                <span className="text-[11px] font-bold text-rose-900 block">
-                  🚫 คิวเดิมที่ทับซ้อนอยู่แล้ว:
-                </span>
-                {conflictingBookings.map((cb) => (
-                  <div key={cb.id} className="p-2.5 bg-white rounded-xl border border-rose-200 flex items-center justify-between shadow-2xs">
-                    <div>
-                      <div className="font-bold text-slate-900 text-xs">
-                        คุณ{cb.customerName} {cb.customerPhone && <span className="text-[10px] text-slate-400 font-mono">({cb.customerPhone})</span>}
-                      </div>
-                      {cb.notes && (
-                        <div className="text-[10.5px] text-slate-500">
-                          {cb.notes}
-                        </div>
-                      )}
-                    </div>
-                    <div className="text-right">
-                      <span className="font-mono font-black text-rose-600 bg-rose-50 px-2 py-0.5 rounded-md text-xs border border-rose-200 block">
-                        {cb.startTime} - {cb.endTime} น.
-                      </span>
-                      <span className="text-[9.5px] text-slate-400">
-                        ({cb.status === 'completed' ? 'เสร็จสิ้นแล้ว' : 'รอดำเนินการ'})
-                      </span>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Alternative Available Barbers Suggestion */}
-            {availableAlternativeBarbers.length > 0 && (
-              <div className="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 space-y-2">
-                <span className="text-[11px] font-bold text-emerald-900 flex items-center gap-1">
-                  <span>💡 ช่างท่านอื่นที่ยังว่างในช่วงเวลานี้:</span>
-                </span>
-                <div className="flex flex-wrap gap-1.5">
-                  {availableAlternativeBarbers.map((altBarber) => (
-                    <button
-                      key={altBarber.id}
-                      type="button"
-                      onClick={() => {
-                        setFormBarberId(altBarber.id);
-                        setConflictModalOpen(false);
-                        showToast(`✂️ สลับไปเลือกช่าง "${altBarber.name}" เรียบร้อยแล้ว`);
-                      }}
-                      className="px-2.5 py-1.5 bg-white hover:bg-emerald-100 text-emerald-800 border border-emerald-300 rounded-xl text-xs font-bold transition-all shadow-2xs cursor-pointer flex items-center gap-1"
-                    >
-                      <span>สลับเป็น: <b>{altBarber.name}</b></span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Action Buttons */}
-            <div className="pt-2 space-y-2">
-              <button
-                type="button"
-                onClick={() => setConflictModalOpen(false)}
-                className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all shadow-md cursor-pointer text-center"
-              >
-                🔄 แก้ไขเวลา หรือเลือกช่างท่านอื่น
-              </button>
-
-              <button
-                type="button"
-                onClick={executeSaveBooking}
-                className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[11.5px] font-bold transition-all cursor-pointer text-center"
-              >
-                ⚡ ยืนยันบันทึกคิวนี้ต่อไป (ลงคิวซ้ำซ้อน)
-              </button>
-            </div>
-
           </div>
         </div>
       )}

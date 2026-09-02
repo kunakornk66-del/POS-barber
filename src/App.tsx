@@ -26,7 +26,8 @@ import {
   SystemBackupData, 
   exportFullSystemBackupJson, 
   downloadExcelReport, 
-  formatThaiDate 
+  formatThaiDate,
+  normalizeDateString
 } from './utils';
 import { 
   Scissors, 
@@ -592,11 +593,29 @@ export default function App() {
         if (localMembers) setMembers(JSON.parse(localMembers));
         if (localMemberPackages) setMemberPackages(JSON.parse(localMemberPackages));
         if (localBookings) {
-          const parsedBookings = JSON.parse(localBookings);
-          if (Array.isArray(parsedBookings)) {
-            // Automatically purge bookings from past days on preload
-            const activeBookings = parsedBookings.filter((b: any) => b && b.date && b.date >= todayStr);
-            setBookings(activeBookings);
+          try {
+            const parsedBookings = JSON.parse(localBookings);
+            if (Array.isArray(parsedBookings)) {
+              // Automatically purge bookings from past days and sanitize time slots
+              const activeBookings = parsedBookings
+                .filter((b: any) => {
+                  if (!b || !b.date) return false;
+                  return normalizeDateString(b.date) >= todayStr;
+                })
+                .map((b: any) => {
+                  let sTime = b.startTime || '10:00';
+                  let eTime = b.endTime || '11:00';
+                  return {
+                    ...b,
+                    date: normalizeDateString(b.date) || todayStr,
+                    startTime: sTime,
+                    endTime: eTime
+                  };
+                });
+              setBookings(activeBookings);
+            }
+          } catch (e) {
+            console.warn("Failed to parse local bookings:", e);
           }
         }
 
@@ -678,7 +697,21 @@ export default function App() {
 
             // Check Daily Reset & Past Bookings Purge
             const rawBookings: Booking[] = salonData.bookings || (isGuest ? INITIAL_BOOKINGS : []);
-            const validBookings = rawBookings.filter((b: Booking) => b && b.date && b.date >= todayStr);
+            const validBookings = rawBookings
+              .filter((b: Booking) => {
+                if (!b || !b.date) return false;
+                return normalizeDateString(b.date) >= todayStr;
+              })
+              .map((b: Booking) => {
+                let sTime = b.startTime || '10:00';
+                let eTime = b.endTime || '11:00';
+                return {
+                  ...b,
+                  date: normalizeDateString(b.date) || todayStr,
+                  startTime: sTime,
+                  endTime: eTime
+                };
+              });
             const hadPastBookings = validBookings.length !== rawBookings.length;
 
             const localResetDate = localStorage.getItem(`barber_pos_last_reset_date_${userEmail}`);
@@ -899,7 +932,11 @@ export default function App() {
 
       // Check if day changed or if there are bookings from past days
       setBookings(prevBookings => {
-        const activeBookings = prevBookings.filter(b => b && b.date && b.date >= currentTodayStr);
+        const activeBookings = prevBookings.filter(b => {
+          if (!b || !b.date) return false;
+          const normD = normalizeDateString(b.date);
+          return normD >= currentTodayStr;
+        });
         const hasPastBookings = activeBookings.length !== prevBookings.length;
         const isNewDay = recordedResetDate !== currentTodayStr;
 
@@ -1696,6 +1733,21 @@ export default function App() {
       });
   };
 
+  const handleClearAllBookings = () => {
+    setBookings([]);
+    if (!userEmail) return;
+    localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify([]));
+    const docRef = doc(db, "salons", userEmail);
+    const cleanedData = cleanUndefined({ bookings: [], updatedAt: new Date().toISOString() });
+    setDoc(docRef, cleanedData, { merge: true })
+      .then(() => {
+        console.log("🟢 [Firebase] ล้างข้อมูลจองคิวทั้งหมดสำเร็จ (Clear all bookings successfully)");
+      })
+      .catch((err) => {
+        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+      });
+  };
+
   const handleStartServiceSaleFromBooking = (booking: Booking) => {
     setSalePrefill({
       barberId: booking.barberId,
@@ -2341,6 +2393,7 @@ export default function App() {
               onSaveBooking={handleSaveBooking}
               onUpdateBooking={handleUpdateBooking}
               onDeleteBooking={handleDeleteBooking}
+              onClearAllBookings={handleClearAllBookings}
               onStartServiceSale={handleStartServiceSaleFromBooking}
               onUpdateShopConfig={handleUpdateShopConfig}
             />
