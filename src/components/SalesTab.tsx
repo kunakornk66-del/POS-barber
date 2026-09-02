@@ -12,11 +12,12 @@ interface SalesTabProps {
   vouchers: Voucher[];
   members?: Member[];
   memberPackages?: MemberPackage[];
+  initialPrefill?: { barberId?: string; customerName?: string; haircutPrice?: number; chemicalPrice?: number; notes?: string } | null;
   onSaveSale: (record: Omit<SaleRecord, 'id' | 'timestamp' | 'date'> & { timestamp?: string; date?: string }) => void;
   onSellPackageToMember?: (memberId: string, pkg: MemberPackage, barberId: string, paymentMethod: 'cash' | 'transfer', notes?: string) => void;
 }
 
-export default function SalesTab({ sales = [], barbers, products, chemicalPromos, shareConfig, vouchers, members = [], memberPackages = [], onSaveSale, onSellPackageToMember }: SalesTabProps) {
+export default function SalesTab({ sales = [], barbers, products, chemicalPromos, shareConfig, vouchers, members = [], memberPackages = [], initialPrefill, onSaveSale, onSellPackageToMember }: SalesTabProps) {
   // Helper to get local date ISO string YYYY-MM-DDTHH:mm
   const getLocalISODateTime = () => {
     const now = new Date();
@@ -93,6 +94,23 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
       }
     }
   }, [activeBarbers, selectedBarberId]);
+
+  // Handle incoming initialPrefill (e.g. from Appointment/Booking Tab conversion)
+  useEffect(() => {
+    if (initialPrefill) {
+      if (initialPrefill.barberId) setSelectedBarberId(initialPrefill.barberId);
+      if (initialPrefill.customerName) setCustomerNameInput(initialPrefill.customerName);
+      if (initialPrefill.haircutPrice !== undefined && initialPrefill.haircutPrice > 0) {
+        setHaircutInput(initialPrefill.haircutPrice.toString());
+      }
+      if (initialPrefill.chemicalPrice !== undefined && initialPrefill.chemicalPrice > 0) {
+        setChemicalInput(initialPrefill.chemicalPrice.toString());
+      }
+      if (initialPrefill.notes) {
+        setNotesInput(initialPrefill.notes);
+      }
+    }
+  }, [initialPrefill]);
 
   // Derived calculations
   const selectedDateStr = customDateTime.split('T')[0];

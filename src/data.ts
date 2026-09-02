@@ -1,4 +1,4 @@
-import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, ChemicalPromo, MemberPackage, Member } from './types';
+import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, ChemicalPromo, MemberPackage, Member, Booking } from './types';
 
 export const INITIAL_BARBERS: Barber[] = [
   { id: '1', name: 'เสือ', isWorking: true, realName: 'สมศักดิ์ พรหมรักษา', position: 'Branch Manager' },
@@ -125,6 +125,45 @@ export const INITIAL_MEMBERS: Member[] = [
   }
 ];
 
+export const INITIAL_BOOKINGS: Booking[] = [
+  {
+    id: 'book-1',
+    barberId: '1',
+    barberName: 'เสือ',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '10:00',
+    endTime: '11:00',
+    customerName: 'คุณธนกฤต (ลูกค้าประจำ)',
+    customerPhone: '081-445-6789',
+    notes: 'ทรงวินเทจ Fade ข้างสั้น แสกข้าง',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'book-2',
+    barberId: '2',
+    barberName: 'แทน',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '11:30',
+    endTime: '13:00',
+    customerName: 'คุณพงศกร',
+    customerPhone: '089-123-4567',
+    notes: 'ต้องการดัดผมทรงโอปป้าเกาหลี',
+    createdAt: new Date().toISOString()
+  },
+  {
+    id: 'book-3',
+    barberId: '1',
+    barberName: 'เสือ',
+    date: new Date().toISOString().split('T')[0],
+    startTime: '14:00',
+    endTime: '14:45',
+    customerName: 'คุณวรภัทร',
+    customerPhone: '095-889-1122',
+    notes: 'จองคิวทางไลน์',
+    createdAt: new Date().toISOString()
+  }
+];
+
 export const DEFAULT_SHARE_CONFIG: ShareConfig = {
   haircutBarberPct: 50, // ช่าง 50% ร้าน 50%
   chemicalBarberPct: 40, // ช่าง 40% ร้าน 60%
@@ -141,6 +180,7 @@ export const DEFAULT_SHOP_CONFIG: ShopConfig = {
   primaryColor: '#6366f1',
   enableCashCounter: true,
   enablePayslips: true,
+  enableBookings: true,
   pinCode: '1234',
   isPinLocked: true,
 };

@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, Member, MemberPackage } from './types';
+import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, Member, MemberPackage, Booking } from './types';
 import { getThemePreset, generateShade, hexToHsl } from './themes';
 import { 
   INITIAL_BARBERS, 
@@ -9,13 +9,15 @@ import {
   DEFAULT_SHOP_CONFIG, 
   getSeededSales,
   INITIAL_MEMBERS,
-  INITIAL_MEMBER_PACKAGES
+  INITIAL_MEMBER_PACKAGES,
+  INITIAL_BOOKINGS
 } from './data';
 import SalesTab from './components/SalesTab';
 import DashboardTab from './components/DashboardTab';
 import ConfigTab from './components/ConfigTab';
 import CashCounterTab from './components/CashCounterTab';
 import PayslipsTab from './components/PayslipsTab';
+import BookingTab from './components/BookingTab';
 import AnnualResetModal from './components/AnnualResetModal';
 import DeleteMonthModal from './components/DeleteMonthModal';
 import { ExpensesTab } from './components/ExpensesTab';
@@ -57,7 +59,8 @@ import {
   ArrowDownCircle,
   Download,
   FileText,
-  Package
+  Package,
+  CalendarDays
 } from 'lucide-react';
 import { 
   db, 
@@ -195,6 +198,8 @@ export default function App() {
   const [sales, setSales] = useState<SaleRecord[]>([]);
   const [members, setMembers] = useState<Member[]>([]);
   const [memberPackages, setMemberPackages] = useState<MemberPackage[]>([]);
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [salePrefill, setSalePrefill] = useState<{ barberId?: string; customerName?: string; haircutPrice?: number; chemicalPrice?: number; notes?: string } | null>(null);
 
   // Dynamically correct and sanitize any rounding issues or old-calculation discrepancies in sales records on-the-fly
   const correctedSales = useMemo(() => {
@@ -249,13 +254,13 @@ export default function App() {
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [cashCounter, setCashCounter] = useState<CashCounterState | null>(null);
-  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'expenses' | 'config' | 'cash' | 'payslips'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'bookings' | 'expenses' | 'config' | 'cash' | 'payslips'>('sales');
   
   // Settings Security & PIN Unlock State
   const [isSettingsUnlocked, setIsSettingsUnlocked] = useState<boolean>(false);
   const [showPinModal, setShowPinModal] = useState<boolean>(false);
 
-  const handleSelectTab = (tabId: 'sales' | 'dashboard' | 'expenses' | 'config' | 'cash' | 'payslips') => {
+  const handleSelectTab = (tabId: 'sales' | 'dashboard' | 'bookings' | 'expenses' | 'config' | 'cash' | 'payslips') => {
     if (tabId === 'config') {
       if (!isSettingsUnlocked) {
         setShowPinModal(true);
@@ -532,12 +537,14 @@ export default function App() {
         setProducts([]);
         setChemicalPromos([]);
         setVouchers([]);
+        setBookings([]);
         setShopConfig({ shopName: "ร้านบาร์เบอร์ของฉัน", pinCode: "", isPinLocked: false });
         setShareConfig(DEFAULT_SHARE_CONFIG);
       } else {
         setBarbers(INITIAL_BARBERS);
         setProducts(INITIAL_PRODUCTS);
         setChemicalPromos(INITIAL_CHEMICAL_PROMOS);
+        setBookings(INITIAL_BOOKINGS);
         setVouchers([
           { id: "v1", value: 20, isActive: true },
           { id: "v2", value: 50, isActive: true }
@@ -561,6 +568,7 @@ export default function App() {
         const localCashCounter = localStorage.getItem(`barber_pos_cash_counter${suffix}`) || localStorage.getItem(`barber_pos_cash_counter_${userEmail}`);
         const localMembers = localStorage.getItem(`barber_pos_members${suffix}`) || localStorage.getItem(`barber_pos_members_${userEmail}`);
         const localMemberPackages = localStorage.getItem(`barber_pos_member_packages${suffix}`) || localStorage.getItem(`barber_pos_member_packages_${userEmail}`);
+        const localBookings = localStorage.getItem(`barber_pos_bookings${suffix}`) || localStorage.getItem(`barber_pos_bookings_${userEmail}`);
 
         if (localBarbers) setBarbers(JSON.parse(localBarbers));
         if (localProducts) setProducts(JSON.parse(localProducts));
@@ -583,9 +591,10 @@ export default function App() {
         if (localCashCounter) setCashCounter(JSON.parse(localCashCounter));
         if (localMembers) setMembers(JSON.parse(localMembers));
         if (localMemberPackages) setMemberPackages(JSON.parse(localMemberPackages));
+        if (localBookings) setBookings(JSON.parse(localBookings));
 
         // If local cached data was loaded, unblock UI immediately so user never waits
-        if (localShopConfig || localBarbers || localSales) {
+        if (localShopConfig || localBarbers || localSales || localBookings) {
           setIsLoading(false);
         }
       } catch (err) {
@@ -615,6 +624,7 @@ export default function App() {
               barbers: isGuest ? INITIAL_BARBERS : [],
               products: isGuest ? INITIAL_PRODUCTS : [],
               chemicalPromos: isGuest ? INITIAL_CHEMICAL_PROMOS : [],
+              bookings: isGuest ? INITIAL_BOOKINGS : [],
               vouchers: isGuest ? [
                 { id: "v1", value: 20, isActive: true },
                 { id: "v2", value: 50, isActive: true }
@@ -699,6 +709,7 @@ export default function App() {
             setCashCounter(salonData.cashCounter || null);
             setMembers(salonData.members || (isGuest ? INITIAL_MEMBERS : []));
             setMemberPackages(salonData.memberPackages || (isGuest ? INITIAL_MEMBER_PACKAGES : []));
+            setBookings(salonData.bookings || (isGuest ? INITIAL_BOOKINGS : []));
 
             // First Login Date tracking & initialization
             let loginDate = salonData.firstLoginDate || salonData.shopConfig?.firstLoginDate || localStorage.getItem(`barber_pos_first_login_date_${userEmail}`);
@@ -1241,7 +1252,8 @@ export default function App() {
           payslips,
           cashCounter,
           members,
-          memberPackages
+          memberPackages,
+          bookings
         }
       };
 
@@ -1331,6 +1343,7 @@ export default function App() {
         { id: "v1", value: 20, isActive: true },
         { id: "v2", value: 50, isActive: true }
       ] : [],
+      bookings: isGuest ? INITIAL_BOOKINGS : [],
       payslips: [],
       expenses: [],
       cashCounter: null,
@@ -1365,6 +1378,7 @@ export default function App() {
         setBarbers(isGuest ? INITIAL_BARBERS : []);
         setProducts(isGuest ? INITIAL_PRODUCTS : []);
         setChemicalPromos(isGuest ? INITIAL_CHEMICAL_PROMOS : []);
+        setBookings(isGuest ? INITIAL_BOOKINGS : []);
         setVouchers(isGuest ? [
           { id: "v1", value: 20, isActive: true },
           { id: "v2", value: 50, isActive: true }
@@ -1553,6 +1567,65 @@ export default function App() {
       .catch((err) => {
         handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
       });
+  };
+
+  const handleSaveBooking = (newBooking: Booking) => {
+    const updated = [newBooking, ...bookings];
+    setBookings(updated);
+    if (!userEmail) return;
+    localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
+    const docRef = doc(db, "salons", userEmail);
+    const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
+    setDoc(docRef, cleanedData, { merge: true })
+      .then(() => {
+        console.log("🟢 [Firebase] บันทึกข้อมูลจองคิวสำเร็จ (Save booking successfully)");
+      })
+      .catch((err) => {
+        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+      });
+  };
+
+  const handleUpdateBooking = (updatedBooking: Booking) => {
+    const updated = bookings.map(b => b.id === updatedBooking.id ? updatedBooking : b);
+    setBookings(updated);
+    if (!userEmail) return;
+    localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
+    const docRef = doc(db, "salons", userEmail);
+    const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
+    setDoc(docRef, cleanedData, { merge: true })
+      .then(() => {
+        console.log("🟢 [Firebase] อัปเดตข้อมูลจองคิวสำเร็จ (Update booking successfully)");
+      })
+      .catch((err) => {
+        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+      });
+  };
+
+  const handleDeleteBooking = (bookingId: string) => {
+    const updated = bookings.filter(b => b.id !== bookingId);
+    setBookings(updated);
+    if (!userEmail) return;
+    localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
+    const docRef = doc(db, "salons", userEmail);
+    const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
+    setDoc(docRef, cleanedData, { merge: true })
+      .then(() => {
+        console.log("🟢 [Firebase] ลบข้อมูลจองคิวสำเร็จ (Delete booking successfully)");
+      })
+      .catch((err) => {
+        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+      });
+  };
+
+  const handleStartServiceSaleFromBooking = (booking: Booking) => {
+    setSalePrefill({
+      barberId: booking.barberId,
+      customerName: booking.customerName + (booking.customerPhone ? ` (${booking.customerPhone})` : ''),
+      haircutPrice: 350,
+      chemicalPrice: 0,
+      notes: `[คิวจอง ${booking.date} เวลา ${booking.startTime}-${booking.endTime}]${booking.notes ? ' - ' + booking.notes : ''}`
+    });
+    setActiveTab('sales');
   };
 
   const handleSellPackageToMember = (
@@ -2038,6 +2111,7 @@ export default function App() {
               {[
                 { id: 'sales' as const, label: 'หน้าบันทึกการขาย', icon: <Scissors className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> },
                 { id: 'dashboard' as const, label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500" /> },
+                ...(shopConfig?.enableBookings !== false ? [{ id: 'bookings' as const, label: 'จองคิวช่าง', icon: <CalendarDays className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 { id: 'expenses' as const, label: 'ควบคุมรายจ่าย/เบิกเงิน', icon: <ArrowDownCircle className="w-3.5 h-3.5 text-rose-500" /> },
                 ...(shopConfig?.enableCashCounter !== false ? [{ id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
@@ -2152,6 +2226,7 @@ export default function App() {
               vouchers={vouchers}
               members={members}
               memberPackages={memberPackages}
+              initialPrefill={salePrefill}
               onSaveSale={handleSaveSale}
               onSellPackageToMember={handleSellPackageToMember}
             />
@@ -2173,6 +2248,22 @@ export default function App() {
               onUpdateSalePaymentMethod={handleUpdateSalePaymentMethod}
               onUpdateSale={handleUpdateSale}
               onOpenDeleteMonthModal={handleOpenDeleteMonthModal}
+            />
+          </div>
+        )}
+
+        {activeTab === 'bookings' && shopConfig?.enableBookings !== false && (
+          <div className="tab-content-enter">
+            <BookingTab
+              bookings={bookings}
+              barbers={barbers}
+              members={members}
+              shopConfig={shopConfig}
+              onSaveBooking={handleSaveBooking}
+              onUpdateBooking={handleUpdateBooking}
+              onDeleteBooking={handleDeleteBooking}
+              onStartServiceSale={handleStartServiceSaleFromBooking}
+              onUpdateShopConfig={handleUpdateShopConfig}
             />
           </div>
         )}

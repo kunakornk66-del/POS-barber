@@ -2531,6 +2531,7 @@ export interface SystemBackupData {
     cashCounter?: any;
     members?: any[];
     memberPackages?: any[];
+    bookings?: any[];
   };
 }
 

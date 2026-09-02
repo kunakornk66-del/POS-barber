@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'motion/react';
 import { jsPDF } from 'jspdf';
 import { formatBaht, getSalePaymentBreakdown, renderHtml2CanvasSafely } from '../utils';
@@ -22,7 +22,16 @@ import {
   TrendingUp,
   RefreshCw,
   HelpCircle,
-  Download
+  Download,
+  Info,
+  ChevronDown,
+  ChevronUp,
+  DollarSign,
+  Wallet,
+  ShieldCheck,
+  Receipt,
+  Zap,
+  Check
 } from 'lucide-react';
 
 interface Denomination {
@@ -49,12 +58,37 @@ const DENOMINATIONS: Denomination[] = [
   { id: 'c1', type: 'coin', value: 1, label: '1 บาท', colorClass: 'bg-slate-50 border-slate-200 text-slate-700', badgeClass: 'bg-slate-500 text-white shadow-sm' }
 ];
 
+const QUICK_MULTIPLIERS: Record<string, number[]> = {
+  n1000: [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 50, 100],
+  n500: [0, 1, 2, 3, 4, 5, 6, 8, 10, 15, 20, 50],
+  n100: [0, 1, 2, 3, 4, 5, 10, 15, 20, 30, 50, 100],
+  n50: [0, 1, 2, 3, 4, 5, 10, 15, 20, 30, 50],
+  n20: [0, 1, 2, 3, 4, 5, 10, 15, 20, 30, 50, 100],
+  c10: [0, 1, 2, 5, 10, 15, 20, 30, 50, 100],
+  c5: [0, 1, 2, 5, 10, 15, 20, 30, 50, 100],
+  c2: [0, 1, 2, 5, 10, 15, 20, 30, 50],
+  c1: [0, 1, 2, 5, 10, 15, 20, 30, 50]
+};
+
 const getTodayDateString = () => {
   const d = new Date();
-  // Calculate local date (Asia/Bangkok timezone offset equivalent)
   const tzOffset = d.getTimezoneOffset() * 60000;
   const localTime = new Date(d.getTime() - tzOffset);
   return localTime.toISOString().split('T')[0];
+};
+
+const formatThaiDate = (dateStr: string) => {
+  if (!dateStr) return '';
+  const parts = dateStr.split('-');
+  if (parts.length !== 3) return dateStr;
+  const year = parseInt(parts[0], 10) + 543;
+  const monthNames = [
+    'ม.ค.', 'ก.พ.', 'มี.ค.', 'เม.ย.', 'พ.ค.', 'มิ.ย.',
+    'ก.ค.', 'ส.ค.', 'ก.ย.', 'ต.ค.', 'พ.ย.', 'ธ.ค.'
+  ];
+  const month = monthNames[parseInt(parts[1], 10) - 1] || parts[1];
+  const day = parseInt(parts[2], 10);
+  return `${day} ${month} ${year}`;
 };
 
 export default function CashCounterTab({ 
@@ -73,8 +107,14 @@ export default function CashCounterTab({
   const cacheKey = `barber_pos_cash_count_${userEmail || 'guest'}`;
   const todayDateStr = getTodayDateString();
 
+  const [selectedDate, setSelectedDate] = useState<string>(todayDateStr);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showGuideModal, setShowGuideModal] = useState(false);
+  const [showQuickCountModal, setShowQuickCountModal] = useState(false);
+  const [quickCounts, setQuickCounts] = useState<Record<string, number>>({});
+  const [quickCountTab, setQuickCountTab] = useState<'all' | 'notes' | 'coins'>('all');
+  const [copied, setCopied] = useState(false);
 
   // State mapping denomination ID to quantity (integer >= 0)
   const [counts, setCounts] = useState<Record<string, number>>(() => {
@@ -90,7 +130,6 @@ export default function CashCounterTab({
       console.error('Error loading cash counts cache', e);
     }
     
-    // Default to empty
     const defaultCounts: Record<string, number> = {};
     DENOMINATIONS.forEach(d => {
       defaultCounts[d.id] = 0;
@@ -98,7 +137,7 @@ export default function CashCounterTab({
     return defaultCounts;
   });
 
-  // Opening Cash Float / Fund in the register drawer
+  // 1. Opening Cash Float / Fund in the register drawer (เงินทอนตั้งต้นตอนเปิดร้าน)
   const [openingFloat, setOpeningFloat] = useState<number>(() => {
     if (cashCounter && typeof cashCounter.openingFloat === 'number') {
       return cashCounter.openingFloat;
@@ -107,10 +146,10 @@ export default function CashCounterTab({
       const stored = localStorage.getItem(`${cacheKey}_float`);
       if (stored) return parseFloat(stored) || 0;
     } catch (e) {}
-    return 0;
+    return 1000; // ค่าเริ่มต้นที่นิยมใช้มากที่สุด 1,000 บาท
   });
 
-  // Cash taken OUT/withdrawn from drawer (e.g. owners take some out, or pay cash expenses)
+  // 2. Extra Manual cash taken OUT/withdrawn from drawer (เงินสดเบิกออกนอกระบบเพิ่มเติม)
   const [withdrawnAmount, setWithdrawnAmount] = useState<number>(() => {
     if (cashCounter && typeof cashCounter.withdrawnAmount === 'number') {
       return cashCounter.withdrawnAmount;
@@ -122,7 +161,7 @@ export default function CashCounterTab({
     return 0;
   });
 
-  // Source selection of system cash sales ('today' | 'all' | 'custom')
+  // 3. Source selection of system cash sales ('today' | 'all' | 'custom')
   const [systemSalesSource, setSystemSalesSource] = useState<'today' | 'all' | 'custom'>(() => {
     if (cashCounter?.systemSalesSource) {
       return cashCounter.systemSalesSource;
@@ -136,7 +175,7 @@ export default function CashCounterTab({
     return 'today';
   });
 
-  // Manual expected sales override
+  // 4. Manual expected sales override
   const [customExpectedSales, setCustomExpectedSales] = useState<number>(() => {
     if (cashCounter && typeof cashCounter.customExpectedSales === 'number') {
       return cashCounter.customExpectedSales;
@@ -147,8 +186,6 @@ export default function CashCounterTab({
     } catch (e) {}
     return 0;
   });
-
-  const [copied, setCopied] = useState(false);
 
   // Synchronize with parent state when loaded or updated on another device
   useEffect(() => {
@@ -161,7 +198,7 @@ export default function CashCounterTab({
     }
   }, [cashCounter]);
 
-  // Auto-save changes to the parent state (which writes to Firestore) debounced by 1 second
+  // Auto-save changes to parent state (Firestore)
   useEffect(() => {
     if (!onUpdateCashCounter) return;
     
@@ -191,7 +228,7 @@ export default function CashCounterTab({
           updatedAt: new Date().toISOString()
         });
       }
-    }, 1000); // 1 second debounce
+    }, 1000);
     
     return () => clearTimeout(timer);
   }, [counts, openingFloat, withdrawnAmount, systemSalesSource, customExpectedSales, onUpdateCashCounter, cashCounter]);
@@ -217,7 +254,7 @@ export default function CashCounterTab({
     localStorage.setItem(`${cacheKey}_custom_sales`, customExpectedSales.toString());
   }, [customExpectedSales, cacheKey]);
 
-  const isSyncing = React.useMemo(() => {
+  const isSyncing = useMemo(() => {
     if (!cashCounter) return false;
     const currentObjStr = JSON.stringify({
       counts,
@@ -235,8 +272,6 @@ export default function CashCounterTab({
     });
     return currentObjStr !== parentObjStr;
   }, [counts, openingFloat, withdrawnAmount, systemSalesSource, customExpectedSales, cashCounter]);
-
-
 
   const handleSetCount = (id: string, val: string | number) => {
     const parsed = typeof val === 'number' ? val : parseInt(val, 10);
@@ -257,24 +292,61 @@ export default function CashCounterTab({
     });
   };
 
-  const handleReset = () => {
-    setShowResetConfirm(true);
-  };
-
   const confirmReset = () => {
     const cleared: Record<string, number> = {};
     DENOMINATIONS.forEach(d => {
       cleared[d.id] = 0;
     });
     setCounts(cleared);
-    setOpeningFloat(0);
+    setOpeningFloat(1000);
     setWithdrawnAmount(0);
     setSystemSalesSource('today');
     setCustomExpectedSales(0);
     setShowResetConfirm(false);
   };
 
-  // 1. Math totals - Physical counting
+  // Quick Count Handlers & State Sync
+  const openQuickCountModal = () => {
+    setQuickCounts({ ...counts });
+    setQuickCountTab('all');
+    setShowQuickCountModal(true);
+  };
+
+  const handleSetQuickCount = (id: string, val: string | number) => {
+    const parsed = typeof val === 'number' ? val : parseInt(val, 10);
+    setQuickCounts(prev => ({
+      ...prev,
+      [id]: isNaN(parsed) || parsed < 0 ? 0 : parsed
+    }));
+  };
+
+  const handleAdjustQuickCount = (id: string, delta: number) => {
+    setQuickCounts(prev => {
+      const current = prev[id] || 0;
+      const next = Math.max(0, current + delta);
+      return {
+        ...prev,
+        [id]: next
+      };
+    });
+  };
+
+  const applyQuickCount = () => {
+    setCounts({ ...quickCounts });
+    setShowQuickCountModal(false);
+  };
+
+  const resetQuickCountToZero = () => {
+    const zeroMap: Record<string, number> = {};
+    DENOMINATIONS.forEach(d => { zeroMap[d.id] = 0; });
+    setQuickCounts(zeroMap);
+  };
+
+  const reloadCurrentCountsToQuick = () => {
+    setQuickCounts({ ...counts });
+  };
+
+  // 1. Math totals - Physical cash counted in drawer
   const totalNotes = DENOMINATIONS
     .filter(d => d.type === 'note')
     .reduce((sum, d) => sum + (counts[d.id] || 0) * d.value, 0);
@@ -284,40 +356,61 @@ export default function CashCounterTab({
     .reduce((sum, d) => sum + (counts[d.id] || 0) * d.value, 0);
 
   const grandTotal = totalNotes + totalCoins; // Physical cash counted in drawer
-
   const totalPieces = DENOMINATIONS.reduce((sum, d) => sum + (counts[d.id] || 0), 0);
 
-  // 2. Math totals - System matching
-  // Find system sales paid in CASH (including cash portion of split payments)
-  const todayCashSales = (sales || [])
-    .filter(s => s.date === todayDateStr)
-    .reduce((sum, s) => sum + getSalePaymentBreakdown(s).cashAmount, 0);
+  // 2. Math totals - System cash sales
+  const targetDateForSales = systemSalesSource === 'today' ? todayDateStr : selectedDate;
 
-  const allCashSales = (sales || [])
-    .reduce((sum, s) => sum + getSalePaymentBreakdown(s).cashAmount, 0);
+  // Filter sales for the target date
+  const filteredSales = (sales || []).filter(s => {
+    if (systemSalesSource === 'all') return true;
+    const saleDate = s.date || (s.timestamp ? s.timestamp.split('T')[0] : '');
+    return saleDate === targetDateForSales;
+  });
 
-  // Expected revenues matches selected source
-  const selectedRevenue = 
-    systemSalesSource === 'today' ? todayCashSales :
-    systemSalesSource === 'all' ? allCashSales :
-    customExpectedSales;
+  const selectedCashSales = filteredSales.reduce((sum, s) => {
+    return sum + getSalePaymentBreakdown(s).cashAmount;
+  }, 0);
 
-  // Find system expenses paid from register cash for the selected period
-  const systemWithdrawn = (expenses || [])
-    .filter(e => {
-      const matchDate = systemSalesSource === 'today' ? e.date === todayDateStr : true;
-      return matchDate && e.isFromDrawer !== false;
-    })
-    .reduce((sum, e) => sum + (e.amount || 0), 0);
+  const cashSalesBillCount = filteredSales.filter(s => getSalePaymentBreakdown(s).cashAmount > 0).length;
 
-  // Total cash taken OUT/withdrawn from drawer: System Expenses Cash Out + Manual cash adjustments
-  const totalWithdrawn = systemWithdrawn + withdrawnAmount;
+  const activeCashSales = systemSalesSource === 'custom' ? customExpectedSales : selectedCashSales;
 
-  // Expected cash to be inside the drawer: Opening Float + System Revenues - Total Cash Out
-  const expectedCashInDrawer = openingFloat + selectedRevenue - totalWithdrawn;
+  // 3. System expenses paid from drawer cash
+  const filteredExpenses = (expenses || []).filter(e => {
+    if (systemSalesSource === 'all') return e.isFromDrawer !== false;
+    return e.date === targetDateForSales && e.isFromDrawer !== false;
+  });
+
+  const systemWithdrawn = filteredExpenses.reduce((sum, e) => sum + (e.amount || 0), 0);
+
+  // Total cash out = System Expenses from drawer + Manual cash adjustments
+  const totalCashOut = systemWithdrawn + withdrawnAmount;
+
+  // Expected Cash in Drawer = Opening Float + System Cash Sales - Total Cash Out
+  const expectedCashInDrawer = openingFloat + activeCashSales - totalCashOut;
 
   // Discrepancy comparison: Physical count minus expected count
   const discrepancy = grandTotal - expectedCashInDrawer;
+  const isBalanced = Math.abs(discrepancy) < 0.01;
+  const isSurplus = discrepancy > 0.01;
+  const isShortage = discrepancy < -0.01;
+
+  // Quick Count Modal live totals
+  const quickTotalNotes = DENOMINATIONS
+    .filter(d => d.type === 'note')
+    .reduce((sum, d) => sum + (quickCounts[d.id] || 0) * d.value, 0);
+
+  const quickTotalCoins = DENOMINATIONS
+    .filter(d => d.type === 'coin')
+    .reduce((sum, d) => sum + (quickCounts[d.id] || 0) * d.value, 0);
+
+  const quickGrandTotal = quickTotalNotes + quickTotalCoins;
+  const quickTotalPieces = DENOMINATIONS.reduce((sum, d) => sum + (quickCounts[d.id] || 0), 0);
+  const quickDiscrepancy = quickGrandTotal - expectedCashInDrawer;
+  const isQuickBalanced = Math.abs(quickDiscrepancy) < 0.01;
+  const isQuickSurplus = quickDiscrepancy > 0.01;
+  const isQuickShortage = quickDiscrepancy < -0.01;
 
   const handleCopyToClipboard = () => {
     const formattedDate = new Intl.DateTimeFormat('th-TH', {
@@ -325,48 +418,34 @@ export default function CashCounterTab({
       timeStyle: 'medium'
     }).format(new Date());
 
-    let text = `💵 **รายงานผลสรุปการนับและตรวจสอบเงินสดในเก๊ะ**\n`;
+    let text = `💵 **รายงานผลสรุปการนับและตรวจสอบเงินสดในลิ้นชัก**\n`;
     text += `📅 ประจำวันที่: ${formattedDate}\n`;
-    text += `------------------------------------\n\n`;
-    
-    text += `📊 **[1] หมวดธนบัตรที่นับได้ (รวม ${formatBaht(totalNotes)})\n`;
-    DENOMINATIONS.filter(d => d.type === 'note').forEach(d => {
-      const count = counts[d.id] || 0;
-      if (count > 0) {
-        text += `• แบงค์ ${d.value} บาท: ${count} ใบ (รวม ${formatBaht(count * d.value)})\n`;
-      }
-    });
-
-    text += `\n🪙 **[2] หมวดเหรียญที่นับได้ (รวม ${formatBaht(totalCoins)})\n`;
-    DENOMINATIONS.filter(d => d.type === 'coin').forEach(d => {
-      const count = counts[d.id] || 0;
-      if (count > 0) {
-        text += `• เหรียญ ${d.value} บาท: ${count} เหรียญ (รวม ${formatBaht(count * d.value)})\n`;
-      }
-    });
-
-    text += `\n------------------------------------\n`;
-    text += `💰 **ยอดเงินสดแท้จริงจากการนับได้ (Physical Count)**: ${formatBaht(grandTotal)} (${totalPieces} ชิ้น/ใบ)\n`;
-    text += `💸 **เงินทอนตั้งต้นเริ่มวัน (Opening Float)**: ${formatBaht(openingFloat)}\n`;
-    
-    const sourceLabel = systemSalesSource === 'today' ? 'ยอดขายสดวันนี้' : systemSalesSource === 'all' ? 'ยอดขายสดรวมทั้งหมด' : 'ยอดขายสดระบุเอง';
-    text += `📈 **ยอดขายเงินรับเข้าสะสม (${sourceLabel})**: ${formatBaht(selectedRevenue)}\n`;
-    text += `📤 **ยอดเงินสดเบิกจ่ายจากเก๊ะระบบ (System Exp Out)**: -${formatBaht(systemWithdrawn)}\n`;
-    text += `📤 **ยอดเงินสดเบิกถอนเพิ่มเติมนอกระบบ (Manual Out)**: -${formatBaht(withdrawnAmount)}\n`;
-    text += `📤 **รวมเงินสดหักถอนออกจากเก๊ะ (Total Cash Out)**: -${formatBaht(totalWithdrawn)}\n`;
     text += `------------------------------------\n`;
-    text += `📋 **ยอดเงินที่คำนวณตามบัญชีที่ควรมี (Expected)**: ${formatBaht(expectedCashInDrawer)}\n`;
+    text += `1️⃣ **เงินทอนเริ่มต้นตอนเช้า (Float)**: ${formatBaht(openingFloat)}\n`;
+    text += `2️⃣ **ยอดขายรับเงินสดในระบบ**: +${formatBaht(activeCashSales)} (${cashSalesBillCount} บิล)\n`;
+    if (systemWithdrawn > 0) {
+      text += `3️⃣ **รายจ่ายเงินสดจากเก๊ะ**: -${formatBaht(systemWithdrawn)}\n`;
+    }
+    if (withdrawnAmount > 0) {
+      text += `4️⃣ **เงินสดเบิกถอนเพิ่ม**: -${formatBaht(withdrawnAmount)}\n`;
+    }
+    text += `------------------------------------\n`;
+    text += `📋 **ยอดเงินที่ควรมีในลิ้นชัก (Expected)**: ${formatBaht(expectedCashInDrawer)}\n`;
+    text += `💰 **ยอดเงินที่นับได้จริง (Counted)**: ${formatBaht(grandTotal)} (${totalPieces} ชิ้น/ใบ)\n`;
+    text += `   • แบงค์รวม: ${formatBaht(totalNotes)}\n`;
+    text += `   • เหรียญรวม: ${formatBaht(totalCoins)}\n`;
+    text += `------------------------------------\n`;
     
-    if (Math.abs(discrepancy) < 0.01) {
-      text += `✅ **ผลการตรวจสอบ**: ยอดเงินตรงกันสมบูรณ์ร้อยเปอร์เซ็นต์ (Balanced)\n`;
-    } else if (discrepancy > 0) {
-      text += `🔺 **ผลการตรวจสอบู**: ยอดเงินสดเกินบัญชีอยู่ +${formatBaht(discrepancy)} (Surplus)\n`;
+    if (isBalanced) {
+      text += `✅ **ผลสรุป**: ยอดเงินตรงเป๊ะ 100% (Balanced)\n`;
+    } else if (isSurplus) {
+      text += `🟡 **ผลสรุป**: พบเงินเกินในเก๊ะ +${formatBaht(discrepancy)} (Surplus)\n`;
     } else {
-      text += `🔻 **ผลการตรวจสอบ**: ยอดเงินสดขาดบัญชีไป -${formatBaht(Math.abs(discrepancy))} (Shortage)\n`;
+      text += `🔴 **ผลสรุป**: พบเงินขาดจากเก๊ะ -${formatBaht(Math.abs(discrepancy))} (Shortage)\n`;
     }
     
     text += `------------------------------------\n`;
-    text += `*สร้างโดยระบบตรวจสอบเงินสดอัจฉริยะ Barber POS*`;
+    text += `*ระบบตรวจสอบเงินสดร้าน Barber POS*`;
 
     navigator.clipboard.writeText(text).then(() => {
       setCopied(true);
@@ -376,13 +455,13 @@ export default function CashCounterTab({
 
   const handleDownloadPdf = async () => {
     setIsGeneratingPdf(true);
-    let currentShopName = "ระบบร้านบาร์เบอร์ POS ของคุณ";
+    let currentShopName = "ระบบร้านบาร์เบอร์ POS";
     try {
       const suffix = userEmail ? `_${userEmail.toLowerCase().trim()}` : '';
       const local = localStorage.getItem(`barber_pos_shop_config${suffix}`);
       if (local) {
         const parsed = JSON.parse(local);
-        currentShopName = parsed.shopName || "ระบบร้านบาร์เบอร์ POS ของคุณ";
+        currentShopName = parsed.shopName || "ระบบร้านบาร์เบอร์ POS";
       }
     } catch (e) {
       console.error(e);
@@ -394,355 +473,121 @@ export default function CashCounterTab({
       month: 'long',
       day: 'numeric',
       hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
+      minute: '2-digit'
     }) + " น.";
 
-    const sourceLabel = 
-      systemSalesSource === 'today' ? 'ยอดเงินสดวันนี้' :
-      systemSalesSource === 'all' ? 'ยอดเงินสดสะสมรวมทั้งหมด' :
-      'ระบุยอดด้วยตนเอง (Manual)';
-
-    const isBalanced = Math.abs(discrepancy) < 0.01;
-    const isSurplus = discrepancy > 0;
-
     const discrepancyStatusText = isBalanced 
-      ? '✅ ยอดเงินตรงตามระบบสมบูรณ์ (Balanced)' 
+      ? '✅ ยอดเงินตรงตามระบบสมบูรณ์ (Balanced 100%)' 
       : isSurplus 
-        ? '⚠️ พบยอดเงินเกินบัญชี (Cash Surplus)' 
-        : '🚨 พบยอดเงินขาดบัญชี (Cash Shortage)';
+        ? `⚠️ พบเงินเกินในเก๊ะ +${formatBaht(discrepancy)} (Surplus)` 
+        : `🚨 พบเงินขาดจากเก๊ะ -${formatBaht(Math.abs(discrepancy))} (Shortage)`;
 
-    const discrepancySubLabel = isBalanced 
-      ? 'ยอดเงินสดนับได้ตรงตามเก๊ะ ไม่มีขาด/เกิน' 
-      : isSurplus 
-        ? `มีเงินในเก๊ะเกินอยู่ +${formatBaht(discrepancy)}` 
-        : `เงินสดสูญหาย/ขาดไป -${formatBaht(Math.abs(discrepancy))}`;
-
-    const discrepancySign = isBalanced ? '' : (isSurplus ? '+' : '-');
-
-    const auditNoteText = isBalanced
-      ? "การตรวจนับเงินสดประจำรอบกะเสร็จสิ้นสมบูรณ์ ยอดเงินสดจากการนับจริงตรงกับยอดคาดการณ์ในระบบอย่างครบถ้วน ไม่พบข้อแตกต่างหรือความสูญเสียของเงิน"
-      : isSurplus
-        ? `ตรวจพบยอดเงินสดเกินจำนวน +${formatBaht(discrepancy)} แแนะนำให้ตรวจสอบประวัติบิลย้อนหลังเพื่อความโปร่งใส`
-        : `ตรวจพบยอดเงินสดขาดหายไป -${formatBaht(Math.abs(discrepancy))} แนะนำให้ตรวจสอบการทอนเงินย้อนหลังหรือบิลการรับเงินและรายจ่ายระว่างวันอย่างละเอียด`;
-
-    const discrepancyStyle = isBalanced 
-      ? "color: #047857; background-color: #ecfdf5; border-color: #a7f3d0;" 
-      : isSurplus 
-        ? "color: #b45309; background-color: #fffbeb; border-color: #fde68a;" 
-        : "color: #be123c; background-color: #fff1f2; border-color: #fecdd3;";
-
-    const notesRowsHtml = DENOMINATIONS.filter(d => d.type === 'note')
-      .map(d => {
-        const count = counts[d.id] || 0;
-        return `
-          <tr style="border-bottom: 1px solid rgba(224, 231, 255, 0.5);">
-            <td style="padding: 8px 10px; font-weight: 700; color: #334155;">💵 ธนบัตร ${d.label}</td>
-            <td style="padding: 8px 10px; text-align: center; font-weight: 700; font-family: monospace; color: #1e293b;">${count} ใบ</td>
-            <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: #1e293b; font-family: monospace;">${formatBaht(count * d.value)}</td>
-          </tr>
-        `;
-      }).join('');
-
-    const coinsRowsHtml = DENOMINATIONS.filter(d => d.type === 'coin')
-      .map(d => {
-        const count = counts[d.id] || 0;
-        return `
-          <tr style="border-bottom: 1px solid rgba(254, 243, 199, 0.5);">
-            <td style="padding: 8px 10px; font-weight: 700; color: #334155;">🪙 เหรียญ ${d.label}</td>
-            <td style="padding: 8px 10px; text-align: center; font-weight: 700; font-family: monospace; color: #1e293b;">${count} เหรียญ</td>
-            <td style="padding: 8px 10px; text-align: right; font-weight: bold; color: #1e293b; font-family: monospace;">${formatBaht(count * d.value)}</td>
-          </tr>
-        `;
-      }).join('');
-
-    // Dynamically create off-screen container styled with standard inline CSS for html2canvas
     const printContainer = document.createElement('div');
-    printContainer.style.position = 'absolute';
-    printContainer.style.left = '-9999px';
+    printContainer.style.position = 'fixed';
     printContainer.style.top = '-9999px';
-    printContainer.style.width = '794px'; // Multiplied width exact A4 aspect ratio helper
+    printContainer.style.left = '-9999px';
+    printContainer.style.width = '794px';
     printContainer.style.backgroundColor = '#ffffff';
-
-    // Status colors
-    const primaryStatusColor = isBalanced ? '#059669' : isSurplus ? '#d97706' : '#dc2626';
-    const primaryStatusBg = isBalanced ? '#ecfdf5' : isSurplus ? '#fffbeb' : '#fef2f2';
-    const primaryStatusBorder = isBalanced ? '#a7f3d0' : isSurplus ? '#fde68a' : '#fecdd3';
-
-    // Seal HTML based on status
-    const sealText = isBalanced ? 'AUDIT<br/>PASSED' : isSurplus ? 'SURPLUS<br/>REVIEW' : 'SHORTAGE<br/>ALERT';
-    const sealColor = primaryStatusColor;
-
-    // Simulated corporate barcode bars
-    const barcodeHtml = `
-      <div style="display: flex; align-items: stretch; height: 28px; gap: 1px; width: 140px;">
-        <span style="background-color: #0f172a; width: 3px;"></span>
-        <span style="background-color: #0f172a; width: 1px;"></span>
-        <span style="background-color: transparent; width: 2px;"></span>
-        <span style="background-color: #0f172a; width: 2px;"></span>
-        <span style="background-color: #0f172a; width: 4px;"></span>
-        <span style="background-color: transparent; width: 1px;"></span>
-        <span style="background-color: #0f172a; width: 1px;"></span>
-        <span style="background-color: #0f172a; width: 3px;"></span>
-        <span style="background-color: transparent; width: 2px;"></span>
-        <span style="background-color: #0f172a; width: 2px;"></span>
-        <span style="background-color: #0f172a; width: 1px;"></span>
-        <span style="background-color: transparent; width: 3px;"></span>
-        <span style="background-color: #0f172a; width: 4px;"></span>
-        <span style="background-color: #0f172a; width: 2px;"></span>
-        <span style="background-color: transparent; width: 1px;"></span>
-        <span style="background-color: #0f172a; width: 1px;"></span>
-        <span style="background-color: #0f172a; width: 3px;"></span>
-        <span style="background-color: transparent; width: 2px;"></span>
-        <span style="background-color: #0f172a; width: 2px;"></span>
-        <span style="background-color: #0f172a; width: 1px;"></span>
-        <span style="background-color: transparent; width: 1px;"></span>
-        <span style="background-color: #0f172a; width: 4px;"></span>
-        <span style="background-color: #0f172a; width: 1px;"></span>
-      </div>
-    `;
+    printContainer.style.padding = '35px 40px';
+    printContainer.style.fontFamily = "'Prompt', 'Sarabun', -apple-system, sans-serif";
+    printContainer.style.color = '#1e293b';
 
     printContainer.innerHTML = `
-      <div style="padding: 40px; background-color: #ffffff; color: #1e293b; display: flex; flex-direction: column; justify-content: space-between; width: 794px; min-height: 1040px; font-family: 'Inter', -apple-system, sans-serif; box-sizing: border-box;">
-        
-        <!-- Header Section with Corporate Dark Tone -->
-        <div style="border-bottom: 3px solid #1e293b; padding-bottom: 24px; display: flex; justify-content: space-between; align-items: flex-end;">
-          <div style="display: flex; flex-direction: column; gap: 6px;">
-            <div style="display: flex; align-items: center; gap: 8px;">
-              <span style="padding: 4px 10px; background-color: #1e293b; color: #fbbf24; font-weight: 800; border-radius: 4px; font-size: 11px; font-family: monospace; letter-spacing: 0.5px; text-transform: uppercase;">Barber POS Audit Ledger</span>
-              <span style="font-size: 10px; color: #64748b; font-weight: 700; font-family: monospace;">SYS-REF: #${Math.floor(100000 + Math.random() * 900000)}</span>
+      <div style="border: 2px solid #e2e8f0; border-radius: 16px; padding: 25px; background: #ffffff;">
+        <div style="text-align: center; border-bottom: 2px dashed #cbd5e1; padding-bottom: 16px; margin-bottom: 20px;">
+          <h1 style="font-size: 22px; font-weight: 800; margin: 0 0 6px 0; color: #0f172a;">${currentShopName}</h1>
+          <h2 style="font-size: 15px; font-weight: 700; color: #4338ca; margin: 0 0 4px 0;">ใบนับเงินสดและตรวจยอดลิ้นชักประจำวัน (Daily Cash Reconciliation)</h2>
+          <p style="font-size: 11px; color: #64748b; margin: 0;">วันที่พิมพ์: ${formattedDate}</p>
+        </div>
+
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 20px;">
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px;">
+            <p style="font-size: 11px; font-weight: 700; color: #64748b; margin: 0 0 6px 0;">1. ข้อมูลคำนวณตามระบบ (Expected)</p>
+            <div style="font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>• เงินทอนเริ่มต้นเช้า:</span>
+              <strong style="font-family: monospace;">${formatBaht(openingFloat)}</strong>
             </div>
-            <h1 style="text-align: left; font-size: 24px; font-weight: 850; color: #0f172a; margin: 4px 0 0 0; letter-spacing: -0.5px;">ใบรายงานสรุปผลการตรวจสอบเงินสดและพิสูจน์ยอดลิ้นชัก</h1>
-            <p style="text-align: left; font-size: 10px; color: #64748b; font-weight: 700; text-transform: uppercase; margin: 0; letter-spacing: 1px; font-family: monospace;">Official Drawer Cash Audit & Reconciliation Certificate</p>
-          </div>
-          <div style="text-align: right; display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
-            <div style="font-size: 18px; font-weight: 900; color: #1e293b; margin: 0;">${currentShopName}</div>
-            <div style="font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">Corporate Headquarters Branch</div>
-          </div>
-        </div>
-
-        <!-- Meta Grid Information -->
-        <div style="display: flex; justify-content: space-between; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 16px; margin: 18px 0; font-size: 11.5px;">
-          <div style="width: 50%; text-align: left; display: flex; flex-direction: column; gap: 8px; border-right: 1px solid #e2e8f0; padding-right: 20px;">
-            <div style="display: flex; justify-content: space-between;"><strong style="color: #64748b;">วันและเวลาตรวจสอบ:</strong> <strong style="color: #1e293b;">${formattedDate}</strong></div>
-            <div style="display: flex; justify-content: space-between;"><strong style="color: #64748b;">เจ้าหน้าที่วิเคราะห์ยอด/ผู้ตรวจนับ:</strong> <strong style="color: #1e293b; font-family: monospace;">เจ้าหน้าที่ประจำร้าน</strong></div>
-          </div>
-          <div style="width: 46%; text-align: right; display: flex; flex-direction: column; gap: 8px; align-items: flex-end; padding-left: 20px;">
-            <div style="display: flex; justify-content: space-between; width: 100%;"><strong style="color: #64748b;">เกณฑ์แหล่งข้อมูล:</strong> <span style="color: #1e40af; font-weight: 700; background-color: #eff6ff; padding: 1px 8px; border-radius: 4px; font-size: 10px; border: 1px solid #bfdbfe;">${sourceLabel}</span></div>
-            <div style="display: flex; justify-content: space-between; width: 100%; align-items: center;"><strong style="color: #64748b; margin-right: 12px;">สถานะการตรวจสอบ:</strong> <span style="font-size: 10.5px; padding: 3px 10px; border-radius: 6px; border: 1px solid; font-weight: 850; padding-bottom: 4px; ${discrepancyStyle}">${discrepancyStatusText}</span></div>
-          </div>
-        </div>
-
-        <!-- High Impact Metrics Cards -->
-        <div style="display: flex; gap: 16px; margin: 0 0 20px 0;">
-          <div style="flex: 1; background-color: #ffffff; border: 1.5px solid #cbd5e1; border-top: 5px solid #2563eb; border-radius: 10px; padding: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            <span style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">A. ยอดตรวจนับจริงทางกายภาพ<br/>(Physical Cash Total)</span>
-            <div style="font-size: 22px; font-weight: 900; color: #0f172a; font-family: monospace; margin: 8px 0 4px 0;">${formatBaht(grandTotal)}</div>
-            <p style="font-size: 9.5px; color: #64748b; margin: 0; font-weight: 600; background-color: #f1f5f9; padding: 3px 8px; border-radius: 4px; display: inline-block;">นับธนบัตร & เหรียญรวมกัน ${totalPieces} ชิ้น/ใบ</p>
-          </div>
-          <div style="flex: 1; background-color: #ffffff; border: 1.5px solid #cbd5e1; border-top: 5px solid #475569; border-radius: 10px; padding: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05);">
-            <span style="font-size: 10px; font-weight: 800; color: #475569; text-transform: uppercase; letter-spacing: 0.5px;">B. ยอดควรมีในลิ้นชักตามระบบ<br/>(System Expected Cash)</span>
-            <div style="font-size: 22px; font-weight: 900; color: #0f172a; font-family: monospace; margin: 8px 0 4px 0;">${formatBaht(expectedCashInDrawer)}</div>
-            <p style="font-size: 9.5px; color: #64748b; margin: 0; font-weight: 600; background-color: #f1f5f9; padding: 3px 8px; border-radius: 4px; display: inline-block;">สูตร: [ตั้งต้น + ยอดสด - ดึงเงินออก]</p>
-          </div>
-          <div style="flex: 1; background-color: ${primaryStatusBg}; border: 1.5px solid ${primaryStatusBorder}; border-top: 5px solid ${primaryStatusColor}; border-radius: 10px; padding: 16px; text-align: center; box-shadow: 0 1px 3px rgba(0,0,0,0.05); color: ${primaryStatusColor};">
-            <span style="font-size: 10px; font-weight: 800; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.8;">ผลต่างจากการตรวจนับบัญชี<br/>(Discrepancy Balance)</span>
-            <div style="font-size: 22px; font-weight: 900; font-family: monospace; margin: 8px 0 4px 0;">${discrepancySign}${formatBaht(Math.abs(discrepancy))}</div>
-            <p style="font-size: 9.5px; margin: 0; font-weight: 850; border-radius: 4px; background-color: #ffffff; border: 1px dashed ${primaryStatusBorder}; padding: 3px 8px; display: inline-block;">${discrepancySubLabel}</p>
-          </div>
-        </div>
-
-        <!-- Section 1: Reconciliation Workflow Table -->
-        <div style="margin-bottom: 22px;">
-          <h3 style="font-size: 12px; font-weight: 900; color: #0f172a; text-transform: uppercase; border-left: 4px solid #1e293b; padding-left: 8px; margin: 0 0 8px 0; letter-spacing: 0.3px;">1. ตารางบันทึกการกระทบยอดลิ้นชักเงินสด (Ledger Reconciliation Flow)</h3>
-          <table style="width: 100%; border-collapse: collapse; border: 1.5px solid #cbd5e1; border-radius: 8px; overflow: hidden; font-size: 11.5px; text-align: left;">
-            <thead>
-              <tr style="background-color: #1e293b; color: #ffffff; border-bottom: 2px solid #0f172a;">
-                <th style="padding: 10px 12px; font-weight: 700; width: 68%;">ลำดับและคำชี้แจงขั้นตอนการตรวจสอบ (Audit Checklist & Descriptions)</th>
-                <th style="padding: 10px 12px; font-weight: 700; text-align: right; width: 32%;">จำนวนเงินรวม (Amounts in Thai Baht)</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-                <td style="padding: 9px 12px; color: #334155; font-weight: 550;">💵 ยอดเงินทอนตั้งต้นเริ่มเปิดกะหรือตั้งต้นวัน (Opening Cash Float)</td>
-                <td style="padding: 9px 12px; text-align: right; font-weight: 700; color: #1e293b; font-family: monospace;">${formatBaht(openingFloat)}</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #e2e8f0; background-color: #f8fafc;">
-                <td style="padding: 9px 12px; color: #334155; font-weight: 550;">📈 บวก: ยอดขายหน้าร้านรวมที่รับชำระเป็นเงินรับสดสะสม (Cumulative Cash Sales Collected)</td>
-                <td style="padding: 9px 12px; text-align: right; font-weight: 700; color: #1e40af; font-family: monospace;">+${formatBaht(selectedRevenue)}</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #e2e8f0; background-color: #ffffff;">
-                <td style="padding: 9px 12px; color: #334155; font-weight: 550;">📤 หัก: ยอดเงินสดที่ถอนออกจ่ายค่าใช้จ่ายตามระบบ (System Expense Cash Out)</td>
-                <td style="padding: 9px 12px; text-align: right; font-weight: 700; color: #b91c1c; font-family: monospace;">-${formatBaht(systemWithdrawn)}</td>
-              </tr>
-              <tr style="border-bottom: 1px solid #e2e8f0; background-color: #f8fafc;">
-                <td style="padding: 9px 12px; color: #334155; font-weight: 550;">📤 หัก: ยอดเงินสดที่ถอนออกเพิ่มเติมระบุเองนอกระบบ (Other Manual Cash Out)</td>
-                <td style="padding: 9px 12px; text-align: right; font-weight: 700; color: #b91c1c; font-family: monospace;">-${formatBaht(withdrawnAmount)}</td>
-              </tr>
-              <!-- Special Classic Accounting Double Border Bottom Style for expected cash -->
-              <tr style="background-color: #f1f5f9; border-top: 1.5px solid #475569;">
-                <td style="padding: 12px; color: #0f172a; font-weight: 850;">📋 ผลลัพธ์: บัญชีเสมือนมีเงินสดสุทธิคงเหลือที่ควรจะเป็น (Expected Cash Balance in Drawer)</td>
-                <td style="padding: 12px; text-align: right; font-family: monospace; font-size: 13.5px; color: #000000; font-weight: 900; border-bottom: 4px double #1e293b; border-top: 1px solid #1e293b;">${formatBaht(expectedCashInDrawer)}</td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-
-        <!-- Section 2 & 3: Side-by-Side Panels for Notes & Coins -->
-        <div style="display: flex; gap: 16px; margin-bottom: 22px;">
-          
-          <!-- Banknotes Panel -->
-          <div style="flex: 1; display: flex; flex-direction: column;">
-            <h3 style="font-size: 11.5px; font-weight: 900; color: #1e1b4b; border-left: 4px solid #4f46e5; padding-left: 8px; margin: 0 0 8px 0; uppercase;">2. รายละเอียดธนบัตร (Banknotes Breakdown)</h3>
-            <table style="width: 100%; border-collapse: collapse; border: 1px solid #c7d2fe; border-radius: 6px; overflow: hidden; font-size: 10.5px; text-align: left;">
-              <thead>
-                <tr style="background-color: #e0e7ff; color: #1e1b4b; font-weight: 750; border-bottom: 1.5px solid #a5b4fc;">
-                  <th style="padding: 8px 10px;">ประเภทธนบัตร</th>
-                  <th style="padding: 8px 10px; text-align: center;">จำนวนตวงนับ</th>
-                  <th style="padding: 8px 10px; text-align: right;">มูลค่าเงินรวม</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${notesRowsHtml}
-                <tr style="background-color: #eef2ff; border-top: 1.5px solid #a5b4fc; font-weight: 800; color: #1e1b4b;">
-                  <td style="padding: 8px 10px;" colspan="2">รวมกลุ่มธนบัตรทั้งหมด (Notes Total)</td>
-                  <td style="padding: 8px 10px; text-align: right; font-family: monospace; font-weight: 900; border-bottom: 3px double #1e1b4b;">${formatBaht(totalNotes)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-          <!-- Coins Panel -->
-          <div style="flex: 1; display: flex; flex-direction: column;">
-            <h3 style="font-size: 11.5px; font-weight: 900; color: #451a03; border-left: 4px solid #b45309; padding-left: 8px; margin: 0 0 8px 0; uppercase;">3. รายละเอียดเหรียญ (Coins Breakdown)</h3>
-            <table style="width: 100%; border-collapse: collapse; border: 1px solid #fde68a; border-radius: 6px; overflow: hidden; font-size: 10.5px; text-align: left;">
-              <thead>
-                <tr style="background-color: #fef3c7; color: #451a03; font-weight: 750; border-bottom: 1.5px solid #fcd34d;">
-                  <th style="padding: 8px 10px;">ประเภทเหรียญกษาปณ์</th>
-                  <th style="padding: 8px 10px; text-align: center;">จำนวนตวงนับ</th>
-                  <th style="padding: 8px 10px; text-align: right;">มูลค่าเงินรวม</th>
-                </tr>
-              </thead>
-              <tbody>
-                ${coinsRowsHtml}
-                <tr style="background-color: #fffbeb; border-top: 1.5px solid #fcd34d; font-weight: 800; color: #451a03;">
-                  <td style="padding: 8px 10px;" colspan="2">รวมกลุ่มเหรียญกษาปณ์ทั้งหมด (Coins Total)</td>
-                  <td style="padding: 8px 10px; text-align: right; font-family: monospace; font-weight: 900; border-bottom: 3px double #451a03;">${formatBaht(totalCoins)}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-
-        </div>
-
-        <!-- Section 4: Audit Assessment Remarks -->
-        <div style="background-color: ${primaryStatusBg}; border: 1.5px solid ${primaryStatusBorder}; border-left: 6px solid ${primaryStatusColor}; border-radius: 8px; padding: 14px; font-size: 11px; line-height: 1.5; color: #334155; margin-bottom: 20px; text-align: left;">
-          <strong style="color: #0f172a; font-weight: 850; display: block; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.3px;">📝 ความเห็นและคำวินิจฉัยจากคณะผู้ตรวจสอบ (Audit Assessment Findings)</strong>
-          <span style="display: block; text-align: justify; line-height: 1.5; color: #334155;">${auditNoteText}</span>
-        </div>
-
-        <!-- Section 5: Signature Authorization Panel with Stamps and Barcode -->
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; padding-top: 24px; border-top: 1.5px dashed #cbd5e1; margin-top: 5px; position: relative;">
-          
-          <!-- Cashier Signature Area -->
-          <div style="width: 38%; text-align: center; display: flex; flex-direction: column; gap: 36px;">
-            <p style="font-size: 10px; font-weight: 750; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">ผู้รับผิดชอบกะลิ้นชัก (Certified Custodian Signature)</p>
-            <div>
-              <div style="width: 180px; border-bottom: 1.5px solid #94a3b8; margin: 0 auto;"></div>
-              <p style="font-size: 11.5px; font-weight: 750; color: #1e293b; margin: 5px 0 0 0;">( เจ้าหน้าที่ผู้รับผิดชอบกะ )</p>
-              <p style="font-size: 9px; color: #94a3b8; margin: 2px 0 0 0;">วันที่เซ็น: ______ / ______ / 2569</p>
+            <div style="font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>• ยอดขายสดสะสม (+):</span>
+              <strong style="font-family: monospace; color: #16a34a;">+${formatBaht(activeCashSales)}</strong>
+            </div>
+            <div style="font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>• รายจ่ายถอนจากเก๊ะ (-):</span>
+              <strong style="font-family: monospace; color: #dc2626;">-${formatBaht(totalCashOut)}</strong>
+            </div>
+            <div style="border-top: 1px solid #cbd5e1; margin-top: 6px; padding-top: 6px; font-size: 13px; display: flex; justify-content: space-between; font-weight: 800;">
+              <span>ยอดเงินที่ควรมีในเก๊ะ:</span>
+              <strong style="font-family: monospace; color: #0f172a;">${formatBaht(expectedCashInDrawer)}</strong>
             </div>
           </div>
 
-          <!-- Official Security Seal Container in Middle -->
-          <div style="width: 22%; display: flex; flex-direction: column; align-items: center; justify-content: center; align-self: center;">
-            <div style="border: 3px double ${sealColor}; color: ${sealColor}; border-radius: 50%; width: 85px; height: 85px; display: flex; flex-direction: column; align-items: center; justify-content: center; font-size: 9px; font-weight: 900; transform: rotate(-8deg); text-transform: uppercase; text-align: center; font-family: monospace; line-height: 1.1; box-shadow: 0 0 0 4px #ffffff, 0 1px 4px rgba(0,0,0,0.06); background-color: #ffffff; cursor: default; user-select: none;">
-              <span style="border-bottom: 1px solid ${sealColor}; width: 80%; padding-bottom: 2px; margin-bottom: 2px; font-size: 8px; letter-spacing: 0.5px;">SECURE CHECK</span>
-              <span style="font-size: 10.5px; letter-spacing: -0.2px; font-weight: 950; text-shadow: 1px 1px 0px rgba(0,0,0,0.02);">${sealText}</span>
-              <span style="border-top: 1px solid ${sealColor}; width: 80%; padding-top: 2px; margin-top: 2px; font-size: 7.5px; font-family: sans-serif; font-weight: 700;">BARBER-POS</span>
+          <div style="background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 12px; padding: 14px;">
+            <p style="font-size: 11px; font-weight: 700; color: #64748b; margin: 0 0 6px 0;">2. ยอดจากการนับจริง (Counted)</p>
+            <div style="font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>• ยอดรวมธนบัตร (แบงค์):</span>
+              <strong style="font-family: monospace;">${formatBaht(totalNotes)}</strong>
             </div>
-          </div>
-
-          <!-- Manager Approval Signature Area -->
-          <div style="width: 38%; text-align: center; display: flex; flex-direction: column; gap: 36px;">
-            <p style="font-size: 10px; font-weight: 750; color: #64748b; text-transform: uppercase; letter-spacing: 0.5px;">ผู้อนุมัติความโปร่งใสประจำร้าน (Approved Store Controller)</p>
-            <div>
-              <div style="width: 180px; border-bottom: 1.5px solid #94a3b8; margin: 0 auto;"></div>
-              <p style="font-size: 11.5px; font-weight: 750; color: #1e293b; margin: 5px 0 0 0;">( &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; )</p>
-              <p style="font-size: 9px; color: #94a3b8; margin: 2px 0 0 0;">วันที่เซ็น: ______ / ______ / 2569</p>
+            <div style="font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>• ยอดรวมเหรียญ:</span>
+              <strong style="font-family: monospace;">${formatBaht(totalCoins)}</strong>
             </div>
-          </div>
-
-        </div>
-
-        <!-- Corporate Security Compliance Footer Bar -->
-        <div style="border-top: 2.5px solid #1e293b; padding-top: 14px; margin-top: 18px; display: flex; justify-content: space-between; align-items: center; font-size: 9px; color: #64748b; font-weight: 700; text-transform: uppercase; font-family: monospace;">
-          <div style="display: flex; flex-direction: column; gap: 2px; text-align: left;">
-            <span>BARBER-POS LEDGER PROTOCOL v1.85 CERTIFIED</span>
-            <span>SYSTEM SECURITY SECURED VIA WORKSPACE WORKFLOW</span>
-          </div>
-          
-          <!-- Barcode Area -->
-          <div style="display: flex; flex-direction: column; align-items: center; gap: 3px;">
-            ${barcodeHtml}
-            <span style="font-size: 7.5px; color: #94a3b8; font-weight: 500; letter-spacing: 1px;">*CASH-AUDIT-RECON-ID-c5c98d9d*</span>
-          </div>
-
-          <div style="display: flex; flex-direction: column; gap: 2px; text-align: right;">
-            <span>SYSTEM ASSURED & COMPLIANT</span>
-            <span>DOCUMENT PRIVACY CLASSIFIED HIGH</span>
+            <div style="font-size: 12px; display: flex; justify-content: space-between; margin-bottom: 4px;">
+              <span>• รวมชิ้น/ใบทั้งหมด:</span>
+              <strong style="font-family: monospace;">${totalPieces} ชิ้น</strong>
+            </div>
+            <div style="border-top: 1px solid #cbd5e1; margin-top: 6px; padding-top: 6px; font-size: 13px; display: flex; justify-content: space-between; font-weight: 800;">
+              <span>ยอดนับได้จริงในเก๊ะ:</span>
+              <strong style="font-family: monospace; color: #4338ca;">${formatBaht(grandTotal)}</strong>
+            </div>
           </div>
         </div>
 
+        <div style="background: ${isBalanced ? '#f0fdf4' : isSurplus ? '#fffbeb' : '#fef2f2'}; border: 1.5px solid ${isBalanced ? '#86efac' : isSurplus ? '#fde047' : '#fca5a5'}; border-radius: 12px; padding: 14px; text-align: center; margin-bottom: 20px;">
+          <p style="font-size: 14px; font-weight: 800; color: ${isBalanced ? '#15803d' : isSurplus ? '#a16207' : '#b91c1c'}; margin: 0 0 4px 0;">
+            ${discrepancyStatusText}
+          </p>
+          <p style="font-size: 11px; color: #475569; margin: 0;">
+            ${isBalanced ? 'ยอดเงินสดที่นับได้ตรงกับที่ระบบคำนวณไว้ทุกบาททุกสตางค์' : isSurplus ? `มีเงินในเก๊ะมากกว่ายอดคำนวณ +${formatBaht(discrepancy)}` : `เงินสดในเก๊ะน้อยกว่ายอดคำนวณ -${formatBaht(Math.abs(discrepancy))}`}
+          </p>
+        </div>
+
+        <div style="margin-top: 30px; display: flex; justify-content: space-between; text-align: center; font-size: 11px;">
+          <div style="width: 200px;">
+            <div style="border-bottom: 1px solid #94a3b8; height: 35px; margin-bottom: 6px;"></div>
+            <p style="margin: 0; font-weight: 700;">ลงชื่อผู้ตรวจนับเงินสด</p>
+            <p style="margin: 0; color: #64748b; font-size: 10px;">( แคชเชียร์ / ผู้ปิดกะ )</p>
+          </div>
+          <div style="width: 200px;">
+            <div style="border-bottom: 1px solid #94a3b8; height: 35px; margin-bottom: 6px;"></div>
+            <p style="margin: 0; font-weight: 700;">ลงชื่อเจ้าของร้าน / ผู้จัดการ</p>
+            <p style="margin: 0; color: #64748b; font-size: 10px;">( ผู้ตรวจสอบอนุมัติ )</p>
+          </div>
+        </div>
       </div>
     `;
 
     document.body.appendChild(printContainer);
 
     try {
-      // 1. Snapshot the dynamic clean HTML element into a canvas
       const canvas = await renderHtml2CanvasSafely(printContainer, {
-        scale: 2, // Gorgeous retina resolution
+        scale: 2,
         useCORS: true,
         backgroundColor: '#ffffff',
         logging: false
       });
 
       const imgData = canvas.toDataURL('image/png');
-      
-      // 2. Setup standard A4 portrait PDF format
-      const pdf = new jsPDF({
-        orientation: 'portrait',
-        unit: 'mm',
-        format: 'a4'
-      });
-
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
       const pageWidth = 210;
-      const pageHeight = 297;
-      
-      const imgWidth = 190; 
+      const imgWidth = 190;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-      
       const xOffset = (pageWidth - imgWidth) / 2;
-      let yOffset = 10;
-      if (imgHeight < (pageHeight - 20)) {
-        yOffset = (pageHeight - imgHeight) / 2;
-      }
 
-      // 3. Draw image inside the PDF document
-      pdf.addImage(imgData, 'PNG', xOffset, yOffset, imgWidth, imgHeight);
-
-      // Save PDF output
-      const dateStr = new Date().toLocaleDateString('th-TH', {
-        year: 'numeric',
-        month: '2-digit',
-        day: '2-digit'
-      }).replace(/\//g, '-');
-      
-      pdf.save(`รายงานตรวจสอบเงินสด_${dateStr}.pdf`);
+      pdf.addImage(imgData, 'PNG', xOffset, 15, imgWidth, imgHeight);
+      pdf.save(`รายงานนับเงินสด_${getTodayDateString()}.pdf`);
     } catch (error) {
       console.error('Error generating PDF:', error);
-      alert('⚠️ เกิดข้อผิดพลาดทางเทคนิคในการดาวน์โหลด PDF โปรดลองอีกครั้ง');
+      alert('⚠️ เกิดข้อผิดพลาดในการสร้างไฟล์ PDF โปรดลองใหม่อีกครั้ง');
     } finally {
       if (document.body.contains(printContainer)) {
         document.body.removeChild(printContainer);
@@ -757,113 +602,185 @@ export default function CashCounterTab({
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -10 }}
       transition={{ duration: 0.25 }}
-      className="space-y-6 text-left selection:bg-indigo-500 selection:text-white font-sans"
+      className="space-y-6 text-left font-sans"
       id="cash-counter-tab-container"
     >
-      {/* Tab Header Banner */}
-      <div className="bg-slate-900 text-white rounded-3xl p-6 md:p-8 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-6 overflow-hidden relative">
-        <div className="absolute right-0 top-0 translate-x-12 -translate-y-12 w-64 h-64 bg-slate-800 rounded-full opacity-30 pointer-events-none"></div>
+      {/* 1. Header Banner with Clear Purpose & Cloud Status */}
+      <div className="bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950 text-white rounded-3xl p-6 md:p-7 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-5 relative overflow-hidden border border-slate-800">
         <div className="space-y-2 z-10">
-          <span className="bg-gradient-to-r from-amber-400 to-amber-500 text-slate-950 text-[10px] uppercase font-mono tracking-widest font-black px-2.5 py-1 rounded-full inline-block">
-            4. Cash Drawer Counting Form & Control
-          </span>
-          <h2 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2">
-            <Calculator className="w-6 h-6 text-amber-400" />
-            แบบฟอร์มนับเงินสด & ตรวจสอบยอดลิ้นชัก
-          </h2>
-          <p className="text-xs text-slate-300 leading-relaxed max-w-xl">
-            ช่วยอำนวยความสะดวกในการตรวจสอบยอดเงินสดคงเหลือปลายกะ นับแยกประเภทเหรียญและธนบัตรได้อย่างแม่นยำ พร้อมคำนวณเงินทอนตั้งต้น บันทึกถอนถอยออก และเปรียบเทียบหาเงินขาด/เงินเกินโดยอัตโนมัติ
-          </p>
-          {/* Cloud Sync Status Badge */}
-          <div className="pt-2">
-            <div className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl border text-[11.5px] font-bold transition-all ${
-              isSyncing 
-                ? 'bg-amber-500/20 border-amber-500/30 text-amber-300' 
-                : 'bg-emerald-500/20 border-emerald-500/30 text-emerald-300'
-            }`}>
+          <div className="flex items-center gap-2">
+            <span className="bg-amber-400 text-slate-950 text-[10px] font-black px-2.5 py-0.5 rounded-full uppercase tracking-wider">
+              Cash Drawer Control
+            </span>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-white/10 text-[11px] font-bold text-slate-200 backdrop-blur-xs">
               {isSyncing ? (
                 <>
-                  <RefreshCw className="w-3.5 h-3.5 animate-spin text-amber-400" />
-                  <span>กำลังซิงค์และบันทึกข้อมูลคลาวด์...</span>
+                  <RefreshCw className="w-3 h-3 animate-spin text-amber-300" />
+                  <span>กำลังซิงค์คลาวด์...</span>
                 </>
               ) : (
                 <>
-                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400" />
-                  <span>บันทึกข้อมูลเรียลไทม์ขึ้นระบบคลาวด์แล้ว (เปิดจากเครื่องไหนก็เห็นตรงกัน)</span>
+                  <CheckCircle2 className="w-3 h-3 text-emerald-400" />
+                  <span>บันทึกคลาวด์เรียลไทม์ (เปิดเครื่องไหนก็เห็นตรงกัน)</span>
                 </>
               )}
             </div>
           </div>
+
+          <h2 className="text-xl md:text-2xl font-black tracking-tight flex items-center gap-2.5">
+            <Wallet className="w-6 h-6 text-amber-400" />
+            ตรวจนับเงินสดในลิ้นชัก (Cash Counter)
+          </h2>
+          <p className="text-xs text-slate-300 max-w-2xl leading-relaxed">
+            ระบบช่วยตรวจนับเงินสดในเก๊ะตอนเปิดร้านและปิดร้าน เปรียบเทียบกับยอดขายเงินสดและรายจ่ายอัตโนมัติ เพื่อดูว่า <strong className="text-amber-300">"เงินสดในเก๊ะครบ ครบถ้วน พอดี หรือขาด/เกิน"</strong> ได้ใน 3 ขั้นตอนง่ายๆ
+          </p>
         </div>
-        <div className="flex flex-wrap gap-2 w-full md:w-auto z-10 shrink-0">
+
+        {/* Action Buttons */}
+        <div className="flex flex-wrap items-center gap-2 z-10 w-full md:w-auto shrink-0">
           <button
-            onClick={handleReset}
-            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+            type="button"
+            onClick={openQuickCountModal}
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-gradient-to-r from-amber-400 via-amber-300 to-yellow-400 hover:from-amber-300 hover:to-yellow-300 text-slate-950 rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer ring-2 ring-amber-300/40"
+            id="quick-count-header-btn"
           >
-            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
-            <span>รีเซ็ตค่าทั้งหมด</span>
+            <Zap className="w-4 h-4 text-slate-950 fill-slate-950" />
+            <span>⚡ Quick Count (นับด่วน)</span>
           </button>
 
           <button
+            type="button"
+            onClick={() => setShowGuideModal(true)}
+            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 border border-amber-400/30 rounded-xl text-xs font-bold transition-all cursor-pointer"
+          >
+            <HelpCircle className="w-4 h-4 text-amber-400" />
+            <span>💡 วิธีใช้งาน</span>
+          </button>
+
+          <button
+            type="button"
+            onClick={() => setShowResetConfirm(true)}
+            className="flex items-center justify-center gap-1 px-3 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white rounded-xl text-xs font-bold transition-all border border-slate-700 cursor-pointer"
+            title="ล้างจำนวนนับทั้งหมดกลับเป็นค่าเริ่มต้น"
+          >
+            <Trash2 className="w-3.5 h-3.5 text-rose-400" />
+            <span>ล้างค่า</span>
+          </button>
+
+          <button
+            type="button"
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer ${
-              isGeneratingPdf 
-                ? 'bg-slate-700 text-slate-400 cursor-not-allowed' 
-                : 'bg-emerald-600 hover:bg-emerald-505 text-white hover:bg-emerald-500'
-            }`}
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer disabled:opacity-50"
           >
             {isGeneratingPdf ? (
-              <>
-                <RefreshCw className="w-3.5 h-3.5 animate-spin text-emerald-300" />
-                <span>กำลังสร้าง PDF...</span>
-              </>
+              <RefreshCw className="w-3.5 h-3.5 animate-spin" />
             ) : (
-              <>
-                <Download className="w-3.5 h-3.5" />
-                <span>ดาวน์โหลด PDF</span>
-              </>
+              <Download className="w-3.5 h-3.5" />
             )}
+            <span>PDF</span>
           </button>
-          
+
           <button
+            type="button"
             onClick={handleCopyToClipboard}
-            className="flex-1 md:flex-none flex items-center justify-center gap-1.5 px-4 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-md cursor-pointer"
+            className="flex items-center justify-center gap-1.5 px-3.5 py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all shadow-xs cursor-pointer"
           >
             {copied ? (
               <>
                 <ClipboardCheck className="w-3.5 h-3.5 text-emerald-300" />
-                <span>คัดลอกรายงานแล้ว!</span>
+                <span>คัดลอกแล้ว!</span>
               </>
             ) : (
               <>
                 <Copy className="w-3.5 h-3.5" />
-                <span>คัดลอกรายงานสรุป</span>
+                <span>คัดลอกรายงาน</span>
               </>
             )}
           </button>
         </div>
       </div>
 
+      {/* 2. Interactive 3-Step Visual Guide Bar */}
+      <div className="bg-white rounded-2xl border border-slate-200/90 p-4 shadow-2xs">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          
+          {/* Step 1 Card */}
+          <div className="p-3.5 rounded-xl bg-amber-50/70 border border-amber-200/80 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-sm shrink-0 shadow-2xs">
+              1
+            </div>
+            <div className="space-y-0.5 text-left">
+              <h4 className="text-xs font-black text-slate-900">เช้า (เปิดร้าน): กรอกเงินทอน</h4>
+              <p className="text-[11px] text-slate-600 leading-snug">
+                ใส่จำนวนเงินสดสำรองที่เตรียมไว้ในเก๊ะ เช่น <strong>1,000 บาท</strong>
+              </p>
+            </div>
+          </div>
 
+          {/* Step 2 Card */}
+          <div className="p-3.5 rounded-xl bg-indigo-50/70 border border-indigo-200/80 flex items-start gap-3">
+            <div className="w-8 h-8 rounded-xl bg-indigo-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-2xs">
+              2
+            </div>
+            <div className="space-y-0.5 text-left">
+              <h4 className="text-xs font-black text-slate-900">ระหว่างวัน: ระบบคำนวณให้อัตโนมัติ</h4>
+              <p className="text-[11px] text-slate-600 leading-snug">
+                ดึงยอดขายเงินสดและหักรายจ่ายเงินสดออกให้ทันทีโดยไม่ต้องกดคำนวณเอง
+              </p>
+            </div>
+          </div>
+
+          {/* Step 3 Card */}
+          <div className="p-3.5 rounded-xl bg-emerald-50/70 border border-emerald-200/80 flex items-start justify-between gap-2">
+            <div className="flex items-start gap-3">
+              <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-black text-sm shrink-0 shadow-2xs">
+                3
+              </div>
+              <div className="space-y-0.5 text-left">
+                <h4 className="text-xs font-black text-slate-900">เย็น (ปิดร้าน): นับเงิน & ดูผล</h4>
+                <p className="text-[11px] text-slate-600 leading-snug">
+                  เปิดเก๊ะนับเงินจริง หรือใช้โหมดนับด่วน
+                </p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={openQuickCountModal}
+              className="px-2.5 py-1 bg-emerald-600 hover:bg-emerald-500 text-white rounded-lg text-[10.5px] font-black shrink-0 flex items-center gap-1 shadow-2xs cursor-pointer transition-all active:scale-95"
+            >
+              <Zap className="w-3 h-3 fill-white" />
+              <span>นับด่วน</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* 3. Main Operational Flow (Two Columns) */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         
-        {/* Left Column: Denomination Counters (Grid span 7) */}
+        {/* Left Column: Denomination Counters (Span 7) */}
         <div className="lg:col-span-7 space-y-6">
           
-          {/* Quick Float & Mode Bar */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-3">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-              <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-sm">
-                  💸
+          {/* STEP 1: Opening Float Section with Calculation Examples */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-2 border-b border-slate-100">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-black text-sm shrink-0 shadow-2xs">
+                  1
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-slate-900">เงินทอนตั้งต้นเริ่มวัน (Opening Float)</h4>
-                  <p className="text-[10.5px] text-slate-400">เลือกจำนวนเงินสำรองทอนที่ใส่ไว้ในเก๊ะตอนเปิดร้าน</p>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <span>เงินทอนตั้งต้นตอนเปิดร้าน (Opening Cash Float)</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500">
+                    เงินสดสำรองที่ใส่ไว้ในเก๊ะตอนเช้าไว้ทอนลูกค้า (ไม่ใช่ยอดขาย)
+                  </p>
                 </div>
               </div>
-              <div className="flex items-center space-x-1.5">
+
+              {/* Number Input */}
+              <div className="flex items-center space-x-2 bg-amber-50/70 px-3 py-1.5 rounded-xl border border-amber-200/80">
                 <input
                   type="number"
                   min="0"
@@ -871,45 +788,116 @@ export default function CashCounterTab({
                   onChange={(e) => setOpeningFloat(Math.max(0, parseFloat(e.target.value) || 0))}
                   onFocus={(e) => e.target.select()}
                   placeholder="0"
-                  className="w-24 text-right px-2.5 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-black text-slate-900 focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500"
+                  className="w-28 text-right font-mono font-black text-sm text-slate-900 bg-white border border-amber-300 rounded-lg px-2.5 py-1 outline-none focus:ring-2 focus:ring-amber-500 shadow-2xs"
                 />
-                <span className="text-xs font-bold text-slate-600">บาท</span>
+                <span className="text-xs font-black text-amber-900">บาท</span>
               </div>
             </div>
 
-            {/* Quick Float Preset Buttons */}
-            <div className="flex flex-wrap gap-1.5 pt-1">
-              <span className="text-[11px] font-bold text-slate-400 self-center mr-1">ปุ่มด่วน:</span>
+            {/* Quick Presets */}
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="text-xs font-bold text-slate-500 mr-1">ปุ่มด่วนเลือกจำนวน:</span>
               {[0, 500, 1000, 1500, 2000, 3000, 5000].map(val => (
                 <button
                   key={val}
                   type="button"
                   onClick={() => setOpeningFloat(val)}
-                  className={`px-2.5 py-1 rounded-lg text-xs font-mono font-bold transition-all cursor-pointer ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
                     openingFloat === val 
-                      ? 'bg-amber-500 text-slate-950 shadow-xs ring-2 ring-amber-400/40' 
+                      ? 'bg-amber-500 text-slate-950 font-black shadow-xs ring-2 ring-amber-400/40' 
                       : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
                   }`}
                 >
-                  {val === 0 ? '0 (ไม่มีเงินทอน)' : formatBaht(val)}
+                  {val === 0 ? '0 (ไม่ใส่เงินทอน)' : `${formatBaht(val)}`}
                 </button>
               ))}
             </div>
-          </div>
 
-          {/* Note Section */}
-          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-4">
-            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-              <div className="flex items-center gap-2">
-                <span className="w-8 h-8 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center font-bold">
-                  <Banknote className="w-4 h-4" />
+            {/* Live Calculation Formula Box */}
+            <div className="p-3.5 bg-gradient-to-br from-amber-50/80 via-indigo-50/40 to-slate-50 border border-amber-200/80 rounded-2xl space-y-2.5">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-1.5">
+                  <Calculator className="w-4 h-4 text-amber-600" />
+                  <span className="text-xs font-black text-slate-900">สูตรและตัวอย่างการคำนวณเงินในเก๊ะ:</span>
+                </div>
+                <span className="text-[10.5px] font-bold text-indigo-700 bg-indigo-100/70 px-2 py-0.5 rounded-md">
+                  ยอดจริงร้านคุณตอนนี้
                 </span>
-                <div>
-                  <h3 className="text-sm font-black text-slate-900">นับธนบัตร (Banknotes ในเก๊ะ)</h3>
-                  <p className="text-[10.5px] text-slate-400">กดปุ่มตัวเลขเพื่อเพิ่มเร็ว หรือพิมพ์จำนวนใบได้เลย</p>
+              </div>
+
+              {/* Dynamic Formula Display */}
+              <div className="flex flex-wrap items-center gap-1.5 text-xs font-mono">
+                <div className="px-2.5 py-1 rounded-lg bg-amber-100/90 text-amber-950 border border-amber-300/80 font-bold flex items-center gap-1 shadow-2xs">
+                  <span>💰 เงินทอน:</span>
+                  <strong className="font-black">{formatBaht(openingFloat)}</strong>
+                </div>
+
+                <span className="font-black text-slate-500 text-sm">+</span>
+
+                <div className="px-2.5 py-1 rounded-lg bg-emerald-100/90 text-emerald-950 border border-emerald-300/80 font-bold flex items-center gap-1 shadow-2xs">
+                  <span>🟢 ยอดขายสดจริง:</span>
+                  <strong className="font-black">+{formatBaht(activeCashSales)}</strong>
+                </div>
+
+                {totalCashOut > 0 && (
+                  <>
+                    <span className="font-black text-slate-500 text-sm">-</span>
+                    <div className="px-2.5 py-1 rounded-lg bg-rose-100/90 text-rose-950 border border-rose-300/80 font-bold flex items-center gap-1 shadow-2xs">
+                      <span>🔴 รายจ่ายเก๊ะ:</span>
+                      <strong className="font-black">-{formatBaht(totalCashOut)}</strong>
+                    </div>
+                  </>
+                )}
+
+                <span className="font-black text-slate-500 text-sm">=</span>
+
+                <div className="px-2.5 py-1 rounded-lg bg-indigo-600 text-white font-bold flex items-center gap-1 shadow-2xs">
+                  <span>📋 ต้องมีในเก๊ะ:</span>
+                  <strong className="font-black text-amber-300">{formatBaht(expectedCashInDrawer)}</strong>
                 </div>
               </div>
+
+              {/* Concrete Example Note */}
+              <div className="text-[11.5px] text-slate-600 bg-white/80 border border-slate-200/80 rounded-xl p-2.5 leading-relaxed space-y-1">
+                <p className="font-bold text-slate-800 flex items-center gap-1">
+                  <span>💡 ตัวอย่างทำความเข้าใจ:</span>
+                </p>
+                <p>
+                  • ถ้าตอนเช้าใส่เงินทอนไว้ <strong className="text-amber-700">500 บาท</strong> และระหว่างวันลูกค้าตัดผมจ่ายเงินสดจริง <strong className="text-emerald-700">1,200 บาท</strong>
+                </p>
+                <p>
+                  • ตอนเย็นเมื่อเปิดเก๊ะนับเงิน จะต้องมีเงินสดรวมทั้งหมด <strong className="text-indigo-900">500 + 1,200 = 1,700 บาท</strong> (นับแบงค์กับเหรียญได้ 1,700 บาท = เงินครบเป๊ะ!)
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* STEP 3: Denomination Counter - Banknotes */}
+          <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-4">
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-9 h-9 rounded-2xl bg-indigo-100 text-indigo-800 flex items-center justify-center font-black text-sm shrink-0 shadow-2xs">
+                  3
+                </div>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900 flex items-center gap-1.5">
+                    <Banknote className="w-4 h-4 text-indigo-600" />
+                    <span>นับธนบัตรในลิ้นชัก (Banknotes)</span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500">นับจำนวนใบของแต่ละราคา หรือกดปุ่มบวกเร็ว</p>
+                </div>
+              </div>
+
               <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={openQuickCountModal}
+                  className="flex items-center gap-1 text-xs font-bold text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 px-2.5 py-1 rounded-xl transition-all cursor-pointer shadow-2xs"
+                  title="เปิดโหมดเลือกตัวคูณธนบัตรด่วน"
+                >
+                  <Zap className="w-3 h-3 fill-indigo-600 text-indigo-600" />
+                  <span>นับด่วน</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -917,8 +905,7 @@ export default function CashCounterTab({
                     DENOMINATIONS.filter(d => d.type === 'note').forEach(d => { next[d.id] = 0; });
                     setCounts(next);
                   }}
-                  className="text-[11px] font-bold text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
-                  title="เคลียร์จำนวนแบงค์ทั้งหมด"
+                  className="text-xs font-bold text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
                 >
                   ล้างแบงค์
                 </button>
@@ -936,7 +923,6 @@ export default function CashCounterTab({
                     key={d.id} 
                     className={`p-3 rounded-2xl border transition-all hover:shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 ${d.colorClass}`}
                   >
-                    
                     {/* Value label */}
                     <div className="flex items-center space-x-2.5 w-full sm:w-auto shrink-0">
                       <div className={`w-9 h-9 rounded-xl flex items-center justify-center shrink-0 font-extrabold text-xs shadow-xs ${d.badgeClass}`}>
@@ -944,7 +930,7 @@ export default function CashCounterTab({
                       </div>
                       <div className="text-left">
                         <p className="text-sm font-black text-slate-900 font-mono leading-tight">{d.label}</p>
-                        <p className="text-[10px] text-slate-400 font-sans">ใบละ {formatBaht(d.value)}</p>
+                        <p className="text-[10.5px] text-slate-500">ใบละ {formatBaht(d.value)}</p>
                       </div>
                     </div>
 
@@ -984,7 +970,6 @@ export default function CashCounterTab({
                           type="button"
                           onClick={() => adjustCount(d.id, 5)}
                           className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
-                          title="เพิ่ม 5 ใบ"
                         >
                           +5
                         </button>
@@ -992,7 +977,6 @@ export default function CashCounterTab({
                           type="button"
                           onClick={() => adjustCount(d.id, 10)}
                           className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
-                          title="เพิ่ม 10 ใบ"
                         >
                           +10
                         </button>
@@ -1000,7 +984,6 @@ export default function CashCounterTab({
                           type="button"
                           onClick={() => adjustCount(d.id, 20)}
                           className="px-2 py-1 text-[10.5px] font-mono font-extrabold bg-white border border-slate-200 hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 rounded-lg transition-all text-slate-600 cursor-pointer shadow-2xs"
-                          title="เพิ่ม 20 ใบ"
                         >
                           +20
                         </button>
@@ -1034,14 +1017,13 @@ export default function CashCounterTab({
                         {formatBaht(count * d.value)}
                       </p>
                     </div>
-
                   </div>
                 );
               })}
             </div>
           </div>
 
-          {/* Coin Section */}
+          {/* STEP 3: Denomination Counter - Coins */}
           <div className="bg-white rounded-3xl border border-slate-200/80 p-5 shadow-xs space-y-4">
             <div className="flex items-center justify-between border-b border-slate-100 pb-3">
               <div className="flex items-center gap-2">
@@ -1049,11 +1031,21 @@ export default function CashCounterTab({
                   <Coins className="w-4 h-4" />
                 </span>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900">นับเหรียญ (Coins ในเก๊ะ)</h3>
-                  <p className="text-[10.5px] text-slate-400">เหรียญ 10, 5, 2, 1 บาท และเศษสตางค์</p>
+                  <h3 className="text-sm font-black text-slate-900">นับเหรียญในลิ้นชัก (Coins)</h3>
+                  <p className="text-[11px] text-slate-500">เหรียญ 10, 5, 2, 1 บาท</p>
                 </div>
               </div>
+
               <div className="flex items-center space-x-2">
+                <button
+                  type="button"
+                  onClick={openQuickCountModal}
+                  className="flex items-center gap-1 text-xs font-bold text-amber-800 bg-amber-50 hover:bg-amber-100 border border-amber-200 px-2.5 py-1 rounded-xl transition-all cursor-pointer shadow-2xs"
+                  title="เปิดโหมดเลือกตัวคูณเหรียญด่วน"
+                >
+                  <Zap className="w-3 h-3 fill-amber-600 text-amber-600" />
+                  <span>นับด่วน</span>
+                </button>
                 <button
                   type="button"
                   onClick={() => {
@@ -1061,8 +1053,7 @@ export default function CashCounterTab({
                     DENOMINATIONS.filter(d => d.type === 'coin').forEach(d => { next[d.id] = 0; });
                     setCounts(next);
                   }}
-                  className="text-[11px] font-bold text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
-                  title="เคลียร์จำนวนเหรียญทั้งหมด"
+                  className="text-xs font-bold text-slate-400 hover:text-rose-600 px-2 py-1 rounded-lg hover:bg-rose-50 transition-all cursor-pointer"
                 >
                   ล้างเหรียญ
                 </button>
@@ -1080,7 +1071,6 @@ export default function CashCounterTab({
                     key={d.id} 
                     className={`p-3 rounded-2xl border transition-all hover:shadow-xs flex flex-col sm:flex-row items-center justify-between gap-3 ${d.colorClass}`}
                   >
-                    
                     {/* Value label */}
                     <div className="flex items-center space-x-2.5 w-full sm:w-auto shrink-0">
                       <div className="w-9 h-9 rounded-full border border-yellow-200 bg-amber-100/80 text-amber-800 flex items-center justify-center shrink-0 font-extrabold text-xs shadow-xs">
@@ -1088,7 +1078,7 @@ export default function CashCounterTab({
                       </div>
                       <div className="text-left">
                         <p className="text-sm font-black text-slate-900 font-mono leading-tight">{d.label}</p>
-                        <p className="text-[10px] text-slate-400 font-sans">เหรียญละ {d.value >= 1 ? formatBaht(d.value) : `${d.value * 100} สตางค์`}</p>
+                        <p className="text-[10.5px] text-slate-500">เหรียญละ {formatBaht(d.value)}</p>
                       </div>
                     </div>
 
@@ -1175,7 +1165,6 @@ export default function CashCounterTab({
                         {formatBaht(count * d.value)}
                       </p>
                     </div>
-
                   </div>
                 );
               })}
@@ -1184,299 +1173,586 @@ export default function CashCounterTab({
 
         </div>
 
-        {/* Right Column: Calculations & Display Invoice (Grid span 5) */}
+        {/* Right Column: Calculations & Real-time Reconciliation (Span 5) */}
         <div className="lg:col-span-5 space-y-6">
           
-          {/* Main Calculation Receipt Paper Card */}
-          <div 
-            id="cash-receipt-pdf-target"
-            className="bg-white rounded-3xl border border-slate-200 p-6 md:p-8 shadow-md relative overflow-hidden flex flex-col justify-between min-h-[520px]"
-          >
-            {/* Design accents */}
-            <div className="absolute top-0 left-0 w-full h-1.5 bg-gradient-to-r from-indigo-500 via-amber-400 to-rose-500 animate-pulse"></div>
+          {/* Main Calculation & Status Card */}
+          <div className="bg-white rounded-3xl border border-slate-200 p-5 md:p-6 shadow-sm space-y-5">
             
-            <div className="space-y-6">
-              
-              {/* Receipt Header Style */}
-              <div className="text-center pb-4 border-b border-dashed border-slate-200 space-y-1">
-                <div className="w-10 h-10 bg-indigo-50 text-indigo-600 rounded-full flex items-center justify-center mx-auto">
-                  <Calculator className="w-5 h-5 mx-auto" />
+            {/* Header */}
+            <div className="flex items-center justify-between pb-3 border-b border-slate-100">
+              <div className="flex items-center gap-2">
+                <div className="w-8 h-8 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center font-black">
+                  <Receipt className="w-4 h-4" />
                 </div>
-                <h3 className="text-sm font-black text-slate-900 tracking-tight mt-2">ใบนับเงินสดและเปรียบเทียบยอดเก๊ะ</h3>
-                <p className="text-[9px] font-mono font-bold text-slate-400 tracking-widest uppercase">CASH DRAWER RECONCILIATION SHEET</p>
+                <div>
+                  <h3 className="text-sm font-black text-slate-900">สรุปผลการตรวจนับเงินสด</h3>
+                  <p className="text-[10.5px] text-slate-400">เปรียบเทียบยอดคำนวณกับยอดที่นับได้จริง</p>
+                </div>
               </div>
 
-              {/* Subtotals breakdown in receipt table */}
-              <div className="space-y-4 font-sans">
-                
-                {/* 1. Cash Counted Summary */}
-                <div className="bg-slate-900 text-white rounded-2xl p-4 text-center border border-slate-800 space-y-1 relative">
-                  <span className="text-[10px] font-black text-amber-400 uppercase tracking-wider block">
-                    [A] ยอดเงินสดรวมจริงในเก๊ะ จากการนับ
+              {/* Date / Filter Selection */}
+              <div className="flex items-center gap-1">
+                <select
+                  value={systemSalesSource}
+                  onChange={(e) => setSystemSalesSource(e.target.value as any)}
+                  className="bg-slate-50 border border-slate-200 rounded-xl px-2.5 py-1 text-xs font-bold text-slate-700 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+                >
+                  <option value="today">ยอดของวันนี้</option>
+                  <option value="all">ยอดสะสมทั้งหมด</option>
+                  <option value="custom">ระบุยอดเอง</option>
+                </select>
+              </div>
+            </div>
+
+            {/* If user wants to choose another date */}
+            {systemSalesSource === 'today' && (
+              <div className="flex items-center justify-between text-xs bg-slate-50 p-2.5 rounded-xl border border-slate-200/80">
+                <span className="text-slate-600 font-bold flex items-center gap-1">
+                  <Calendar className="w-3.5 h-3.5 text-indigo-500" />
+                  วันที่ตรวจสอบ:
+                </span>
+                <span className="font-mono font-black text-slate-800">{formatThaiDate(todayDateStr)}</span>
+              </div>
+            )}
+
+            {/* Custom Sales Input when Mode is 'custom' */}
+            {systemSalesSource === 'custom' && (
+              <div className="p-3 bg-amber-50/70 border border-amber-200 rounded-2xl space-y-1.5">
+                <label className="text-xs font-bold text-amber-900 block">
+                  ป้อนยอดขายเงินสดที่ต้องการเปรียบเทียบเอง:
+                </label>
+                <div className="flex items-center gap-2">
+                  <input
+                    type="number"
+                    min="0"
+                    value={customExpectedSales === 0 ? '' : customExpectedSales}
+                    onChange={(e) => setCustomExpectedSales(Math.max(0, parseFloat(e.target.value) || 0))}
+                    placeholder="0"
+                    className="w-full bg-white border border-amber-300 rounded-xl px-3 py-1.5 text-sm font-mono font-black text-slate-900 outline-none focus:ring-2 focus:ring-amber-500"
+                  />
+                  <span className="text-xs font-bold text-amber-900">บาท</span>
+                </div>
+              </div>
+            )}
+
+            {/* 1. Expected Cash Flow Calculation (สูตรการคำนวณเงินในเก๊ะ) */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-4 space-y-2.5 text-xs">
+              <div className="font-bold text-slate-500 uppercase text-[10px] tracking-wider border-b border-slate-200/60 pb-1.5 flex items-center justify-between">
+                <span>สูตรคำนวณ: ยอดเงินสดที่ควรมีในเก๊ะ</span>
+                <span className="font-mono text-slate-400">Step 1 + Step 2</span>
+              </div>
+
+              {/* Line 1: Opening Float */}
+              <div className="flex justify-between items-center text-slate-700">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className="text-amber-500 font-bold">1.</span> เงินทอนเริ่มต้นเช้า (Float):
+                </span>
+                <span className="font-mono font-bold text-slate-900">{formatBaht(openingFloat)}</span>
+              </div>
+
+              {/* Line 2: Cash Sales in System */}
+              <div className="flex justify-between items-center text-slate-700">
+                <span className="flex items-center gap-1.5 font-medium">
+                  <span className="text-emerald-500 font-bold">+</span> ยอดขายรับเงินสด ({cashSalesBillCount} บิล):
+                </span>
+                <span className="font-mono font-bold text-emerald-700">+{formatBaht(activeCashSales)}</span>
+              </div>
+
+              {/* Line 3: System Expenses from drawer */}
+              {systemWithdrawn > 0 && (
+                <div className="flex justify-between items-center text-slate-700">
+                  <span className="flex items-center gap-1.5 font-medium">
+                    <span className="text-rose-500 font-bold">-</span> รายจ่ายเงินสดถอนจากเก๊ะ ({filteredExpenses.length} รายการ):
                   </span>
-                  <div className="text-2xl md:text-3.5xl font-black text-white font-mono tracking-tight">
-                    {formatBaht(grandTotal)}
-                  </div>
-                  <div className="text-[10px] text-slate-300 font-mono font-bold">
-                    รวมทั้งสิ้น {totalPieces} ชิ้น (แบงค์: {formatBaht(totalNotes)} / เหรียญ: {formatBaht(totalCoins)})
-                  </div>
+                  <span className="font-mono font-bold text-rose-600">-{formatBaht(systemWithdrawn)}</span>
                 </div>
+              )}
 
-                {/* 1.5 itemized counts list breakdown */}
-                <div className="space-y-1 bg-slate-50 border border-slate-100 rounded-2xl p-3 text-xs text-left">
-                  <p className="text-[10px] font-bold text-slate-400 uppercase tracking-wider pb-1 border-b border-slate-200/60 mb-1">
-                    รายการตรวจนับละเอียด (Counted Breakdown)
-                  </p>
-                  {totalPieces === 0 ? (
-                    <p className="text-[10.5px] text-slate-400 italic text-center py-1">ยังไม่มีรายการนับเงินสะสม</p>
-                  ) : (
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-1 text-[11px] font-mono text-slate-600">
-                      {DENOMINATIONS.map(d => {
-                        const count = counts[d.id] || 0;
-                        if (count === 0) return null;
-                        return (
-                          <div key={d.id} className="flex justify-between border-b border-slate-100 pb-0.5">
-                            <span className="text-slate-400">{d.type === 'note' ? '💵' : '🪙'} {d.label.replace(' บาท', '')}:</span>
-                            <span className="font-bold text-slate-700">{count} {d.type === 'note' ? 'ใบ' : 'เหรียญ'}</span>
-                          </div>
-                        );
-                      })}
-                    </div>
-                  )}
+              {/* Line 4: Manual Withdrawal Cash Out */}
+              <div className="flex justify-between items-center text-slate-700 pt-1 border-t border-slate-200/50">
+                <span className="flex items-center gap-1 font-medium text-[11px] text-slate-500">
+                  <span>-</span> เงินสดเบิกถอนเพิ่มเติมนอกระบบ:
+                </span>
+                <div className="flex items-center gap-1">
+                  <input
+                    type="number"
+                    min="0"
+                    value={withdrawnAmount === 0 ? '' : withdrawnAmount}
+                    onChange={(e) => setWithdrawnAmount(Math.max(0, parseFloat(e.target.value) || 0))}
+                    onFocus={(e) => e.target.select()}
+                    placeholder="0"
+                    className="w-20 text-right bg-white border border-slate-200 rounded-lg px-2 py-0.5 text-xs font-mono font-bold text-rose-600 outline-none"
+                  />
+                  <span className="text-[10px] text-slate-400">บาท</span>
                 </div>
+              </div>
 
-                {/* 2. Parameters inputs (Opening Float, Expected, Cash withdrawals) */}
-                <div className="space-y-3 pt-2 text-xs border-t border-slate-100">
-                  
-                  {/* (1) Opening Float Input */}
-                  <div className="flex items-center justify-between gap-2 p-1 bg-slate-50/50 rounded-lg">
-                    <label htmlFor="openingFloat" className="font-bold text-slate-700 flex items-center gap-1.5 shrink-0">
-                      💸 เงินทอนตั้งต้นเริ่มวัน (Float):
-                    </label>
-                    <div className="relative">
-                      <input
-                        id="openingFloat"
-                        type="number"
-                        min="0"
-                        value={openingFloat === 0 ? '' : openingFloat}
-                        onChange={(e) => setOpeningFloat(Math.max(0, parseFloat(e.target.value) || 0))}
-                        onFocus={(e) => e.target.select()}
-                        placeholder="0.00"
-                        className="w-24 text-right pr-2 py-1 bg-white border border-slate-200 rounded-lg text-xs font-mono font-extrabold outline-none focus:ring-1 focus:ring-slate-900 focus:border-slate-900"
-                      />
-                    </div>
+              {/* Expected Total */}
+              <div className="flex justify-between items-center pt-2 border-t border-slate-200 font-black text-sm">
+                <span className="text-slate-900">📋 เงินสดที่ควรมีในเก๊ะ:</span>
+                <span className="font-mono text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-lg border border-indigo-100 text-base">
+                  {formatBaht(expectedCashInDrawer)}
+                </span>
+              </div>
+            </div>
+
+            {/* 2. Physical Counted Summary Box (ยอดที่นับได้จริง) */}
+            <div className="bg-slate-900 text-white rounded-2xl p-4 text-center space-y-1 relative shadow-sm">
+              <span className="text-[10.5px] font-bold text-amber-400 uppercase tracking-wider block">
+                💰 ยอดเงินสดที่นับได้จริงในเก๊ะตอนนี้ (Counted)
+              </span>
+              <div className="text-3xl font-black text-white font-mono tracking-tight py-1">
+                {formatBaht(grandTotal)}
+              </div>
+              <div className="text-[11px] text-slate-300 font-mono flex items-center justify-center gap-3 pt-1 border-t border-slate-800">
+                <span>💵 แบงค์: {formatBaht(totalNotes)}</span>
+                <span>•</span>
+                <span>🪙 เหรียญ: {formatBaht(totalCoins)}</span>
+                <span>•</span>
+                <span>รวม {totalPieces} ชิ้น</span>
+              </div>
+            </div>
+
+            {/* 3. FINAL AUDIT RESULT (สถานะเงิน ครบ/ขาด/เกิน) */}
+            <div>
+              {isBalanced ? (
+                <div className="bg-emerald-50 border-2 border-emerald-300 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xs">
+                  <div className="w-10 h-10 rounded-2xl bg-emerald-500 text-white flex items-center justify-center shrink-0 font-black shadow-xs">
+                    <CheckCircle2 className="w-6 h-6" />
                   </div>
-
-                  {/* (2) Expected Cash Sales Source Selection & computation */}
-                  <div className="space-y-2 p-3 bg-indigo-50/40 rounded-2xl border border-indigo-100/50">
-                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
-                      <span className="font-extrabold text-indigo-950 flex items-center gap-1.5">
-                        📈 [B] ยอดขายสดสะสมในระบบ:
-                      </span>
-                      <select
-                        value={systemSalesSource}
-                        onChange={(e) => setSystemSalesSource(e.target.value as any)}
-                        className="bg-white border border-indigo-200/80 rounded-lg px-2 py-1 text-[11px] font-bold text-indigo-900 outline-none focus:ring-1 focus:ring-indigo-500"
-                      >
-                        <option value="today">ยอดขายเงินสดวันนี้</option>
-                        <option value="all">ยอดขายเงินสดรวมทั้งหมด</option>
-                        <option value="custom">ระบุยอดเอง (Manual)</option>
-                      </select>
-                    </div>
-
-                    {systemSalesSource === 'custom' ? (
-                      <div className="flex items-center justify-between gap-2 pt-1">
-                        <span className="text-[11px] text-slate-500 font-semibold">ป้อนรายรับเงินสดเอง:</span>
-                        <input
-                          type="number"
-                          min="0"
-                          value={customExpectedSales === 0 ? '' : customExpectedSales}
-                          onChange={(e) => setCustomExpectedSales(Math.max(0, parseFloat(e.target.value) || 0))}
-                          onFocus={(e) => e.target.select()}
-                          placeholder="0.00"
-                          className="w-28 text-right pr-2 py-1 bg-white border border-indigo-200 rounded-lg text-xs font-mono font-extrabold outline-none focus:ring-1 focus:ring-indigo-500"
-                        />
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-2 pt-1 font-mono">
-                        <span className="text-[11px] text-slate-400 font-bold">
-                          {systemSalesSource === 'today' ? `ประจำวันที่ ${todayDateStr}` : 'จากการขายในระบบทั้งหมด'} :
-                        </span>
-                        <span className="text-xs font-bold text-indigo-700 bg-indigo-100/60 px-2 py-0.5 rounded-md">
-                          {formatBaht(selectedRevenue)}
-                        </span>
-                      </div>
-                    )}
-                    <p className="text-[9px] text-slate-400 text-left font-sans">
-                      * คัดกรองเฉพาะยอดขายที่มีเงื่อนไขรับชำระด้วย **"เงินสด (Cash)"** มาคำนวณเท่านั้น
+                  <div className="space-y-0.5 text-left">
+                    <span className="text-[10px] font-black text-emerald-800 uppercase tracking-wider block">
+                      ผลการตรวจสอบ (Reconciliation Status)
+                    </span>
+                    <h4 className="text-base font-black text-emerald-800">
+                      ✅ ยอดเงินตรงเป๊ะ 100% (ไม่มีขาด/เกิน)
+                    </h4>
+                    <p className="text-[11px] text-slate-600">
+                      เงินสดที่นับได้จริงตรงกับยอดคำนวณในระบบทุกบาททุกสตางค์
                     </p>
                   </div>
-
-                  {/* (3) Withdrawal/Cash Out Input */}
-                  <div className="space-y-1.5 font-sans">
-                    {/* (3a) System Cash Out Auto-Calculated */}
-                    <div className="flex items-center justify-between gap-2 p-2 bg-slate-50 rounded-xl border border-slate-200">
-                      <span className="font-semibold text-slate-700 flex items-center gap-1 text-[11px] text-left shrink-0">
-                        📥 [C1] รายจ่ายระบบถอนจ่ายจากเก๊ะ:
-                      </span>
-                      <span className="text-xs font-mono font-extrabold text-slate-900 bg-slate-100 px-2.5 py-0.5 rounded border border-slate-200">
-                        -{formatBaht(systemWithdrawn)}
-                      </span>
-                    </div>
-
-                    {/* (3b) Manual Cash Out Adjustment */}
-                    <div className="flex items-center justify-between gap-2 p-2 bg-rose-50/40 rounded-xl border border-rose-100/50">
-                      <label htmlFor="withdrawnAmount" className="font-bold text-rose-950 flex items-center gap-1 text-[11px] text-left shrink-0">
-                        📤 [C2] ถอนถอยนอกระบบเพิ่มเติม:
-                      </label>
-                      <div className="relative">
-                        <input
-                          id="withdrawnAmount"
-                          type="number"
-                          min="0"
-                          value={withdrawnAmount === 0 ? '' : withdrawnAmount}
-                          onChange={(e) => setWithdrawnAmount(Math.max(0, parseFloat(e.target.value) || 0))}
-                          onFocus={(e) => e.target.select()}
-                          placeholder="0.00"
-                          className="w-24 text-right pr-2 py-1 bg-white border border-rose-200 rounded-lg text-xs font-mono font-extrabold text-rose-700 outline-none focus:ring-1 focus:ring-rose-500"
-                        />
-                      </div>
-                    </div>
+                </div>
+              ) : isSurplus ? (
+                <div className="bg-amber-50 border-2 border-amber-300 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xs">
+                  <div className="w-10 h-10 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center shrink-0 font-black shadow-xs">
+                    <TrendingUp className="w-6 h-6" />
                   </div>
-                  <p className="text-[9.5px] text-slate-400 leading-normal pl-1 text-left">
-                    * ยอดรวมถอนออก [C1 + C2] = <strong className="text-rose-650 font-mono font-extrabold">{formatBaht(totalWithdrawn)}</strong> จะนำไปหักลดออกจากยอดบวกรอบกะเพื่อหาค่าสมดุลเครื่อง
-                  </p>
-
+                  <div className="space-y-0.5 text-left">
+                    <span className="text-[10px] font-black text-amber-800 uppercase tracking-wider block">
+                      ผลการตรวจสอบ (Reconciliation Status)
+                    </span>
+                    <h4 className="text-base font-black text-amber-900">
+                      ⚠️ มีเงินเกินในเก๊ะ <span className="font-mono text-lg font-black text-amber-700">+{formatBaht(discrepancy)}</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-600">
+                      สาเหตุที่เป็นไปได้: อาจมีลูกค้าจ่ายเงินสดแต่ลืมกดยิงบิลเข้าเครื่อง หรือทอนเงินขาด
+                    </p>
+                  </div>
                 </div>
-
-                {/* Dashed divider */}
-                <div className="border-t border-dashed border-slate-200 py-1"></div>
-
-                {/* 3. Expected Drawer Calculation Output */}
-                <div className="flex justify-between items-center text-xs p-1 bg-slate-50 rounded-xl px-3 py-2 border border-slate-200">
-                  <span className="text-slate-600 font-bold text-left">
-                    📋 ยอดเงินที่ควรมีในเก๊ะ [เงินทอน + ยอดขายสด - เงินถอนออก] :
-                  </span>
-                  <span className="font-mono font-black text-slate-950 bg-white px-2.5 py-1 rounded-lg border border-slate-200 shadow-2xs text-sm">
-                    {formatBaht(expectedCashInDrawer)}
-                  </span>
+              ) : (
+                <div className="bg-rose-50 border-2 border-rose-300 rounded-2xl p-4 flex items-center gap-3.5 shadow-2xs">
+                  <div className="w-10 h-10 rounded-2xl bg-rose-500 text-white flex items-center justify-center shrink-0 font-black shadow-xs">
+                    <AlertCircle className="w-6 h-6" />
+                  </div>
+                  <div className="space-y-0.5 text-left">
+                    <span className="text-[10px] font-black text-rose-800 uppercase tracking-wider block">
+                      ผลการตรวจสอบ (Reconciliation Status)
+                    </span>
+                    <h4 className="text-base font-black text-rose-900">
+                      🚨 พบเงินสดขาดไป <span className="font-mono text-lg font-black text-rose-700">-{formatBaht(Math.abs(discrepancy))}</span>
+                    </h4>
+                    <p className="text-[11px] text-slate-600">
+                      สิ่งที่ควรตรวจสอบ: มีการทอนเงินเกิน หรือมีบิลรับเงินโอนแต่เผลอกดเป็นเงินสดหรือไม่
+                    </p>
+                  </div>
                 </div>
-
-                {/* 4. REALTIME LIVE AUDIT STATUS (Surplus, Deficit, Balanced) */}
-                <div className="pt-2">
-                  {Math.abs(discrepancy) < 0.01 ? (
-                    <div className="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 flex items-center gap-3">
-                      <CheckCircle2 className="w-8 h-8 text-emerald-500 shrink-0" />
-                      <div className="text-left font-sans space-y-0.5">
-                        <span className="text-[10px] font-black text-emerald-800 uppercase block tracking-wider">
-                          ผลการตรวจสอบลิ้นชัก (Drawer Balanced)
-                        </span>
-                        <div className="text-md font-extrabold text-emerald-700">ยอดเงินตรงเป๊ะ 100% ไม่มีขาด/เกิน</div>
-                        <p className="text-[10px] text-slate-500">
-                          ยอดเงินจากการนับสอดคล้องกับเปิดลิ้นชักประกอบกับข้อมูลการชายเครื่องอย่างสมบูรณ์
-                        </p>
-                      </div>
-                    </div>
-                  ) : discrepancy > 0 ? (
-                    <div className="bg-amber-50 border border-amber-200 rounded-2xl p-4 flex items-center gap-3">
-                      <TrendingUp className="w-8 h-8 text-amber-500 shrink-0 animate-bounce" />
-                      <div className="text-left font-sans space-y-0.5">
-                        <span className="text-[10px] font-black text-amber-800 uppercase block tracking-wider">
-                          พบยอดเงินเกินบัญชี (Cash Surplus)
-                        </span>
-                        <div className="text-md font-extrabold text-amber-700">
-                          มีเงินในเก๊ะเกินอยู่ <span className="font-mono font-black text-lg">+{formatBaht(discrepancy)}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500">
-                          สาเหตุอาจมาจากการลืมสแกนบันทึกบิลตัดผมเข้าสู่ยอดขาย แต่ลูกค้าจ่ายเงินสดเรียบร้อยแล้ว
-                        </p>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="bg-rose-50 border border-rose-200 rounded-2xl p-4 flex items-center gap-3">
-                      <AlertCircle className="w-8 h-8 text-rose-500 shrink-0 animate-pulse" />
-                      <div className="text-left font-sans space-y-0.5">
-                        <span className="text-[10px] font-black text-rose-800 uppercase block tracking-wider">
-                          พบยอดเงินขาดจากบัญชี (Cash Deficit/Shortage)
-                        </span>
-                        <div className="text-md font-extrabold text-rose-600">
-                          เงินสดสูญหาย/ขาด <span className="font-mono font-black text-lg">-{formatBaht(Math.abs(discrepancy))}</span>
-                        </div>
-                        <p className="text-[10px] text-slate-500">
-                          ควรทำการตรวจสอบบิลย้อนหลังว่า มีบิลใดชำระเงินโอนแต่เผลอบันทึกเป็นเงินสด หรือมีการทอนเงินผิดพลาด
-                        </p>
-                      </div>
-                    </div>
-                  )}
-                </div>
-
-              </div>
-
+              )}
             </div>
 
-            {/* Receipt Footer Info */}
-            <div className="border-t border-slate-200 pt-4 mt-6 text-center space-y-1.5 bg-slate-50/50 -mx-6 -mb-6 p-6 rounded-b-3xl">
-              <p className="text-[9.5px] text-slate-400 font-sans leading-relaxed">
-                ข้อมูลบันทึกเก็บในหน่วยความจำเครื่องของเบราว์เซอร์อย่างปลอดภัย แยกอิสระตามอีเมลไม่ปะปนกับผู้อื่น แม้รีเฟรชเบราว์เซอร์ข้อมูลเงินสดยังคงอยู่เหมือนเดิม
-              </p>
-              
-              <div className="text-[8.5px] text-indigo-400 font-mono uppercase tracking-widest flex items-center justify-center gap-1.5 font-bold">
-                <Sparkles className="w-3.5 h-3.5 text-amber-400 animate-spin" />
-                <span>Audited Cash Counter Engine v1.50</span>
-              </div>
-            </div>
-
-          </div>
-
-          {/* Quick Informational Tip Card */}
-          <div className="bg-amber-50/60 border border-amber-100 rounded-2xl p-4 flex gap-3 text-left">
-            <span className="text-lg">💡</span>
-            <div className="space-y-1 font-sans">
-              <h4 className="text-xs font-bold text-slate-800">ขั้นตอนการสรุปยอดรอบกะการขาย</h4>
-              <p className="text-[10.5px] text-slate-600 leading-relaxed">
-                1. กรอกยอดเงินสำรองเริ่มต้นที่คุณเหลือทิ้งไว้ในลิ้นชักตอนเช้า (ช่องเงินทอนตั้งต้นเริ่มวัน)<br />
-                2. เลือกเป็น <strong>"ยอดขายเงินสดวันนี้"</strong> หรือตรวจทานหากมีเงินรับเข้าด้านอื่นให้เลือกแบบระบุเอง<br />
-                3. บันทึกยอดเงินสดที่คุณนำติดตัวออกไปเพื่อจ่ายสะสางค่าใช้จ่ายหรือนำไปเก็บฝาก (ช่องเงินนำออก)<br />
-                4. นับจำนวนธนบัตรและเหรียญที่ปรากฏในเก๊ะถัดไป และสังเกตผลกระทบเชิงต่าง หากมีเงินขาดให้รีบจับคู่บิลเพื่อหาข้อผิดพลาดก่อนปิดลิ้นชัก
+            {/* Quick Helper Note */}
+            <div className="bg-slate-50 border border-slate-200/80 rounded-2xl p-3.5 flex items-start gap-2.5 text-left">
+              <Info className="w-4 h-4 text-indigo-600 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-slate-600 leading-relaxed">
+                <strong>ทริค:</strong> ตอนปิดร้าน แค่หยิบเงินทอนก้อนแรกออกไปเก็บ ส่วนที่เหลือคือ <strong className="text-emerald-700">"กำไรเงินสดประจำวัน"</strong> ที่สามารถนำฝากเข้าบัญชีธนาคารได้ทันที
               </p>
             </div>
+
           </div>
 
         </div>
 
       </div>
 
-      {/* Custom Reset Cash Counter Confirmation Modal */}
+      {/* 4. Full Interactive Guide Modal */}
+      {showGuideModal && (
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in" id="cash-guide-modal">
+          <div className="bg-white rounded-3xl max-w-xl w-full shadow-2xl overflow-hidden border border-slate-100 p-6 md:p-7 flex flex-col space-y-5 text-left max-h-[90vh] overflow-y-auto">
+            
+            <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-10 h-10 bg-amber-100 text-amber-800 rounded-2xl flex items-center justify-center font-black">
+                  💡
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-slate-900">วิธีใช้งานระบบนับเงินสดแบบง่ายๆ</h3>
+                  <p className="text-xs text-slate-500">คู่มือตรวจเงินในเก๊ะสำหรับร้านตัดผม</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGuideModal(false)}
+                className="w-8 h-8 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 flex items-center justify-center font-bold cursor-pointer"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Real World Example */}
+            <div className="p-4 bg-indigo-50/70 border border-indigo-100 rounded-2xl space-y-2">
+              <h4 className="text-xs font-black text-indigo-950 flex items-center gap-1.5">
+                <Sparkles className="w-3.5 h-3.5 text-indigo-600" />
+                ตัวอย่างการใช้งานจริงใน 1 วัน:
+              </h4>
+              <ul className="text-xs text-slate-700 space-y-1.5 font-medium pl-1">
+                <li>• <strong>ตอนเช้า:</strong> ใส่เงินเตรียมไว้ทอนลูกค้าในเก๊ะ <strong>1,000 บาท</strong> ➔ กรอกช่อง <i>"เงินทอนเริ่มต้น"</i></li>
+                <li>• <strong>ระหว่างวัน:</strong> ลูกค้ามาตัดผม จ่ายเงินสดรวม <strong>3,500 บาท</strong> ➔ <i>(ระบบดึงยอดขายให้อัตโนมัติ)</i></li>
+                <li>• <strong>ระหว่างวัน:</strong> เบิกเงินสดในเก๊ะไปซื้อน้ำดื่ม <strong>100 บาท</strong> ➔ <i>(ระบบหักรายจ่ายให้อัตโนมัติ)</i></li>
+                <li>• <strong>ตอนเย็น (ก่อนปิดร้าน):</strong> เงินที่ควรมีในเก๊ะ = 1,000 + 3,500 - 100 = <strong>4,400 บาท</strong></li>
+                <li>• <strong>เริ่มตรวจนับ:</strong> เปิดเก๊ะนับแบงค์และเหรียญจริงได้ <strong>4,400 บาท</strong> ➔ ระบบจะขึ้น <strong className="text-emerald-700">"✅ ยอดเงินตรงเป๊ะ 100%"</strong></li>
+              </ul>
+            </div>
+
+            {/* 3 Step Breakdown */}
+            <div className="space-y-3">
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-3">
+                <span className="w-6 h-6 rounded-lg bg-amber-500 text-slate-950 font-black text-xs flex items-center justify-center shrink-0">1</span>
+                <div>
+                  <p className="text-xs font-black text-slate-900">ช่องเงินทอนตั้งต้นเริ่มวัน (Float) คืออะไร?</p>
+                  <p className="text-[11px] text-slate-600">คือเงินสดที่คุณเตรียมไว้ตั้งแต่เช้า เพื่อไว้ทอนให้ลูกค้าคนแรกๆ ของวัน ถ้าไม่มีให้กดปุ่ม 0 บาท</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-3">
+                <span className="w-6 h-6 rounded-lg bg-indigo-600 text-white font-black text-xs flex items-center justify-center shrink-0">2</span>
+                <div>
+                  <p className="text-xs font-black text-slate-900">ยอดขายเงินสดมาจากไหน?</p>
+                  <p className="text-[11px] text-slate-600">ระบบจะกรองเฉพาะบิลที่รับชำระด้วย <strong>"เงินสด"</strong> ของวันนั้นมาคำนวณให้ทันที (ไม่รวมเงินโอน/QR Scan)</p>
+                </div>
+              </div>
+
+              <div className="p-3 bg-slate-50 rounded-xl border border-slate-200 flex items-start gap-3">
+                <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-black text-xs flex items-center justify-center shrink-0">3</span>
+                <div>
+                  <p className="text-xs font-black text-slate-900">ถ้ายอดเงินขึ้นว่า "ขาด" หรือ "เกิน" ต้องทำอย่างไร?</p>
+                  <p className="text-[11px] text-slate-600">ให้กดดูประวัติบิลวันนี้ในแท็บบันทึกการขาย เพื่อดูว่ามีบิลใดที่ลูกค้าโอนเงินแต่เผลอกดเป็นเงินสด หรือลืมบันทึกบิลหรือไม่</p>
+                </div>
+              </div>
+            </div>
+
+            <button
+              type="button"
+              onClick={() => setShowGuideModal(false)}
+              className="w-full py-2.5 bg-indigo-600 hover:bg-indigo-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+            >
+              เข้าใจแล้ว เริ่มใช้งาน
+            </button>
+
+          </div>
+        </div>
+      )}
+
+      {/* 5. Custom Reset Confirmation Modal */}
       {showResetConfirm && (
         <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in" id="reset-counter-confirm-modal">
           <div className="bg-white rounded-3xl max-w-sm w-full shadow-2xl overflow-hidden border border-slate-100 p-6 flex flex-col items-center text-center space-y-5">
-            
             <div className="w-14 h-14 bg-amber-50 rounded-2xl flex items-center justify-center text-amber-500 shadow-sm">
               <Trash2 className="w-6 h-6" />
             </div>
             
             <div className="space-y-1.5">
-              <h3 className="text-base font-extrabold font-sans text-slate-900">ล้างเครื่องคำนวณเงินสด?</h3>
-              <p className="text-xs text-slate-500 leading-relaxed font-sans px-2">
-                คุณต้องการล้างจำนวนเงินที่นับไว้และข้อมูลการคำนวณทั้งหมดกลับเป็นค่าเริ่มต้นใช่หรือไม่?
+              <h3 className="text-base font-extrabold text-slate-900">ล้างจำนวนเงินที่นับไว้?</h3>
+              <p className="text-xs text-slate-500 leading-relaxed px-2">
+                คุณต้องการล้างจำนวนธนบัตรและเหรียญที่นับไว้ทั้งหมดกลับเป็น 0 ใช่หรือไม่?
               </p>
             </div>
             
             <div className="flex w-full gap-3 font-sans">
               <button
+                type="button"
                 onClick={() => setShowResetConfirm(false)}
                 className="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer"
               >
                 ยกเลิก
               </button>
               <button
+                type="button"
                 onClick={confirmReset}
-                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-sm shadow-amber-500/10"
+                className="flex-1 py-2.5 bg-amber-600 hover:bg-amber-500 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
               >
-                ยืนยันการล้างข้อมูล
+                ยืนยันการล้าง
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* 6. Quick Count Modal (⚡ โหมดนับเงินด่วน) */}
+      {showQuickCountModal && (
+        <div 
+          className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-2 sm:p-4 animate-fade-in" 
+          id="quick-count-modal"
+        >
+          <div className="bg-white rounded-3xl max-w-2xl w-full shadow-2xl overflow-hidden border border-slate-100 flex flex-col max-h-[92vh] text-left">
             
+            {/* Modal Header */}
+            <div className="p-4 sm:p-5 bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 text-white flex items-center justify-between border-b border-slate-800 shrink-0">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black shadow-md shrink-0">
+                  <Zap className="w-5 h-5 fill-slate-950" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-base font-black text-white">⚡ โหมดนับเงินด่วน (Quick Count)</h3>
+                    <span className="text-[10px] font-black bg-amber-400 text-slate-950 px-2 py-0.5 rounded-full uppercase">
+                      Fast Mode
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-300">
+                    แตะเลือกตัวคูณ (เช่น 1,000x5, 500x2) ระบบคำนวณยอดรวมปิดกะให้อัตโนมัติ
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowQuickCountModal(false)}
+                className="w-9 h-9 rounded-xl bg-white/10 hover:bg-white/20 text-white flex items-center justify-center font-bold transition-all cursor-pointer"
+                title="ปิดหน้าต่าง"
+              >
+                ✕
+              </button>
+            </div>
+
+            {/* Live Calculation Bar (Sticky Top) */}
+            <div className="p-3.5 sm:p-4 bg-slate-50 border-b border-slate-200/80 space-y-3 shrink-0">
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 sm:gap-3">
+                {/* Counted Total */}
+                <div className="p-2.5 sm:p-3 rounded-2xl bg-indigo-50/80 border border-indigo-100">
+                  <p className="text-[10.5px] font-bold text-indigo-700">💰 ยอดที่นับได้ตอนนี้</p>
+                  <p className="text-base sm:text-lg font-mono font-black text-indigo-950">
+                    {formatBaht(quickGrandTotal)}
+                  </p>
+                  <p className="text-[10px] text-indigo-600 font-medium">รวม {quickTotalPieces} ชิ้น/ใบ</p>
+                </div>
+
+                {/* Target in Drawer */}
+                <div className="p-2.5 sm:p-3 rounded-2xl bg-amber-50/80 border border-amber-200/80">
+                  <p className="text-[10.5px] font-bold text-amber-800">📋 ยอดที่ต้องมีในเก๊ะ</p>
+                  <p className="text-base sm:text-lg font-mono font-black text-slate-900">
+                    {formatBaht(expectedCashInDrawer)}
+                  </p>
+                  <p className="text-[10px] text-amber-700 font-medium">เงินทอน + ขายสด - จ่าย</p>
+                </div>
+
+                {/* Status Indicator */}
+                <div className={`col-span-2 sm:col-span-1 p-2.5 sm:p-3 rounded-2xl border flex flex-col justify-center ${
+                  isQuickBalanced 
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900' 
+                    : isQuickSurplus 
+                      ? 'bg-amber-50 border-amber-200 text-amber-900' 
+                      : 'bg-rose-50 border-rose-200 text-rose-900'
+                }`}>
+                  <p className="text-[10.5px] font-bold">
+                    {isQuickBalanced ? '✅ เงินตรงเป๊ะ 100%' : isQuickSurplus ? '⚠️ เงินเกินในเก๊ะ' : '🚨 เงินสดขาดไป'}
+                  </p>
+                  <p className="text-base font-mono font-black">
+                    {isQuickBalanced ? 'ครบถ้วน' : isQuickSurplus ? `+${formatBaht(quickDiscrepancy)}` : `-${formatBaht(Math.abs(quickDiscrepancy))}`}
+                  </p>
+                </div>
+              </div>
+
+              {/* Filter Tabs & Quick Action Buttons */}
+              <div className="flex flex-wrap items-center justify-between gap-2 pt-1">
+                <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-200 shadow-2xs">
+                  <button
+                    type="button"
+                    onClick={() => setQuickCountTab('all')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      quickCountTab === 'all' 
+                        ? 'bg-indigo-600 text-white shadow-2xs' 
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                  >
+                    ทั้งหมด (9 ชนิด)
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickCountTab('notes')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      quickCountTab === 'notes' 
+                        ? 'bg-indigo-600 text-white shadow-2xs' 
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                  >
+                    💵 ธนบัตร
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setQuickCountTab('coins')}
+                    className={`px-3 py-1 rounded-lg text-xs font-bold transition-all cursor-pointer ${
+                      quickCountTab === 'coins' 
+                        ? 'bg-indigo-600 text-white shadow-2xs' 
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                    }`}
+                  >
+                    🪙 เหรียญ
+                  </button>
+                </div>
+
+                <div className="flex items-center gap-1.5 text-xs">
+                  <button
+                    type="button"
+                    onClick={resetQuickCountToZero}
+                    className="px-2.5 py-1 rounded-lg text-slate-500 hover:text-rose-600 hover:bg-rose-50 border border-slate-200 transition-all font-bold cursor-pointer"
+                  >
+                    ล้างเป็น 0
+                  </button>
+                  <button
+                    type="button"
+                    onClick={reloadCurrentCountsToQuick}
+                    className="px-2.5 py-1 rounded-lg text-indigo-600 hover:bg-indigo-50 border border-indigo-200 transition-all font-bold cursor-pointer"
+                  >
+                    ดึงค่านับเดิม
+                  </button>
+                </div>
+              </div>
+            </div>
+
+            {/* Scrollable Denomination Items List */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-3.5 divide-y divide-slate-100">
+              {DENOMINATIONS
+                .filter(d => quickCountTab === 'all' || (quickCountTab === 'notes' ? d.type === 'note' : d.type === 'coin'))
+                .map((d) => {
+                  const currentMultiplier = quickCounts[d.id] || 0;
+                  const multipliers = QUICK_MULTIPLIERS[d.id] || [0, 1, 2, 3, 5, 10, 20];
+                  const lineTotal = currentMultiplier * d.value;
+
+                  return (
+                    <div key={d.id} className="pt-3.5 first:pt-0 space-y-2">
+                      {/* Top row: Label, formula, line total */}
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`w-8 h-8 rounded-xl flex items-center justify-center font-black text-xs ${d.badgeClass}`}>
+                            ฿
+                          </span>
+                          <div>
+                            <span className="text-sm font-black text-slate-900">{d.label}</span>
+                            <span className="text-[11px] text-slate-400 ml-1.5 font-medium">({d.type === 'note' ? 'ธนบัตร' : 'เหรียญ'})</span>
+                          </div>
+                        </div>
+
+                        {/* Interactive Formula pill */}
+                        <div className="flex items-center gap-1.5 bg-slate-100 px-2.5 py-1 rounded-xl font-mono text-xs font-black text-slate-800">
+                          <span className="text-slate-500 font-bold">{d.value.toLocaleString()} ×</span>
+                          <span className={`px-1.5 py-0.5 rounded-md ${currentMultiplier > 0 ? 'bg-indigo-600 text-white' : 'bg-slate-200 text-slate-600'}`}>
+                            {currentMultiplier} {d.type === 'note' ? 'ใบ' : 'เหรียญ'}
+                          </span>
+                          <span className="text-slate-400">=</span>
+                          <span className="text-indigo-900 font-black">{formatBaht(lineTotal)}</span>
+                        </div>
+                      </div>
+
+                      {/* Multiplier Pills Grid */}
+                      <div className="flex flex-wrap items-center gap-1.5">
+                        {multipliers.map((m) => {
+                          const isActive = currentMultiplier === m;
+                          return (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => handleSetQuickCount(d.id, m)}
+                              className={`px-2.5 py-1 rounded-xl text-xs font-mono font-bold transition-all cursor-pointer ${
+                                isActive
+                                  ? 'bg-slate-900 text-amber-300 ring-2 ring-amber-400 shadow-xs scale-105'
+                                  : 'bg-slate-100 hover:bg-slate-200 text-slate-700 hover:text-slate-900 border border-slate-200/60'
+                              }`}
+                            >
+                              {m === 0 ? '0' : `×${m}`}
+                            </button>
+                          );
+                        })}
+
+                        {/* Manual Custom Stepper */}
+                        <div className="flex items-center gap-1 ml-auto bg-slate-50 p-0.5 rounded-xl border border-slate-200">
+                          <button
+                            type="button"
+                            onClick={() => handleAdjustQuickCount(d.id, -1)}
+                            disabled={currentMultiplier <= 0}
+                            className="w-6 h-6 rounded-lg bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs disabled:opacity-30 cursor-pointer"
+                          >
+                            <Minus className="w-3 h-3" />
+                          </button>
+                          <input
+                            type="number"
+                            min="0"
+                            value={currentMultiplier === 0 ? '' : currentMultiplier}
+                            onChange={(e) => handleSetQuickCount(d.id, e.target.value)}
+                            placeholder="0"
+                            className="w-10 text-center text-xs font-mono font-black text-slate-900 bg-transparent border-0 focus:ring-0 p-0"
+                          />
+                          <button
+                            type="button"
+                            onClick={() => handleAdjustQuickCount(d.id, 1)}
+                            className="w-6 h-6 rounded-lg bg-white hover:bg-slate-100 text-slate-700 flex items-center justify-center font-bold text-xs shadow-2xs cursor-pointer"
+                          >
+                            <Plus className="w-3 h-3" />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+            </div>
+
+            {/* Modal Bottom Actions (Sticky) */}
+            <div className="p-4 bg-slate-900 text-white border-t border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-3 shrink-0">
+              <div className="flex items-center gap-3 text-xs">
+                <div>
+                  <span className="text-slate-400">💵 แบงค์: </span>
+                  <strong className="font-mono text-white">{formatBaht(quickTotalNotes)}</strong>
+                </div>
+                <span className="text-slate-600">|</span>
+                <div>
+                  <span className="text-slate-400">🪙 เหรียญ: </span>
+                  <strong className="font-mono text-white">{formatBaht(quickTotalCoins)}</strong>
+                </div>
+                <span className="text-slate-600">|</span>
+                <div>
+                  <span className="text-amber-300 font-bold">รวม: </span>
+                  <strong className="font-mono text-amber-300 text-sm font-black">{formatBaht(quickGrandTotal)}</strong>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 w-full sm:w-auto">
+                <button
+                  type="button"
+                  onClick={() => setShowQuickCountModal(false)}
+                  className="flex-1 sm:flex-none px-4 py-2.5 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold transition-all cursor-pointer"
+                >
+                  ยกเลิก
+                </button>
+                <button
+                  type="button"
+                  onClick={applyQuickCount}
+                  className="flex-1 sm:flex-none flex items-center justify-center gap-1.5 px-5 py-2.5 bg-emerald-600 hover:bg-emerald-500 text-white rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer"
+                  id="apply-quick-count-btn"
+                >
+                  <Check className="w-4 h-4 text-white stroke-[3]" />
+                  <span>บันทึกและนำยอดไปใช้ ({formatBaht(quickGrandTotal)})</span>
+                </button>
+              </div>
+            </div>
+
           </div>
         </div>
       )}

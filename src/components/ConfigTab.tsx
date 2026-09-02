@@ -41,6 +41,7 @@ import {
   RefreshCw,
   Clock,
   Calendar,
+  CalendarDays,
   ShieldAlert,
   ShieldCheck,
   Lock,
@@ -178,6 +179,8 @@ export default function ConfigTab({
   const [themeInput, setThemeInput] = useState<string>(shopConfig.theme || 'indigo');
   const [enableCashCounterInput, setEnableCashCounterInput] = useState<boolean>(shopConfig.enableCashCounter !== false);
   const [enablePayslipsInput, setEnablePayslipsInput] = useState<boolean>(shopConfig.enablePayslips !== false);
+  const [enableBookingsInput, setEnableBookingsInput] = useState<boolean>(shopConfig.enableBookings !== false);
+  const [defaultBookingDurationInput, setDefaultBookingDurationInput] = useState<number>(shopConfig.defaultBookingDuration || 60);
   const [isShopSaved, setIsShopSaved] = useState<boolean>(false);
   const [copiedHex, setCopiedHex] = useState<boolean>(false);
 
@@ -189,6 +192,8 @@ export default function ConfigTab({
     setThemeInput(shopConfig.theme || 'indigo');
     setEnableCashCounterInput(shopConfig.enableCashCounter !== false);
     setEnablePayslipsInput(shopConfig.enablePayslips !== false);
+    setEnableBookingsInput(shopConfig.enableBookings !== false);
+    setDefaultBookingDurationInput(shopConfig.defaultBookingDuration || 60);
   }, [shopConfig]);
 
   const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -268,7 +273,9 @@ export default function ConfigTab({
       primaryColor: primaryColorInput,
       theme: themeInput,
       enableCashCounter: enableCashCounterInput,
-      enablePayslips: enablePayslipsInput
+      enablePayslips: enablePayslipsInput,
+      enableBookings: enableBookingsInput,
+      defaultBookingDuration: defaultBookingDurationInput
     });
     setIsShopSaved(true);
     setTimeout(() => setIsShopSaved(false), 3000);
@@ -1044,6 +1051,78 @@ export default function ConfigTab({
                   <span className="block text-[11px] text-slate-500 leading-relaxed">
                     แสดงแท็บ "สลิปเงินเดือน" และคำนวณเงินประกัน ค่าเบิก หักภาษี ออกสลิปช่าง
                   </span>
+                </label>
+              </div>
+
+              {/* Bookings & Appointments Toggle */}
+              <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
+                enableBookingsInput 
+                  ? 'bg-slate-50 border-slate-300 shadow-2xs' 
+                  : 'bg-slate-50/50 border-slate-200 opacity-60'
+              }`}>
+                <input
+                  type="checkbox"
+                  id="toggle-bookings"
+                  checked={enableBookingsInput}
+                  onChange={(e) => setEnableBookingsInput(e.target.checked)}
+                  className="w-5 h-5 rounded-md border-slate-300 bg-white mt-0.5 cursor-pointer shrink-0"
+                />
+                <label htmlFor="toggle-bookings" className="cursor-pointer space-y-1 flex-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
+                      <CalendarDays className="w-4 h-4 text-indigo-600" />
+                      <span>3. ระบบจองคิวช่าง (Barber Queue & Appointments)</span>
+                    </span>
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      enableBookingsInput ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
+                    }`}>
+                      {enableBookingsInput ? '● เปิดใช้งาน' : '○ ปิดใช้งาน'}
+                    </span>
+                  </div>
+                  <span className="block text-[11px] text-slate-500 leading-relaxed">
+                    แสดงแท็บ "จองคิวช่าง" บันทึกนัดหมาย ระบุช่าง เวลาเริ่ม-สิ้นสุด และส่งเข้าคิดเงิน POS
+                  </span>
+
+                  {/* Booking Duration Default (30m vs 60m) */}
+                  {enableBookingsInput && (
+                    <div className="pt-3 mt-2 border-t border-slate-200/80 space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[11px] font-bold text-slate-700 flex items-center gap-1">
+                          <Clock className="w-3.5 h-3.5 text-indigo-600" />
+                          <span>เวลาตัดมาตรฐานต่อ 1 คิว:</span>
+                        </span>
+                        <span className="text-[10px] font-black text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-md">
+                          {defaultBookingDurationInput} นาที / คิว
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDefaultBookingDurationInput(30)}
+                          className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
+                            defaultBookingDurationInput === 30
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          ⚡ 30 นาที
+                          <span className="block text-[9.5px] opacity-80">ตัดไว / ซอยเร็ว</span>
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setDefaultBookingDurationInput(60)}
+                          className={`p-2 rounded-xl text-xs font-bold transition-all border text-center cursor-pointer ${
+                            defaultBookingDurationInput === 60
+                              ? 'bg-indigo-600 text-white border-indigo-600 shadow-xs'
+                              : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-100'
+                          }`}
+                        >
+                          ⏱️ 60 นาที (1 ชม.)
+                          <span className="block text-[9.5px] opacity-80">สระ ตัด เซ็ต (แนะนำ)</span>
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </label>
               </div>
 

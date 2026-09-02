@@ -186,6 +186,24 @@ export interface ShopConfig {
   theme?: string;        // ธีมของโปรแกรม เช่น 'indigo' | 'vintage' | 'emerald' | 'rose' | 'dark' | 'cyber' | 'ocean' | 'custom'
   enableCashCounter?: boolean; // เปิดใช้งานระบบนับเงินสด
   enablePayslips?: boolean; // เปิดใช้งานระบบสลิปเงินเดือน
+  enableBookings?: boolean; // เปิดใช้งานระบบจองคิว
+  defaultBookingDuration?: number; // ระยะเวลาตัดมาตรฐานต่อ 1 คิว (30 นาที หรือ 60 นาที)
+}
+
+export interface Booking {
+  id: string;
+  barberId: string;
+  barberName: string;
+  date: string; // YYYY-MM-DD
+  startTime: string; // HH:MM
+  endTime: string; // HH:MM
+  customerName: string; // ชื่อลูกค้า
+  customerPhone: string; // เบอร์ลูกค้า
+  status?: 'pending' | 'completed'; // รอดำเนินการ / เสร็จสิ้น
+  notes?: string; // หมายเหตุเพิ่มเติม
+  memberId?: string; // รหัสสมาชิก (ถ้ามี)
+  createdAt: string; // ISO String
+  updatedAt?: string; // ISO String
 }
 
 export interface Payslip {
