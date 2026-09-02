@@ -44,8 +44,8 @@ interface BookingTabProps {
   onUpdateShopConfig?: (config: ShopConfig) => void;
 }
 
-const THAI_TIME_OPTIONS = Array.from({ length: 72 }, (_, i) => {
-  const totalMins = 6 * 60 + i * 15; // 06:00 to 23:45
+const THAI_TIME_OPTIONS = Array.from({ length: 36 }, (_, i) => {
+  const totalMins = 6 * 60 + i * 30; // 06:00 to 23:30 (every 30 mins: .00 and .30 only)
   const h = Math.floor(totalMins / 60);
   const m = totalMins % 60;
   return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
@@ -237,7 +237,7 @@ export default function BookingTab({
     setDragOverStatus(null);
   };
 
-  // Check for time overlap conflicts with same barber
+  // Check for time overlap conflicts with same barber (only active pending bookings)
   const conflictingBookings = useMemo(() => {
     if (!formBarberId || !formDate || !formStartTime || !formEndTime) return [];
     const parseMins = (t: string) => {
@@ -251,6 +251,8 @@ export default function BookingTab({
     return bookings.filter(b => {
       if (editingBooking && b.id === editingBooking.id) return false;
       if (b.barberId !== formBarberId || b.date !== formDate) return false;
+      // If a booking is already completed, it does not conflict with new bookings
+      if (b.status === 'completed') return false;
       const startB = parseMins(b.startTime);
       const endB = parseMins(b.endTime);
       return startA < endB && endA > startB;
@@ -275,6 +277,7 @@ export default function BookingTab({
       const hasOtherConflict = bookings.some(b => {
         if (editingBooking && b.id === editingBooking.id) return false;
         if (b.barberId !== barber.id || b.date !== formDate) return false;
+        if (b.status === 'completed') return false;
         const startB = parseMins(b.startTime);
         const endB = parseMins(b.endTime);
         return startA < endB && endA > startB;
@@ -286,40 +289,8 @@ export default function BookingTab({
   // Conflict Modal State
   const [conflictModalOpen, setConflictModalOpen] = useState<boolean>(false);
 
-  // Handle Form Submit
-  const handleSubmitForm = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!formCustomerName.trim()) {
-      alert('กรุณาระบุชื่อลูกค้า');
-      return;
-    }
-    if (!formBarberId) {
-      alert('กรุณาเลือกช่างประจำคิว');
-      return;
-    }
-    if (!formDate) {
-      alert('กรุณาระบุวันที่จอง');
-      return;
-    }
-
-    const parseMins = (t: string) => {
-      const [h, m] = t.split(':').map(Number);
-      return (h || 0) * 60 + (m || 0);
-    };
-    const startA = parseMins(formStartTime);
-    const endA = parseMins(formEndTime);
-
-    if (startA >= endA) {
-      alert('⚠️ เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น');
-      return;
-    }
-
-    // VALIDATION BLOCK: If time overlaps with another booking for the same barber
-    if (hasConflict) {
-      setConflictModalOpen(true);
-      return;
-    }
-
+  // Core function to actually persist the booking
+  const executeSaveBooking = () => {
     const barberObj = barbers.find(b => b.id === formBarberId);
     const barberName = barberObj ? barberObj.name : 'ช่าง';
 
@@ -365,6 +336,44 @@ export default function BookingTab({
       setFormNotes('');
       setFormMemberId('');
     }
+    setConflictModalOpen(false);
+  };
+
+  // Handle Form Submit
+  const handleSubmitForm = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!formCustomerName.trim()) {
+      alert('กรุณาระบุชื่อลูกค้า');
+      return;
+    }
+    if (!formBarberId) {
+      alert('กรุณาเลือกช่างประจำคิว');
+      return;
+    }
+    if (!formDate) {
+      alert('กรุณาระบุวันที่จอง');
+      return;
+    }
+
+    const parseMins = (t: string) => {
+      const [h, m] = t.split(':').map(Number);
+      return (h || 0) * 60 + (m || 0);
+    };
+    const startA = parseMins(formStartTime);
+    const endA = parseMins(formEndTime);
+
+    if (startA >= endA) {
+      alert('⚠️ เวลาสิ้นสุดต้องมากกว่าเวลาเริ่มต้น');
+      return;
+    }
+
+    // VALIDATION BLOCK: If time overlaps with another booking for the same barber
+    if (hasConflict) {
+      setConflictModalOpen(true);
+      return;
+    }
+
+    executeSaveBooking();
   };
 
   // Filtered & Sorted Bookings list (Chronological order by Date -> Start Time)
@@ -1598,7 +1607,15 @@ export default function BookingTab({
                 onClick={() => setConflictModalOpen(false)}
                 className="w-full py-2.5 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-black transition-all shadow-md cursor-pointer text-center"
               >
-                เข้าใจแล้ว (เปลี่ยนช่วงเวลาอื่น)
+                🔄 แก้ไขเวลา หรือเลือกช่างท่านอื่น
+              </button>
+
+              <button
+                type="button"
+                onClick={executeSaveBooking}
+                className="w-full py-2 bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 rounded-xl text-[11.5px] font-bold transition-all cursor-pointer text-center"
+              >
+                ⚡ ยืนยันบันทึกคิวนี้ต่อไป (ลงคิวซ้ำซ้อน)
               </button>
             </div>
 

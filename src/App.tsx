@@ -591,7 +591,14 @@ export default function App() {
         if (localCashCounter) setCashCounter(JSON.parse(localCashCounter));
         if (localMembers) setMembers(JSON.parse(localMembers));
         if (localMemberPackages) setMemberPackages(JSON.parse(localMemberPackages));
-        if (localBookings) setBookings(JSON.parse(localBookings));
+        if (localBookings) {
+          const parsedBookings = JSON.parse(localBookings);
+          if (Array.isArray(parsedBookings)) {
+            // Automatically purge bookings from past days on preload
+            const activeBookings = parsedBookings.filter((b: any) => b && b.date && b.date >= todayStr);
+            setBookings(activeBookings);
+          }
+        }
 
         // If local cached data was loaded, unblock UI immediately so user never waits
         if (localShopConfig || localBarbers || localSales || localBookings) {
@@ -669,10 +676,14 @@ export default function App() {
               isWorking: typeof b.isWorking === 'boolean' ? b.isWorking : true
             }));
 
-            // Check Daily Reset
+            // Check Daily Reset & Past Bookings Purge
+            const rawBookings: Booking[] = salonData.bookings || (isGuest ? INITIAL_BOOKINGS : []);
+            const validBookings = rawBookings.filter((b: Booking) => b && b.date && b.date >= todayStr);
+            const hadPastBookings = validBookings.length !== rawBookings.length;
+
             const localResetDate = localStorage.getItem(`barber_pos_last_reset_date_${userEmail}`);
-            if (lastResetDate !== todayStr && localResetDate !== todayStr) {
-              console.log(`⏰ [Daily Reset] วันใหม่ล่วงเลยมาถึงแล้ว (${lastResetDate} -> ${todayStr}) ทำการรีเซ็ตสถานะช่างให้ 'มาทำงาน' ทุกคน (Online)`);
+            if (lastResetDate !== todayStr || localResetDate !== todayStr || hadPastBookings) {
+              console.log(`⏰ [Daily Reset & Booking Purge] วันใหม่ล่วงเลยมาถึงแล้ว (${lastResetDate} -> ${todayStr}) รีเซ็ตสถานะช่างและล้างคิวเก่าที่พ้นวันแล้ว (${rawBookings.length - validBookings.length} คิว)`);
               finalBarbers = finalBarbers.map((b: any) => ({
                 ...b,
                 isWorking: true
@@ -680,13 +691,15 @@ export default function App() {
               
               localStorage.setItem(`barber_pos_last_reset_date_${userEmail}`, todayStr);
               localStorage.setItem(`barber_pos_barbers_${userEmail}`, JSON.stringify(finalBarbers));
+              localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(validBookings));
 
               setDoc(salonDocRef, { 
                 barbers: finalBarbers, 
+                bookings: validBookings,
                 lastResetDate: todayStr, 
                 updatedAt: new Date().toISOString() 
               }, { merge: true })
-                .catch(err => console.warn("🟡 [Daily Reset] บันทึกรีเซ็ตรายชื่อช่างบนคลาวด์ไม่สำเร็จ (ทำงานต่อในโหมดออฟไลน์):", err));
+                .catch(err => console.warn("🟡 [Daily Reset] บันทึกรีเซ็ตคิวและรายชื่อช่างบนคลาวด์ไม่สำเร็จ:", err));
             } else {
               localStorage.setItem(`barber_pos_last_reset_date_${userEmail}`, todayStr);
             }
@@ -709,7 +722,7 @@ export default function App() {
             setCashCounter(salonData.cashCounter || null);
             setMembers(salonData.members || (isGuest ? INITIAL_MEMBERS : []));
             setMemberPackages(salonData.memberPackages || (isGuest ? INITIAL_MEMBER_PACKAGES : []));
-            setBookings(salonData.bookings || (isGuest ? INITIAL_BOOKINGS : []));
+            setBookings(validBookings);
 
             // First Login Date tracking & initialization
             let loginDate = salonData.firstLoginDate || salonData.shopConfig?.firstLoginDate || localStorage.getItem(`barber_pos_first_login_date_${userEmail}`);
@@ -869,6 +882,72 @@ export default function App() {
     if (!userEmail || isLoading) return;
     localStorage.setItem(`barber_pos_member_packages_${userEmail}`, JSON.stringify(memberPackages));
   }, [memberPackages, userEmail, isLoading]);
+
+  useEffect(() => {
+    if (!userEmail || isLoading) return;
+    localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(bookings));
+  }, [bookings, userEmail, isLoading]);
+
+  // Midnight & Day Transition Watcher: Automatically purge past-day bookings and reset barbers when a new day arrives
+  useEffect(() => {
+    if (!userEmail || isLoading) return;
+
+    const checkDayTransition = () => {
+      const d = new Date();
+      const currentTodayStr = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+      const recordedResetDate = localStorage.getItem(`barber_pos_last_reset_date_${userEmail}`) || '';
+
+      // Check if day changed or if there are bookings from past days
+      setBookings(prevBookings => {
+        const activeBookings = prevBookings.filter(b => b && b.date && b.date >= currentTodayStr);
+        const hasPastBookings = activeBookings.length !== prevBookings.length;
+        const isNewDay = recordedResetDate !== currentTodayStr;
+
+        if (hasPastBookings || isNewDay) {
+          console.log(`⏰ [Midnight / Day Transition] ขึ้นวันใหม่ (${currentTodayStr}) ล้างคิวที่พ้นวันแล้ว (${prevBookings.length - activeBookings.length} คิว) และรีเซ็ตสถานะช่าง`);
+          localStorage.setItem(`barber_pos_last_reset_date_${userEmail}`, currentTodayStr);
+          localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(activeBookings));
+
+          // Also set barbers to working = true
+          setBarbers(prevBarbers => {
+            const resetBarbers = prevBarbers.map(b => ({ ...b, isWorking: true }));
+            localStorage.setItem(`barber_pos_barbers_${userEmail}`, JSON.stringify(resetBarbers));
+            
+            // Sync to Firestore
+            const docRef = doc(db, "salons", userEmail);
+            setDoc(docRef, {
+              bookings: activeBookings,
+              barbers: resetBarbers,
+              lastResetDate: currentTodayStr,
+              updatedAt: new Date().toISOString()
+            }, { merge: true }).catch(() => {});
+
+            return resetBarbers;
+          });
+
+          return activeBookings;
+        }
+        return prevBookings;
+      });
+    };
+
+    // Check periodically every 30 seconds and when the tab/window gains focus
+    checkDayTransition();
+    const timer = setInterval(checkDayTransition, 30000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        checkDayTransition();
+      }
+    };
+    window.addEventListener('visibilitychange', handleVisibilityChange);
+    window.addEventListener('focus', checkDayTransition);
+
+    return () => {
+      clearInterval(timer);
+      window.removeEventListener('visibilitychange', handleVisibilityChange);
+      window.removeEventListener('focus', checkDayTransition);
+    };
+  }, [userEmail, isLoading]);
 
   // Evaluate 1-Year Annual Reset Cycle (365 days -> 30-day warning -> 395 days auto factory reset)
   useEffect(() => {
