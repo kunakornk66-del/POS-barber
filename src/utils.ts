@@ -2660,5 +2660,31 @@ export function checkBookingTimeOverlap(
   return true;
 }
 
+/**
+ * Strips undefined properties recursively from objects and arrays
+ * to prevent Firestore SDK write errors ("Unsupported field value: undefined").
+ */
+export function cleanUndefined<T>(obj: T): T {
+  if (obj === null || obj === undefined) {
+    return null as any;
+  }
+  if (obj instanceof Date) {
+    return obj as any;
+  }
+  if (Array.isArray(obj)) {
+    return obj.map(item => cleanUndefined(item)) as any;
+  }
+  if (typeof obj === 'object') {
+    const cleaned: any = {};
+    for (const [key, value] of Object.entries(obj)) {
+      if (value !== undefined) {
+        cleaned[key] = cleanUndefined(value);
+      }
+    }
+    return cleaned;
+  }
+  return obj;
+}
+
 
 

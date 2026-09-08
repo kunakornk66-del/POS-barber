@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, CashCounterState, Member, MemberPackage, Booking } from './types';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { Barber, Product, ShareConfig, SaleRecord, ShopConfig, Voucher, Payslip, Expense, ChemicalPromo, Member, MemberPackage, Booking, CustomerSubscription } from './types';
 import { getThemePreset, generateShade, hexToHsl } from './themes';
 import { 
   INITIAL_BARBERS, 
@@ -15,7 +15,7 @@ import {
 import SalesTab from './components/SalesTab';
 import DashboardTab from './components/DashboardTab';
 import ConfigTab from './components/ConfigTab';
-import CashCounterTab from './components/CashCounterTab';
+import AdminTab, { ADMIN_EMAIL } from './components/AdminTab';
 import PayslipsTab from './components/PayslipsTab';
 import BookingTab from './components/BookingTab';
 import AnnualResetModal from './components/AnnualResetModal';
@@ -254,14 +254,17 @@ export default function App() {
   }, [sales, shareConfig]);
   const [payslips, setPayslips] = useState<Payslip[]>([]);
   const [expenses, setExpenses] = useState<Expense[]>([]);
-  const [cashCounter, setCashCounter] = useState<CashCounterState | null>(null);
-  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'bookings' | 'expenses' | 'config' | 'cash' | 'payslips'>('sales');
+  const [activeTab, setActiveTab] = useState<'sales' | 'dashboard' | 'bookings' | 'expenses' | 'config' | 'payslips' | 'admin'>('sales');
   
+  // User Subscription & Admin Status State
+  const [userSubscription, setUserSubscription] = useState<CustomerSubscription | null>(null);
+  const [isCheckingSub, setIsCheckingSub] = useState<boolean>(true);
+
   // Settings Security & PIN Unlock State
   const [isSettingsUnlocked, setIsSettingsUnlocked] = useState<boolean>(false);
   const [showPinModal, setShowPinModal] = useState<boolean>(false);
 
-  const handleSelectTab = (tabId: 'sales' | 'dashboard' | 'bookings' | 'expenses' | 'config' | 'cash' | 'payslips') => {
+  const handleSelectTab = (tabId: 'sales' | 'dashboard' | 'bookings' | 'expenses' | 'config' | 'payslips' | 'admin') => {
     if (tabId === 'config') {
       if (!isSettingsUnlocked) {
         setShowPinModal(true);
@@ -362,15 +365,106 @@ export default function App() {
     };
   }, [userEmail]);
   
+  // Track activity heartbeat to only update once per session and avoid write loops
+  const lastActiveUpdatedEmailRef = useRef<string>('');
+
+  // Send activity heartbeat to subscriptions collection once per session (decoupled from onSnapshot)
+  useEffect(() => {
+    if (!userEmail) return;
+    const cleanEmail = userEmail.trim().toLowerCase();
+    if (cleanEmail === ADMIN_EMAIL.toLowerCase()) return;
+    if (lastActiveUpdatedEmailRef.current === cleanEmail) return;
+
+    lastActiveUpdatedEmailRef.current = cleanEmail;
+    const subDocRef = doc(db, 'subscriptions', cleanEmail);
+    const now = new Date().toISOString();
+    updateDoc(subDocRef, {
+      lastActiveAt: now,
+      ...(shopConfig?.shopName ? { shopName: shopConfig.shopName } : {}),
+      updatedAt: now
+    }).catch(() => {});
+  }, [userEmail, shopConfig?.shopName]);
+
+  // Real-time synchronization of user subscription & access status
+  useEffect(() => {
+    if (!userEmail) {
+      setUserSubscription(null);
+      setIsCheckingSub(false);
+      return;
+    }
+
+    const cleanEmail = userEmail.trim().toLowerCase();
+    const isAdmin = cleanEmail === ADMIN_EMAIL.toLowerCase();
+
+    if (isAdmin) {
+      setUserSubscription({
+        email: ADMIN_EMAIL,
+        shopName: 'Super Admin',
+        status: 'approved',
+        startDate: '2026-01-01',
+        expiryDate: '2099-12-31',
+        monthsAllowed: 999,
+        createdAt: new Date().toISOString()
+      });
+      setIsCheckingSub(false);
+      return;
+    }
+
+    setIsCheckingSub(true);
+    const subDocRef = doc(db, 'subscriptions', cleanEmail);
+    const unsubscribe = onSnapshot(
+      subDocRef,
+      async (docSnap) => {
+        if (docSnap.exists()) {
+          const data = docSnap.data() as CustomerSubscription;
+          setUserSubscription({
+            ...data,
+            email: cleanEmail
+          });
+        } else {
+          // Record any newly logged in email into the subscriptions collection
+          // Default 1 month access so they can use it immediately and admin can see them
+          const now = new Date();
+          const startDate = now.toISOString().split('T')[0];
+          const expiry = new Date();
+          expiry.setMonth(expiry.getMonth() + 1);
+          const expiryDate = expiry.toISOString().split('T')[0];
+
+          const newSub: CustomerSubscription = {
+            email: cleanEmail,
+            shopName: shopConfig?.shopName || 'ร้านบาร์เบอร์/ทำผม',
+            status: 'approved',
+            monthsAllowed: 1,
+            startDate,
+            expiryDate,
+            createdAt: now.toISOString(),
+            lastActiveAt: now.toISOString()
+          };
+
+          try {
+            await setDoc(subDocRef, newSub);
+            setUserSubscription(newSub);
+          } catch (e) {
+            setUserSubscription(newSub);
+          }
+        }
+        setIsCheckingSub(false);
+      },
+      (err) => {
+        console.warn('Subscription listener notice:', err);
+        setIsCheckingSub(false);
+      }
+    );
+
+    return () => unsubscribe();
+  }, [userEmail]);
+  
   // Redirect away from disabled tabs if disabled in settings
   useEffect(() => {
-    if (shopConfig?.enableCashCounter === false && activeTab === 'cash') {
-      setActiveTab('sales');
-    }
     if (shopConfig?.enablePayslips === false && activeTab === 'payslips') {
       setActiveTab('sales');
     }
-  }, [shopConfig?.enableCashCounter, shopConfig?.enablePayslips, activeTab]);
+  }, [shopConfig?.enablePayslips, activeTab]);
 
   const [isLoading, setIsLoading] = useState(true);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -532,7 +626,6 @@ export default function App() {
       setSales([]);
       setPayslips([]);
       setExpenses([]);
-      setCashCounter(null);
       if (!isGuest) {
         setBarbers([]);
         setProducts([]);
@@ -566,7 +659,6 @@ export default function App() {
         const localSales = localStorage.getItem(`barber_pos_sales${suffix}`) || localStorage.getItem(`barber_pos_sales_${userEmail}`);
         const localPayslips = localStorage.getItem(`barber_pos_payslips${suffix}`) || localStorage.getItem(`barber_pos_payslips_${userEmail}`);
         const localExpenses = localStorage.getItem(`barber_pos_expenses${suffix}`) || localStorage.getItem(`barber_pos_expenses_${userEmail}`);
-        const localCashCounter = localStorage.getItem(`barber_pos_cash_counter${suffix}`) || localStorage.getItem(`barber_pos_cash_counter_${userEmail}`);
         const localMembers = localStorage.getItem(`barber_pos_members${suffix}`) || localStorage.getItem(`barber_pos_members_${userEmail}`);
         const localMemberPackages = localStorage.getItem(`barber_pos_member_packages${suffix}`) || localStorage.getItem(`barber_pos_member_packages_${userEmail}`);
         const localBookings = localStorage.getItem(`barber_pos_bookings${suffix}`) || localStorage.getItem(`barber_pos_bookings_${userEmail}`);
@@ -589,7 +681,6 @@ export default function App() {
         if (localSales) setSales(JSON.parse(localSales));
         if (localPayslips) setPayslips(JSON.parse(localPayslips));
         if (localExpenses) setExpenses(JSON.parse(localExpenses));
-        if (localCashCounter) setCashCounter(JSON.parse(localCashCounter));
         if (localMembers) setMembers(JSON.parse(localMembers));
         if (localMemberPackages) setMemberPackages(JSON.parse(localMemberPackages));
         if (localBookings) {
@@ -752,7 +843,6 @@ export default function App() {
             setVouchers(salonData.vouchers || []);
             setPayslips(salonData.payslips || []);
             setExpenses(salonData.expenses || []);
-            setCashCounter(salonData.cashCounter || null);
             setMembers(salonData.members || (isGuest ? INITIAL_MEMBERS : []));
             setMemberPackages(salonData.memberPackages || (isGuest ? INITIAL_MEMBER_PACKAGES : []));
             setBookings(validBookings);
@@ -900,11 +990,6 @@ export default function App() {
     if (!userEmail || isLoading) return;
     localStorage.setItem(`barber_pos_expenses_${userEmail}`, JSON.stringify(expenses));
   }, [expenses, userEmail, isLoading]);
-
-  useEffect(() => {
-    if (!userEmail || isLoading || !cashCounter) return;
-    localStorage.setItem(`barber_pos_cash_counter_${userEmail}`, JSON.stringify(cashCounter));
-  }, [cashCounter, userEmail, isLoading]);
 
   useEffect(() => {
     if (!userEmail || isLoading) return;
@@ -1366,7 +1451,6 @@ export default function App() {
           sales: correctedSales,
           expenses,
           payslips,
-          cashCounter,
           members,
           memberPackages,
           bookings
@@ -1462,7 +1546,6 @@ export default function App() {
       bookings: isGuest ? INITIAL_BOOKINGS : [],
       payslips: [],
       expenses: [],
-      cashCounter: null,
       firstLoginDate: freshLoginDate,
       updatedAt: new Date().toISOString()
     };
@@ -1504,7 +1587,6 @@ export default function App() {
         setSales([]);
         setPayslips([]);
         setExpenses([]);
-        setCashCounter(null);
         setFirstLoginDate(freshLoginDate);
         setAnnualDaysElapsed(0);
         setAnnualDaysRemaining(30);
@@ -1640,21 +1722,6 @@ export default function App() {
       });
   };
 
-  const handleUpdateCashCounter = (updatedCashCounter: CashCounterState) => {
-    if (!userEmail) return;
-    setCashCounter(updatedCashCounter);
-    
-    const docRef = doc(db, "salons", userEmail);
-    const cleanedData = cleanUndefined({ cashCounter: updatedCashCounter, updatedAt: new Date().toISOString() });
-    setDoc(docRef, cleanedData, { merge: true })
-      .then(() => {
-        console.log("🟢 [Firebase] บันทึกข้อมูลนับเงินสดสำเร็จ (Set cash counter successfully)");
-      })
-      .catch((err) => {
-        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
-      });
-  };
-
   const handleUpdateMembers = (updatedMembers: Member[]) => {
     setMembers(updatedMembers);
     if (!userEmail) return;
@@ -1752,7 +1819,7 @@ export default function App() {
     setSalePrefill({
       barberId: booking.barberId,
       customerName: booking.customerName + (booking.customerPhone ? ` (${booking.customerPhone})` : ''),
-      haircutPrice: 350,
+      haircutPrice: (booking.servicePrice !== undefined && booking.servicePrice > 0) ? booking.servicePrice : 350,
       chemicalPrice: 0,
       notes: `[คิวจอง ${booking.date} เวลา ${booking.startTime}-${booking.endTime}]${booking.notes ? ' - ' + booking.notes : ''}`
     });
@@ -2084,18 +2151,131 @@ export default function App() {
     );
   }
 
-  if (isLoading) {
+  if (isLoading || isCheckingSub) {
     return (
       <div className="min-h-screen bg-slate-100 flex flex-col items-center justify-center font-sans antialiased">
         <div className="p-8 text-center space-y-4 max-w-sm bg-white rounded-2xl shadow-sm border border-slate-100">
           <div className="w-12 h-12 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mx-auto shadow-xs"></div>
           <div className="space-y-1">
             <h1 className="text-sm font-extrabold text-slate-950 block">กำลังเชื่อมต่อคลาวด์...</h1>
-            <p className="text-[11px] text-slate-500">ระบบฐานข้อมูลกำลังคัดสรรข้อมูลและซิงก์ระบบ...</p>
+            <p className="text-[11px] text-slate-500">ระบบฐานข้อมูลกำลังคัดสรรข้อมูลและตรวจสอบสิทธิ์...</p>
           </div>
         </div>
       </div>
     );
+  }
+
+  // Check if non-admin user is suspended or expired
+  const isSuperAdminUser = userEmail?.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
+
+  if (!isSuperAdminUser && userSubscription) {
+    const isSuspended = userSubscription.status === 'suspended';
+    
+    // Check expiration
+    let isExpired = false;
+    if (userSubscription.expiryDate) {
+      const expDate = new Date(userSubscription.expiryDate);
+      expDate.setHours(23, 59, 59, 999);
+      if (expDate < new Date()) {
+        isExpired = true;
+      }
+    }
+
+    if (isSuspended) {
+      return (
+        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans text-white">
+          <div className="w-full max-w-md bg-slate-800 border border-rose-500/40 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
+            <div className="w-18 h-18 rounded-3xl bg-rose-500/20 border border-rose-500/40 text-rose-400 flex items-center justify-center mx-auto shadow-lg shadow-rose-900/40">
+              <ShieldAlert className="w-9 h-9 text-rose-400" />
+            </div>
+            
+            <div className="space-y-2">
+              <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase bg-rose-500/20 text-rose-300 border border-rose-500/30 tracking-wider">
+                Account Suspended
+              </span>
+              <h1 className="text-xl sm:text-2xl font-black text-white">
+                บัญชีของคุณถูกระงับการใช้งาน
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                อีเมลของคุณถูกระงับสิทธิ์การใช้งานชั่วคราวโดยผู้ดูแลระบบ กรุณาติดต่อ Admin เพื่อขอเปิดใช้งานระบบ
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-900/70 border border-slate-700/80 rounded-2xl text-left space-y-2 text-xs">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>บัญชีปัจจุบัน:</span>
+                <span className="font-mono font-bold text-white">{userEmail}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400 border-t border-slate-800 pt-2">
+                <span>อีเมลผู้ดูแลระบบ (Admin):</span>
+                <span className="font-mono font-bold text-indigo-300">{ADMIN_EMAIL}</span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>ออกจากระบบ / สลับบัญชีอื่น</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
+
+    if (isExpired) {
+      return (
+        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans text-white">
+          <div className="w-full max-w-md bg-slate-800 border border-amber-500/40 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
+            <div className="w-18 h-18 rounded-3xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-900/40">
+              <Clock className="w-9 h-9 text-amber-400" />
+            </div>
+            
+            <div className="space-y-2">
+              <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 tracking-wider">
+                Subscription Expired
+              </span>
+              <h1 className="text-xl sm:text-2xl font-black text-white">
+                ระยะเวลาการใช้งานของคุณหมดอายุแล้ว
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                สิทธิ์การเข้าใช้งานระบบของคุณสิ้นสุดลงเมื่อวันที่ <b>{formatThaiDate(userSubscription.expiryDate)}</b> กรุณาติดต่อ Admin เพื่อต่ออายุการใช้งาน
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-900/70 border border-slate-700/80 rounded-2xl text-left space-y-2 text-xs">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>บัญชีของคุณ:</span>
+                <span className="font-mono font-bold text-white">{userEmail}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400 border-t border-slate-800 pt-2">
+                <span>วันหมดอายุ:</span>
+                <span className="font-bold text-amber-400">{formatThaiDate(userSubscription.expiryDate)}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400 border-t border-slate-800 pt-2">
+                <span>ติดต่อต่ออายุได้ที่ Admin:</span>
+                <span className="font-mono font-bold text-indigo-300">{ADMIN_EMAIL}</span>
+              </div>
+            </div>
+
+            <div className="pt-2">
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>ออกจากระบบ / สลับบัญชีอื่น</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      );
+    }
   }
 
   return (
@@ -2244,7 +2424,6 @@ export default function App() {
                 { id: 'dashboard' as const, label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500" /> },
                 ...(shopConfig?.enableBookings !== false ? [{ id: 'bookings' as const, label: 'จองคิวช่าง', icon: <CalendarDays className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 { id: 'expenses' as const, label: 'ควบคุมรายจ่าย/เบิกเงิน', icon: <ArrowDownCircle className="w-3.5 h-3.5 text-rose-500" /> },
-                ...(shopConfig?.enableCashCounter !== false ? [{ id: 'cash' as const, label: 'นับเงินสด', icon: <DollarSign className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
                 { 
                   id: 'config' as const, 
@@ -2256,6 +2435,11 @@ export default function App() {
                   ),
                   isLocked: !isSettingsUnlocked
                 },
+                ...(userEmail?.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase() ? [{
+                  id: 'admin' as const,
+                  label: 'ระบบ Admin',
+                  icon: <ShieldAlert className="w-3.5 h-3.5 text-indigo-600" />
+                }] : []),
               ].map((tab, idx) => (
                 <button
                   key={tab.id}
@@ -2271,12 +2455,30 @@ export default function App() {
                   {tab.id === 'config' && !isSettingsUnlocked && (
                     <span className="text-[10px] text-amber-600 ml-0.5 font-bold">🔒</span>
                   )}
+                  {tab.id === 'admin' && (
+                    <span className="text-[10px] bg-indigo-100 text-indigo-700 px-1.5 py-0.2 rounded font-extrabold ml-1">
+                      SUPER
+                    </span>
+                  )}
                 </button>
               ))}
             </nav>
 
             {/* Tenant details & Logout */}
             <div className="flex items-center space-x-3 border-l border-slate-200 pl-4 h-8 self-center">
+              {/* Subscription Status or Admin Badge */}
+              {isSuperAdminUser ? (
+                <span className="hidden xl:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
+                  <Crown className="w-3 h-3 text-indigo-600" />
+                  <span>Super Admin</span>
+                </span>
+              ) : userSubscription?.expiryDate ? (
+                <span className="hidden xl:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title={`หมดอายุ: ${formatThaiDate(userSubscription.expiryDate)}`}>
+                  <Clock className="w-3 h-3 text-emerald-600" />
+                  <span>ถึง {formatThaiDate(userSubscription.expiryDate)}</span>
+                </span>
+              ) : null}
+
               {/* Cloud Status */}
               <div className="hidden lg:flex items-center text-right">
                 <span className="text-[10px] text-slate-400 font-medium flex items-center justify-end gap-1">
@@ -2473,15 +2675,9 @@ export default function App() {
           </div>
         )}
 
-        {activeTab === 'cash' && shopConfig?.enableCashCounter !== false && (
+        {activeTab === 'admin' && userEmail?.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase() && (
           <div className="tab-content-enter">
-            <CashCounterTab 
-              userEmail={userEmail} 
-              sales={correctedSales} 
-              expenses={expenses} 
-              cashCounter={cashCounter}
-              onUpdateCashCounter={handleUpdateCashCounter}
-            />
+            <AdminTab currentEmail={userEmail} />
           </div>
         )}
 
@@ -2709,7 +2905,6 @@ export default function App() {
         members={members}
         memberPackages={memberPackages}
         payslips={payslips}
-        cashCounter={cashCounter}
         shopName={shopConfig.shopName}
         onOpenDeleteMonthModal={handleOpenDeleteMonthModal}
         onTriggerFactoryResetNow={() => {

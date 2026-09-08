@@ -192,6 +192,24 @@
         "createdAt": { "type": "string", "format": "date-time" }
       },
       "required": ["id", "barberId", "barberName", "date", "startTime", "endTime", "customerName", "customerPhone", "recorderBarberId", "recorderBarberName", "createdAt"]
+    },
+    "CustomerSubscription": {
+      "title": "CustomerSubscription",
+      "description": "User subscription and access permission record managed by Admin.",
+      "type": "object",
+      "properties": {
+        "email": { "type": "string" },
+        "shopName": { "type": "string" },
+        "status": { "type": "string", "enum": ["approved", "suspended", "pending"] },
+        "monthsAllowed": { "type": "number" },
+        "startDate": { "type": "string" },
+        "expiryDate": { "type": "string" },
+        "notes": { "type": "string" },
+        "lastActiveAt": { "type": "string", "format": "date-time" },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["email", "status", "startDate", "expiryDate"]
     }
   },
   "firestore": {
@@ -202,6 +220,10 @@
     "/salons/{salonId}/sales/{saleId}": {
       "schema": "SaleRecord",
       "description": "Subcollection of transaction records"
+    },
+    "/subscriptions/{subEmail}": {
+      "schema": "CustomerSubscription",
+      "description": "User subscription accounts managed by Admin"
     }
   }
 }

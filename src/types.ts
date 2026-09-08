@@ -199,9 +199,10 @@ export interface Booking {
   endTime: string; // HH:MM
   customerName: string; // ชื่อลูกค้า
   customerPhone: string; // เบอร์ลูกค้า
-  status?: 'pending' | 'completed'; // รอดำเนินการ / เสร็จสิ้น
+  status?: 'pending' | 'in-progress' | 'completed'; // กำลังรอ / กำลังดำเนินการ / เสร็จสิ้นแล้ว
   notes?: string; // หมายเหตุเพิ่มเติม
   memberId?: string; // รหัสสมาชิก (ถ้ามี)
+  servicePrice?: number; // ราคาค่าบริการโดยประมาณ (฿)
   createdAt: string; // ISO String
   updatedAt?: string; // ISO String
 }
@@ -260,6 +261,7 @@ export interface CustomerSubscription {
   lastActiveAt?: string;
   startDate: string; // YYYY-MM-DD
   expiryDate: string; // YYYY-MM-DD
+  monthsAllowed?: number; // จำนวนเดือนที่อนุญาตให้ใช้งาน
   notes?: string;
   createdAt?: string;
   updatedAt?: string;

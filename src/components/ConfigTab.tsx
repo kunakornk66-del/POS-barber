@@ -177,7 +177,6 @@ export default function ConfigTab({
   const [billingCutoffDayInput, setBillingCutoffDayInput] = useState<number>(shopConfig.billingCutoffDay || 1);
   const [primaryColorInput, setPrimaryColorInput] = useState<string>(shopConfig.primaryColor || '#6366f1');
   const [themeInput, setThemeInput] = useState<string>(shopConfig.theme || 'indigo');
-  const [enableCashCounterInput, setEnableCashCounterInput] = useState<boolean>(shopConfig.enableCashCounter !== false);
   const [enablePayslipsInput, setEnablePayslipsInput] = useState<boolean>(shopConfig.enablePayslips !== false);
   const [enableBookingsInput, setEnableBookingsInput] = useState<boolean>(shopConfig.enableBookings !== false);
   const [defaultBookingDurationInput, setDefaultBookingDurationInput] = useState<number>(shopConfig.defaultBookingDuration || 60);
@@ -190,7 +189,6 @@ export default function ConfigTab({
     setBillingCutoffDayInput(shopConfig.billingCutoffDay || 1);
     setPrimaryColorInput(shopConfig.primaryColor || '#6366f1');
     setThemeInput(shopConfig.theme || 'indigo');
-    setEnableCashCounterInput(shopConfig.enableCashCounter !== false);
     setEnablePayslipsInput(shopConfig.enablePayslips !== false);
     setEnableBookingsInput(shopConfig.enableBookings !== false);
     setDefaultBookingDurationInput(shopConfig.defaultBookingDuration || 60);
@@ -272,7 +270,6 @@ export default function ConfigTab({
       billingCutoffDay: billingCutoffDayInput,
       primaryColor: primaryColorInput,
       theme: themeInput,
-      enableCashCounter: enableCashCounterInput,
       enablePayslips: enablePayslipsInput,
       enableBookings: enableBookingsInput,
       defaultBookingDuration: defaultBookingDurationInput
@@ -992,37 +989,6 @@ export default function ConfigTab({
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               
-              {/* Cash Counter Toggle */}
-              <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
-                enableCashCounterInput 
-                  ? 'bg-slate-50 border-slate-300 shadow-2xs' 
-                  : 'bg-slate-50/50 border-slate-200 opacity-60'
-              }`}>
-                <input
-                  type="checkbox"
-                  id="toggle-cash"
-                  checked={enableCashCounterInput}
-                  onChange={(e) => setEnableCashCounterInput(e.target.checked)}
-                  className="w-5 h-5 rounded-md border-slate-300 bg-white mt-0.5 cursor-pointer shrink-0"
-                />
-                <label htmlFor="toggle-cash" className="cursor-pointer space-y-1 flex-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-xs font-bold text-slate-900 flex items-center space-x-1.5">
-                      <DollarSign className="w-4 h-4 text-emerald-600" />
-                      <span>1. ระบบนับเงินสด (Cash Counter)</span>
-                    </span>
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      enableCashCounterInput ? 'bg-emerald-100 text-emerald-700' : 'bg-slate-200 text-slate-600'
-                    }`}>
-                      {enableCashCounterInput ? '● เปิดใช้งาน' : '○ ปิดใช้งาน'}
-                    </span>
-                  </div>
-                  <span className="block text-[11px] text-slate-500 leading-relaxed">
-                    แสดงแท็บ "นับเงินสด" สำหรับตรวจนับธนบัตรและเหรียญในลิ้นชักประจำวัน
-                  </span>
-                </label>
-              </div>
-
               {/* Payslips Toggle */}
               <div className={`p-4 rounded-2xl border transition-all flex items-start space-x-3.5 ${
                 enablePayslipsInput 

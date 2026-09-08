@@ -141,7 +141,6 @@ export const DEFAULT_SHARE_CONFIG: ShareConfig = {
 export const DEFAULT_SHOP_CONFIG: ShopConfig = {
   shopName: 'Barber POS',
   primaryColor: '#6366f1',
-  enableCashCounter: true,
   enablePayslips: true,
   enableBookings: true,
   pinCode: '1234',

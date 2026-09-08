@@ -325,9 +325,6 @@ export default function DashboardTab({
     return Array.from(new Set(months)).sort((a,b) => (b || '').localeCompare(a || ''));
   }, [sales]);
 
-  // ==========================================
-  // DAILY STATISTICS CALCULATION
-  // ==========================================
   const dailySales = useMemo(() => {
     return sales.filter(s => (s?.date || '') === selectedDate);
   }, [sales, selectedDate]);
@@ -2500,7 +2497,7 @@ export default function DashboardTab({
             </div>
           </div>
 
-          {/* Daily 4-Card Executive Summary */}
+          {/* Daily Executive Summary Cards */}
           {dailySales.length === 0 ? (
             <div className="p-8 text-center bg-slate-50/70 rounded-2xl border border-dashed border-slate-200 flex flex-col items-center justify-center space-y-2">
               <Calculator className="w-8 h-8 text-slate-400" />
@@ -2510,7 +2507,7 @@ export default function DashboardTab({
           ) : (
             <div className="space-y-6">
               
-              {/* 4 Clean Primary KPI Cards */}
+              {/* 4 Primary Executive KPI Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3.5 font-sans">
                 
                 {/* Card 1: Gross Sales */}
