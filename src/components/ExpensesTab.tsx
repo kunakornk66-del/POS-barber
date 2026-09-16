@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Expense, SaleRecord } from '../types';
 import { formatBaht, formatThaiDate, formatThaiMonth } from '../utils';
 import { ExpenseCategoryPieChart } from './ExpenseCategoryPieChart';
@@ -1083,8 +1084,8 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses, onOp
       </div>
 
       {/* 4. EDIT EXPENSE MODAL */}
-      {editingExpense && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+      {editingExpense && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-lg w-full shadow-2xl overflow-hidden border border-slate-100 p-6 sm:p-7 space-y-5 text-left">
             <div className="flex items-center justify-between border-b border-slate-100 pb-4">
               <div className="flex items-center space-x-2.5">
@@ -1205,12 +1206,13 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses, onOp
               </div>
             </form>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* 5. CONFIRMATION DIALOG */}
-      {confirmDialog.isOpen && (
-        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in">
+      {confirmDialog.isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 bg-slate-900/60 backdrop-blur-xs flex items-center justify-center z-[9999] p-4 animate-fade-in">
           <div className="bg-white rounded-3xl max-w-md w-full shadow-2xl overflow-hidden border border-slate-100 p-6 space-y-5 text-left">
             <div className="flex items-center space-x-3 text-amber-600">
               <AlertCircle className="w-6 h-6 shrink-0" />
@@ -1238,7 +1240,8 @@ export function ExpensesTab({ userEmail, expenses, sales, onUpdateExpenses, onOp
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

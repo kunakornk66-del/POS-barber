@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { 
   ComposedChart, 
   Bar, 
@@ -2914,6 +2915,23 @@ export default function DashboardTab({
                           {/* 7. Action column */}
                           <td className="p-3 text-center whitespace-nowrap">
                             <div className="flex items-center justify-center gap-1.5 whitespace-nowrap">
+                              {sale.paymentMethod === 'transfer' && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setPaymentEditSale(sale);
+                                  }}
+                                  className={`py-1 px-2.5 rounded-lg font-semibold text-[11px] transition-all inline-flex items-center space-x-1 border cursor-pointer whitespace-nowrap shrink-0 ${
+                                    sale.groupPaymentId
+                                      ? 'bg-sky-100/90 hover:bg-sky-200 text-sky-800 border-sky-300'
+                                      : 'bg-sky-50 hover:bg-sky-100 text-sky-700 border-sky-200/70'
+                                  }`}
+                                  title="รวมบิลโอนกับรายการอื่นในวันนี้ (1 สลิปจ่ายรวมกันหลายคน/หลายบิล)"
+                                >
+                                  <span className="whitespace-nowrap">{sale.groupPaymentId ? '🔗 รวมบิลแล้ว' : '🔗 รวมบิล'}</span>
+                                </button>
+                              )}
+
                               <button
                                 type="button"
                                 onClick={() => {
@@ -3858,9 +3876,9 @@ export default function DashboardTab({
         />
       )}
 
-      {/* Custom Confirmation Modal */}
-      {confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none">
+      {/* Custom Confirmation Modal - Portaled directly to document.body to ensure it appears in the center of the user's viewport without scrolling */}
+      {confirmDialog.isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none">
           <div className="w-full max-w-md bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6">
               <div className="flex items-start space-x-3">
@@ -3906,12 +3924,13 @@ export default function DashboardTab({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Edit Payment Method Selector Modal */}
-      {paymentEditSale && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none animate-fade-in">
+      {paymentEditSale && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none animate-fade-in">
           <div className="w-full max-w-xl bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="p-6 space-y-4 max-h-[75vh] overflow-y-auto">
               <div className="text-center space-y-1.5 border-b border-slate-100 pb-3">
@@ -4193,7 +4212,7 @@ export default function DashboardTab({
                   <div className="flex items-center space-x-1.5">
                     <span className="w-1.5 h-1.5 bg-sky-500 rounded-full animate-pulse"></span>
                     <span className="text-xs font-bold text-sky-950 font-sans">
-                      🔗 ตั้งค่าการโอนร่วมกัน (1 สลิปจ่ายรวมกันหลายบิล)
+                      🔗 รวมบิล / ตั้งค่าการโอนร่วมกัน (1 สลิปจ่ายรวมกันหลายบิล)
                     </span>
                   </div>
 
@@ -4387,12 +4406,13 @@ export default function DashboardTab({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Daily Sales Closure Modal */}
-      {isCloseSalesModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
+      {isCloseSalesModalOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm overflow-y-auto">
           <div className="w-full max-w-2xl bg-slate-900 border border-slate-800 rounded-3xl shadow-2xl overflow-hidden my-8 max-h-[90vh] flex flex-col text-left text-white animate-fade-in">
             
             {/* Header */}
@@ -4567,7 +4587,8 @@ export default function DashboardTab({
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

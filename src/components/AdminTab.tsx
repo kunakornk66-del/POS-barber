@@ -43,7 +43,7 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
   const [subscriptions, setSubscriptions] = useState<CustomerSubscription[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [searchTerm, setSearchTerm] = useState<string>('');
-  const [statusFilter, setStatusFilter] = useState<'all' | 'active' | 'suspended' | 'expired'>('all');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'pending' | 'active' | 'suspended' | 'expired'>('all');
 
   // New Email Form State
   const [showAddModal, setShowAddModal] = useState<boolean>(false);
@@ -136,9 +136,10 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
   }, [isSuperAdmin]);
 
   // Status check helper
-  const getSubStatus = (sub: CustomerSubscription): 'active' | 'suspended' | 'expired' => {
-    if (sub.status === 'suspended') return 'suspended';
+  const getSubStatus = (sub: CustomerSubscription): 'pending' | 'active' | 'suspended' | 'expired' => {
     if (sub.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return 'active';
+    if (sub.status === 'pending') return 'pending';
+    if (sub.status === 'suspended') return 'suspended';
     const expiry = new Date(sub.expiryDate);
     const now = new Date();
     // Set time to end of expiry day for comparison
@@ -180,6 +181,9 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
         // Super admin always pinned first
         if (a.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return -1;
         if (b.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return 1;
+        // Pending users pinned right after admin for urgent visibility
+        if (a.status === 'pending' && b.status !== 'pending') return -1;
+        if (b.status === 'pending' && a.status !== 'pending') return 1;
         // Then sort by createdAt or lastActiveAt descending
         const dateA = a.updatedAt || a.lastActiveAt || a.createdAt || '';
         const dateB = b.updatedAt || b.lastActiveAt || b.createdAt || '';
@@ -190,12 +194,14 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
   // Statistics counters
   const stats = useMemo(() => {
     let active = 0;
+    let pending = 0;
     let suspended = 0;
     let expired = 0;
 
     subscriptions.forEach((sub) => {
       const status = getSubStatus(sub);
-      if (status === 'active') active++;
+      if (status === 'pending') pending++;
+      else if (status === 'active') active++;
       else if (status === 'suspended') suspended++;
       else if (status === 'expired') expired++;
     });
@@ -203,6 +209,7 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
     return {
       total: subscriptions.length,
       active,
+      pending,
       suspended,
       expired
     };
@@ -316,6 +323,34 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
     } catch (err) {
       handleFirestoreError(err, OperationType.UPDATE, `subscriptions/${sub.email}`);
       showToast('❌ เกิดข้อผิดพลาดในการบันทึกข้อมูล');
+    }
+  };
+
+  // 4.5. Approve Pending User Access
+  const handleApproveUser = async (sub: CustomerSubscription, months: number = 1) => {
+    if (sub.email.toLowerCase() === ADMIN_EMAIL.toLowerCase()) return;
+    try {
+      const now = new Date();
+      const startDate = now.toISOString().split('T')[0];
+      const expiry = new Date();
+      expiry.setMonth(expiry.getMonth() + months);
+      const expiryDate = expiry.toISOString().split('T')[0];
+
+      const cleanData = cleanUndefined({
+        ...sub,
+        status: 'approved',
+        startDate,
+        expiryDate,
+        monthsAllowed: months,
+        updatedAt: now.toISOString()
+      });
+
+      const docRef = doc(db, 'subscriptions', sub.email.toLowerCase());
+      await setDoc(docRef, cleanData, { merge: true });
+      showToast(`✅ อนุมัติสิทธิ์ให้ ${sub.email} ใช้งานได้ ${months} เดือน (ถึง ${formatThaiDate(expiryDate)}) เรียบร้อยแล้ว`);
+    } catch (err) {
+      handleFirestoreError(err, OperationType.UPDATE, `subscriptions/${sub.email}`);
+      showToast('❌ ไม่สามารถอนุมัติได้ กรุณาลองใหม่');
     }
   };
 
@@ -442,63 +477,142 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
         </div>
       </div>
 
+      {/* Pending Approval Alert Banner */}
+      {stats.pending > 0 && (
+        <div className="p-4 sm:p-5 bg-gradient-to-r from-amber-500/15 via-amber-500/10 to-transparent border-2 border-amber-400 rounded-3xl flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 shadow-sm">
+          <div className="flex items-center gap-3.5">
+            <div className="w-11 h-11 rounded-2xl bg-amber-500 text-slate-950 flex items-center justify-center font-black shrink-0 shadow-md">
+              <UserCheck className="w-6 h-6" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="font-black text-sm sm:text-base text-slate-900">
+                  มีอีเมลใหม่รอการอนุมัติ ({stats.pending} บัญชี)
+                </h3>
+                <span className="px-2 py-0.5 rounded-full bg-amber-500 text-slate-950 font-black text-[10px] uppercase tracking-wider animate-pulse">
+                  รออนุมัติ
+                </span>
+              </div>
+              <p className="text-xs text-slate-600 font-medium mt-0.5">
+                อีเมลใหม่เหล่านี้จะยังไม่สามารถเข้าใช้งานระบบได้ จนกว่า Admin จะกดปุ่มอนุมัติ
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => setStatusFilter('pending')}
+            className="w-full sm:w-auto px-4 py-2.5 bg-amber-500 hover:bg-amber-400 text-slate-950 font-black rounded-xl text-xs transition-all shadow-sm cursor-pointer shrink-0 flex items-center justify-center gap-1.5 active:scale-95"
+          >
+            <Clock className="w-4 h-4" />
+            <span>ดูเฉพาะรายการรออนุมัติ ({stats.pending})</span>
+          </button>
+        </div>
+      )}
+
       {/* KPI Stats Cards */}
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3 sm:gap-4">
         
         {/* Total Users */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200/90 shadow-2xs space-y-1">
+        <div 
+          onClick={() => setStatusFilter('all')}
+          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs space-y-1 ${
+            statusFilter === 'all' ? 'bg-slate-900 text-white border-slate-900 ring-2 ring-slate-800' : 'bg-white border-slate-200/90 hover:border-slate-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-slate-500 uppercase tracking-wide">อีเมลทั้งหมด</span>
-            <span className="p-2 rounded-xl bg-slate-100 text-slate-600">
+            <span className={`text-xs font-bold uppercase tracking-wide ${statusFilter === 'all' ? 'text-slate-300' : 'text-slate-500'}`}>อีเมลทั้งหมด</span>
+            <span className={`p-2 rounded-xl ${statusFilter === 'all' ? 'bg-slate-800 text-slate-200' : 'bg-slate-100 text-slate-600'}`}>
               <Mail className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-slate-900 font-mono">
+          <div className={`text-2xl sm:text-3xl font-black font-mono ${statusFilter === 'all' ? 'text-white' : 'text-slate-900'}`}>
             {stats.total}
           </div>
-          <p className="text-[11px] text-slate-400 font-medium">บัญชีที่บันทึกในระบบ</p>
+          <p className={`text-[11px] font-medium ${statusFilter === 'all' ? 'text-slate-300' : 'text-slate-400'}`}>บัญชีที่บันทึกในระบบ</p>
         </div>
 
-        {/* Active Users */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-emerald-200 shadow-2xs space-y-1">
+        {/* Pending Users */}
+        <div 
+          onClick={() => setStatusFilter('pending')}
+          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs space-y-1 ${
+            statusFilter === 'pending'
+              ? 'bg-amber-500 text-slate-950 border-amber-600 ring-2 ring-amber-400'
+              : stats.pending > 0
+              ? 'bg-amber-50/80 border-amber-300 hover:border-amber-400 ring-1 ring-amber-300/40'
+              : 'bg-white border-slate-200/90 hover:border-amber-200'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-emerald-700 uppercase tracking-wide">ใช้งานได้ปกติ</span>
-            <span className="p-2 rounded-xl bg-emerald-100 text-emerald-700">
-              <UserCheck className="w-4 h-4" />
+            <span className={`text-xs font-bold uppercase tracking-wide ${statusFilter === 'pending' ? 'text-slate-950' : 'text-amber-800'}`}>
+              รออนุมัติ
             </span>
-          </div>
-          <div className="text-2xl sm:text-3xl font-black text-emerald-700 font-mono">
-            {stats.active}
-          </div>
-          <p className="text-[11px] text-emerald-600/80 font-medium">ยังไม่หมดอายุและไม่ถูกระงับ</p>
-        </div>
-
-        {/* Expired Users */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-amber-200 shadow-2xs space-y-1">
-          <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">หมดอายุแล้ว</span>
-            <span className="p-2 rounded-xl bg-amber-100 text-amber-700">
+            <span className={`p-2 rounded-xl ${statusFilter === 'pending' ? 'bg-amber-600 text-slate-950' : 'bg-amber-100 text-amber-800'}`}>
               <Clock className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-amber-700 font-mono">
+          <div className={`text-2xl sm:text-3xl font-black font-mono ${statusFilter === 'pending' ? 'text-slate-950' : 'text-amber-700'}`}>
+            {stats.pending}
+          </div>
+          <p className={`text-[11px] font-medium ${statusFilter === 'pending' ? 'text-slate-900' : 'text-amber-700/80'}`}>
+            {stats.pending > 0 ? '⚠️ ต้องกดอนุมัติก่อน' : 'ไม่มีรายการค้างอนุมัติ'}
+          </p>
+        </div>
+
+        {/* Active Users */}
+        <div 
+          onClick={() => setStatusFilter('active')}
+          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs space-y-1 ${
+            statusFilter === 'active' ? 'bg-emerald-700 text-white border-emerald-700 ring-2 ring-emerald-500' : 'bg-white border-emerald-200 hover:border-emerald-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold uppercase tracking-wide ${statusFilter === 'active' ? 'text-emerald-100' : 'text-emerald-700'}`}>ใช้งานได้ปกติ</span>
+            <span className={`p-2 rounded-xl ${statusFilter === 'active' ? 'bg-emerald-800 text-emerald-100' : 'bg-emerald-100 text-emerald-700'}`}>
+              <UserCheck className="w-4 h-4" />
+            </span>
+          </div>
+          <div className={`text-2xl sm:text-3xl font-black font-mono ${statusFilter === 'active' ? 'text-white' : 'text-emerald-700'}`}>
+            {stats.active}
+          </div>
+          <p className={`text-[11px] font-medium ${statusFilter === 'active' ? 'text-emerald-200' : 'text-emerald-600/80'}`}>ยังไม่หมดอายุและไม่ถูกระงับ</p>
+        </div>
+
+        {/* Expired Users */}
+        <div 
+          onClick={() => setStatusFilter('expired')}
+          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs space-y-1 ${
+            statusFilter === 'expired' ? 'bg-amber-600 text-white border-amber-600 ring-2 ring-amber-400' : 'bg-white border-amber-200 hover:border-amber-300'
+          }`}
+        >
+          <div className="flex items-center justify-between">
+            <span className={`text-xs font-bold uppercase tracking-wide ${statusFilter === 'expired' ? 'text-amber-100' : 'text-amber-700'}`}>หมดอายุแล้ว</span>
+            <span className={`p-2 rounded-xl ${statusFilter === 'expired' ? 'bg-amber-700 text-amber-100' : 'bg-amber-100 text-amber-700'}`}>
+              <Clock className="w-4 h-4" />
+            </span>
+          </div>
+          <div className={`text-2xl sm:text-3xl font-black font-mono ${statusFilter === 'expired' ? 'text-white' : 'text-amber-700'}`}>
             {stats.expired}
           </div>
-          <p className="text-[11px] text-amber-600/80 font-medium">ต้องต่ออายุเพื่อเข้าใช้งาน</p>
+          <p className={`text-[11px] font-medium ${statusFilter === 'expired' ? 'text-amber-200' : 'text-amber-600/80'}`}>ต้องต่ออายุเพื่อเข้าใช้งาน</p>
         </div>
 
         {/* Suspended Users */}
-        <div className="bg-white p-4 sm:p-5 rounded-2xl border border-rose-200 shadow-2xs space-y-1">
+        <div 
+          onClick={() => setStatusFilter('suspended')}
+          className={`p-4 sm:p-5 rounded-2xl border transition-all cursor-pointer shadow-2xs space-y-1 ${
+            statusFilter === 'suspended' ? 'bg-rose-700 text-white border-rose-700 ring-2 ring-rose-500' : 'bg-white border-rose-200 hover:border-rose-300'
+          }`}
+        >
           <div className="flex items-center justify-between">
-            <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">ถูกระงับการใช้งาน</span>
-            <span className="p-2 rounded-xl bg-rose-100 text-rose-700">
+            <span className={`text-xs font-bold uppercase tracking-wide ${statusFilter === 'suspended' ? 'text-rose-100' : 'text-rose-700'}`}>ถูกระงับการใช้งาน</span>
+            <span className={`p-2 rounded-xl ${statusFilter === 'suspended' ? 'bg-rose-800 text-rose-100' : 'bg-rose-100 text-rose-700'}`}>
               <UserX className="w-4 h-4" />
             </span>
           </div>
-          <div className="text-2xl sm:text-3xl font-black text-rose-700 font-mono">
+          <div className={`text-2xl sm:text-3xl font-black font-mono ${statusFilter === 'suspended' ? 'text-white' : 'text-rose-700'}`}>
             {stats.suspended}
           </div>
-          <p className="text-[11px] text-rose-600/80 font-medium">ถูกปิดกั้นสิทธิ์โดยแอดมิน</p>
+          <p className={`text-[11px] font-medium ${statusFilter === 'suspended' ? 'text-rose-200' : 'text-rose-600/80'}`}>ถูกปิดกั้นสิทธิ์โดยแอดมิน</p>
         </div>
 
       </div>
@@ -540,6 +654,19 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
               }`}
             >
               ทั้งหมด ({stats.total})
+            </button>
+            <button
+              type="button"
+              onClick={() => setStatusFilter('pending')}
+              className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                statusFilter === 'pending'
+                  ? 'bg-amber-500 text-slate-950 font-black shadow-xs'
+                  : stats.pending > 0
+                  ? 'bg-amber-100 text-amber-900 font-bold hover:bg-amber-200 border border-amber-300'
+                  : 'bg-amber-50 text-amber-800 hover:bg-amber-100'
+              }`}
+            >
+              ⏳ รออนุมัติ ({stats.pending})
             </button>
             <button
               type="button"
@@ -614,6 +741,8 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
                   className={`bg-white p-4 sm:p-5 rounded-3xl border transition-all shadow-2xs hover:shadow-xs flex flex-col lg:flex-row lg:items-center justify-between gap-4 ${
                     isSelfAdmin
                       ? 'border-indigo-300/80 bg-gradient-to-r from-indigo-50/50 via-white to-white'
+                      : currentStatus === 'pending'
+                      ? 'border-amber-400 bg-amber-50/30 ring-1 ring-amber-300/60 shadow-amber-500/5'
                       : currentStatus === 'suspended'
                       ? 'border-rose-200 bg-rose-50/20'
                       : currentStatus === 'expired'
@@ -633,6 +762,11 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
                       {isSelfAdmin ? (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-indigo-600 text-white shadow-2xs">
                           ⭐ Super Admin (แอดมินสูงสุด)
+                        </span>
+                      ) : currentStatus === 'pending' ? (
+                        <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-amber-100 text-amber-900 border border-amber-300 flex items-center gap-1 shadow-2xs animate-pulse">
+                          <Clock className="w-3 h-3 text-amber-600" />
+                          ⏳ รอแอดมินกดอนุมัติ (Pending)
                         </span>
                       ) : currentStatus === 'suspended' ? (
                         <span className="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold bg-rose-100 text-rose-800 border border-rose-200 flex items-center gap-1">
@@ -663,21 +797,30 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
                     <div className="text-xs text-slate-500 flex items-center gap-3 sm:gap-4 flex-wrap">
                       {!isSelfAdmin && (
                         <>
-                          <div className="flex items-center gap-1">
-                            <Calendar className="w-3.5 h-3.5 text-slate-400" />
-                            <span>หมดอายุ: <b>{formatThaiDate(sub.expiryDate)}</b></span>
-                          </div>
+                          {currentStatus === 'pending' ? (
+                            <div className="flex items-center gap-1.5 text-amber-800 font-semibold bg-amber-100/70 px-2.5 py-1 rounded-xl border border-amber-300">
+                              <Clock className="w-3.5 h-3.5 text-amber-600 shrink-0" />
+                              <span>อีเมลนี้เข้าสู่ระบบแล้ว: <b>รอ Admin กดอนุมัติเปิดสิทธิ์</b></span>
+                            </div>
+                          ) : (
+                            <>
+                              <div className="flex items-center gap-1">
+                                <Calendar className="w-3.5 h-3.5 text-slate-400" />
+                                <span>หมดอายุ: <b>{formatThaiDate(sub.expiryDate)}</b></span>
+                              </div>
 
-                          <div className="flex items-center gap-1">
-                            <Clock className="w-3.5 h-3.5 text-slate-400" />
-                            {currentStatus === 'suspended' ? (
-                              <span className="font-bold text-rose-600">ถูกระงับสิทธิ์</span>
-                            ) : daysRemaining > 0 ? (
-                              <span className="font-bold text-emerald-600 font-mono">เหลืออีก {daysRemaining} วัน</span>
-                            ) : (
-                              <span className="font-bold text-amber-600 font-mono">เลยกำหนดมาแล้ว {Math.abs(daysRemaining)} วัน</span>
-                            )}
-                          </div>
+                              <div className="flex items-center gap-1">
+                                <Clock className="w-3.5 h-3.5 text-slate-400" />
+                                {currentStatus === 'suspended' ? (
+                                  <span className="font-bold text-rose-600">ถูกระงับสิทธิ์</span>
+                                ) : daysRemaining > 0 ? (
+                                  <span className="font-bold text-emerald-600 font-mono">เหลืออีก {daysRemaining} วัน</span>
+                                ) : (
+                                  <span className="font-bold text-amber-600 font-mono">เลยกำหนดมาแล้ว {Math.abs(daysRemaining)} วัน</span>
+                                )}
+                              </div>
+                            </>
+                          )}
                         </>
                       )}
 
@@ -699,91 +842,172 @@ export default function AdminTab({ currentEmail }: AdminTabProps) {
                   {!isSelfAdmin && (
                     <div className="flex flex-wrap items-center gap-2 shrink-0 pt-3 lg:pt-0 border-t lg:border-t-0 border-slate-100">
                       
-                      {/* Quick Extend Months */}
-                      <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/80">
-                        <span className="text-[10px] font-extrabold text-slate-400 px-1.5">ต่ออายุ:</span>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickExtend(sub, 1)}
-                          className="px-2 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
-                          title="เพิ่มเวลาใช้งาน 1 เดือน"
-                        >
-                          +1 ด.
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickExtend(sub, 3)}
-                          className="px-2 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
-                          title="เพิ่มเวลาใช้งาน 3 เดือน"
-                        >
-                          +3 ด.
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickExtend(sub, 6)}
-                          className="px-2 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
-                          title="เพิ่มเวลาใช้งาน 6 เดือน"
-                        >
-                          +6 ด.
-                        </button>
-                        <button
-                          type="button"
-                          onClick={() => handleQuickExtend(sub, 12)}
-                          className="px-2 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
-                          title="เพิ่มเวลาใช้งาน 12 เดือน (1 ปี)"
-                        >
-                          +12 ด.
-                        </button>
-                      </div>
+                      {currentStatus === 'pending' ? (
+                        <>
+                          {/* Approve 1 month primary button */}
+                          <button
+                            type="button"
+                            onClick={() => handleApproveUser(sub, 1)}
+                            className="px-4 py-2.5 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-black shadow-md shadow-emerald-600/20 transition-all cursor-pointer flex items-center gap-1.5 active:scale-95"
+                            title="กดอนุมัติสิทธิ์การใช้งาน 1 เดือนทันที"
+                          >
+                            <CheckCircle className="w-4 h-4" />
+                            <span>กดอนุมัติ (1 เดือน)</span>
+                          </button>
 
-                      {/* Custom Duration Modal Trigger */}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setDurationModalSub(sub);
-                          setModalMonths(1);
-                          setModalCustomDate(sub.expiryDate || '');
-                        }}
-                        className="px-2.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1"
-                        title="กำหนดระยะเวลาเอง"
-                      >
-                        <CalendarPlus className="w-3.5 h-3.5" />
-                        <span>กำหนดวัน</span>
-                      </button>
+                          {/* Quick alternative durations for approval */}
+                          <div className="flex items-center gap-1 bg-slate-100/90 p-1 rounded-2xl border border-slate-200">
+                            <span className="text-[10px] font-extrabold text-slate-400 px-1">หรือ:</span>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveUser(sub, 3)}
+                              className="px-2 py-1 bg-white hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                              title="อนุมัติ 3 เดือน"
+                            >
+                              +3 ด.
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveUser(sub, 6)}
+                              className="px-2 py-1 bg-white hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                              title="อนุมัติ 6 เดือน"
+                            >
+                              +6 ด.
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleApproveUser(sub, 12)}
+                              className="px-2 py-1 bg-white hover:bg-emerald-50 hover:text-emerald-700 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                              title="อนุมัติ 1 ปี (12 เดือน)"
+                            >
+                              +12 ด.
+                            </button>
+                          </div>
 
-                      {/* Suspend / Unsuspend Button */}
-                      <button
-                        type="button"
-                        onClick={() => handleToggleSuspend(sub)}
-                        className={`px-3 py-2 rounded-xl text-xs font-bold border shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 ${
-                          currentStatus === 'suspended'
-                            ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
-                            : 'bg-white hover:bg-rose-50 text-rose-700 border-rose-300'
-                        }`}
-                        title={currentStatus === 'suspended' ? 'คลิกเพื่อปลดระงับและให้ใช้งาน' : 'คลิกเพื่อระงับการใช้งานทันที'}
-                      >
-                        {currentStatus === 'suspended' ? (
-                          <>
-                            <UserCheck className="w-3.5 h-3.5" />
-                            <span>ปลดระงับ</span>
-                          </>
-                        ) : (
-                          <>
-                            <UserX className="w-3.5 h-3.5" />
-                            <span>ระงับการใช้งาน</span>
-                          </>
-                        )}
-                      </button>
+                          {/* Custom Duration Modal Trigger */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDurationModalSub(sub);
+                              setModalMonths(1);
+                              setModalCustomDate(sub.expiryDate || '');
+                            }}
+                            className="px-2.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                            title="กำหนดระยะเวลาอนุมัติเอง"
+                          >
+                            <CalendarPlus className="w-3.5 h-3.5" />
+                            <span>กำหนดวัน</span>
+                          </button>
 
-                      {/* Delete Button (with confirmation) */}
-                      <button
-                        type="button"
-                        onClick={() => setDeleteModalSub(sub)}
-                        className="p-2 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-300 rounded-xl transition-all cursor-pointer"
-                        title="ลบข้อมูลบัญชีอีเมลนี้ออกจากระบบ"
-                      >
-                        <Trash2 className="w-4 h-4" />
-                      </button>
+                          {/* Suspend / Reject Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSuspend(sub)}
+                            className="p-2 bg-white hover:bg-rose-50 text-rose-600 border border-rose-200 hover:border-rose-300 rounded-xl text-xs font-bold shadow-2xs transition-all cursor-pointer"
+                            title="ปฏิเสธ / ระงับอีเมลนี้"
+                          >
+                            <UserX className="w-4 h-4" />
+                          </button>
+
+                          {/* Delete Button */}
+                          <button
+                            type="button"
+                            onClick={() => setDeleteModalSub(sub)}
+                            className="p-2 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-300 rounded-xl transition-all cursor-pointer"
+                            title="ลบข้อมูลบัญชีอีเมลนี้ออกจากระบบ"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      ) : (
+                        <>
+                          {/* Quick Extend Months */}
+                          <div className="flex items-center gap-1 bg-slate-100/80 p-1 rounded-2xl border border-slate-200/80">
+                            <span className="text-[10px] font-extrabold text-slate-400 px-1.5">ต่ออายุ:</span>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickExtend(sub, 1)}
+                              className="px-2 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                              title="เพิ่มเวลาใช้งาน 1 เดือน"
+                            >
+                              +1 ด.
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickExtend(sub, 3)}
+                              className="px-2 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                              title="เพิ่มเวลาใช้งาน 3 เดือน"
+                            >
+                              +3 ด.
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickExtend(sub, 6)}
+                              className="px-2 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                              title="เพิ่มเวลาใช้งาน 6 เดือน"
+                            >
+                              +6 ด.
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => handleQuickExtend(sub, 12)}
+                              className="px-2 py-1 bg-white hover:bg-indigo-50 hover:text-indigo-600 text-slate-700 text-xs font-bold rounded-xl border border-slate-200 shadow-2xs transition-all cursor-pointer"
+                              title="เพิ่มเวลาใช้งาน 12 เดือน (1 ปี)"
+                            >
+                              +12 ด.
+                            </button>
+                          </div>
+
+                          {/* Custom Duration Modal Trigger */}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setDurationModalSub(sub);
+                              setModalMonths(1);
+                              setModalCustomDate(sub.expiryDate || '');
+                            }}
+                            className="px-2.5 py-2 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 rounded-xl text-xs font-bold border border-indigo-200 shadow-2xs transition-all cursor-pointer flex items-center gap-1"
+                            title="กำหนดระยะเวลาเอง"
+                          >
+                            <CalendarPlus className="w-3.5 h-3.5" />
+                            <span>กำหนดวัน</span>
+                          </button>
+
+                          {/* Suspend / Unsuspend Button */}
+                          <button
+                            type="button"
+                            onClick={() => handleToggleSuspend(sub)}
+                            className={`px-3 py-2 rounded-xl text-xs font-bold border shadow-2xs transition-all cursor-pointer flex items-center gap-1.5 ${
+                              currentStatus === 'suspended'
+                                ? 'bg-emerald-600 hover:bg-emerald-700 text-white border-emerald-600'
+                                : 'bg-white hover:bg-rose-50 text-rose-700 border-rose-300'
+                            }`}
+                            title={currentStatus === 'suspended' ? 'คลิกเพื่อปลดระงับและให้ใช้งาน' : 'คลิกเพื่อระงับการใช้งานทันที'}
+                          >
+                            {currentStatus === 'suspended' ? (
+                              <>
+                                <UserCheck className="w-3.5 h-3.5" />
+                                <span>ปลดระงับ</span>
+                              </>
+                            ) : (
+                              <>
+                                <UserX className="w-3.5 h-3.5" />
+                                <span>ระงับการใช้งาน</span>
+                              </>
+                            )}
+                          </button>
+
+                          {/* Delete Button (with confirmation) */}
+                          <button
+                            type="button"
+                            onClick={() => setDeleteModalSub(sub)}
+                            className="p-2 bg-white hover:bg-rose-50 text-slate-400 hover:text-rose-600 border border-slate-200 hover:border-rose-300 rounded-xl transition-all cursor-pointer"
+                            title="ลบข้อมูลบัญชีอีเมลนี้ออกจากระบบ"
+                          >
+                            <Trash2 className="w-4 h-4" />
+                          </button>
+                        </>
+                      )}
 
                     </div>
                   )}

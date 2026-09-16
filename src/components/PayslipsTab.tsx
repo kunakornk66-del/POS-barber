@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import { SaleRecord, Barber, ShareConfig, ShopConfig, Payslip } from '../types';
 import { 
   formatBaht, 
@@ -2621,8 +2622,8 @@ export default function PayslipsTab({
       )}
 
       {/* Confirmation Dialog Modal Box */}
-      {confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none">
+      {confirmDialog.isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-xs select-none">
           <div className="w-full max-w-sm bg-white rounded-2xl shadow-xl border border-slate-100 overflow-hidden animate-in fade-in zoom-in-95 duration-150">
             <div className="p-5">
               <div className="flex items-start space-x-3 text-left">
@@ -2660,7 +2661,8 @@ export default function PayslipsTab({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Barber, Product, ShareConfig, ShopConfig, Voucher, ChemicalPromo } from '../types';
 import { formatBaht, formatThaiDate } from '../utils';
 import { 
@@ -563,46 +564,7 @@ export default function ConfigTab({
   };
 
   // ==========================================
-  // 5. GIFT VOUCHERS MANAGEMENT
-  // ==========================================
-  const [newVoucherValue, setNewVoucherValue] = useState<string>('');
-
-  const handleAddVoucher = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newVoucherValue) return;
-    
-    const newValue = Math.max(0, parseInt(newVoucherValue, 10) || 0);
-    if (vouchers.some(v => v.value === newValue)) {
-      setAlertDialog({
-        isOpen: true,
-        title: 'ข้อมูลซ้ำซ้อน',
-        message: 'บัตรของขวัญ / Voucher มูลค่านี้มีอยู่แล้วในระบบ'
-      });
-      return;
-    }
-
-    const newVoucher: Voucher = {
-      id: `voucher-${Date.now()}`,
-      value: newValue,
-      isActive: true
-    };
-
-    onUpdateVouchers([...vouchers, newVoucher]);
-    setNewVoucherValue('');
-  };
-
-  const handleToggleVoucherActive = (id: string) => {
-    const updated = vouchers.map(v => v.id === id ? { ...v, isActive: !v.isActive } : v);
-    onUpdateVouchers(updated);
-  };
-
-  const handleDeleteVoucher = (id: string) => {
-    const updated = vouchers.filter(v => v.id !== id);
-    onUpdateVouchers(updated);
-  };
-
-  // ==========================================
-  // 6. SYSTEM RESET & CLEAR DATA HANDLERS
+  // 5. SYSTEM RESET & CLEAR DATA HANDLERS
   // ==========================================
   const [isClearingOldSales, setIsClearingOldSales] = useState<boolean>(false);
 
@@ -1444,52 +1406,6 @@ export default function ConfigTab({
             </div>
           </div>
 
-          {/* Promo Discount Settings */}
-          <div className="border-t border-dashed border-slate-200 pt-5 space-y-3">
-            <h4 className="text-xs font-extrabold text-slate-800 flex items-center space-x-1.5">
-              <Percent className="w-3.5 h-3.5 text-emerald-600" />
-              <span>ระบบส่วนลดโปรโมชั่นของร้าน (เฉพาะตัดผม):</span>
-            </h4>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              
-              <label className="flex items-center justify-between p-4 bg-slate-50 rounded-2xl border border-slate-200 cursor-pointer">
-                <div>
-                  <span className="block text-xs font-bold text-slate-800">เปิดระบบการให้ส่วนลดโปรโมชั่น</span>
-                  <span className="block text-[11px] text-slate-500">หากติ๊กออก ปุ่มเลือกโปรโมชั่นจะไม่แสดงในหน้าตัดบิล</span>
-                </div>
-                <input
-                  type="checkbox"
-                  checked={showPromoDiscount}
-                  onChange={(e) => setShowPromoDiscount(e.target.checked)}
-                  className="w-5 h-5 bg-white border-slate-300 rounded cursor-pointer"
-                />
-              </label>
-
-              <div className="bg-slate-50 p-4 border border-slate-200 rounded-2xl space-y-2">
-                <span className="block text-xs font-bold text-slate-700">สัดส่วน % ส่วนลดที่ต้องการลด:</span>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="any"
-                    disabled={!showPromoDiscount}
-                    placeholder="0"
-                    value={promoDiscountPct === 0 ? '' : promoDiscountPct}
-                    onChange={(e) => setPromoDiscountPct(parseFloat(e.target.value) || 0)}
-                    onFocus={(e) => e.target.select()}
-                    className="w-full h-10 pl-3 pr-8 bg-white border border-slate-200 rounded-xl font-mono text-sm font-bold focus:outline-none focus:border-slate-400 disabled:bg-slate-100 shadow-2xs"
-                  />
-                  <span className="absolute right-3 top-2.5 text-xs font-bold text-slate-400">%</span>
-                </div>
-                <p className="text-[10.5px] text-slate-500 font-medium">
-                  ส่วนลด {promoDiscountPct}% สำหรับคิดลดเฉพาะค่าบริการตัดผมเท่านั้น
-                </p>
-              </div>
-
-            </div>
-          </div>
-
           <div className="flex justify-end pt-2">
             <button
               type="submit"
@@ -1993,105 +1909,7 @@ export default function ConfigTab({
         </div>
       </div>
 
-      {/* 5. VOUCHERS MANAGEMENT */}
-      <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
-        <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
-          <div 
-            className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 shadow-sm"
-            style={{ backgroundColor: currentPrimaryColor }}
-          >
-            <Gift className="w-5 h-5" />
-          </div>
-          <div>
-            <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-              5. บัตรกำนัล & คูปองส่วนลด (Gift Vouchers & Promos)
-            </h3>
-            <p className="text-xs text-slate-500">
-              กำหนดมูลค่าบัตรกำนัลสำหรับให้ลูกค้าใช้ลดค่าบริการหน้าร้าน
-            </p>
-          </div>
-        </div>
-
-        {/* Add Voucher Form */}
-        <form onSubmit={handleAddVoucher} className="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-          <label className="block text-xs font-bold text-slate-700">
-            เพิ่มมูลค่า Gift Voucher ใหม่:
-          </label>
-          <div className="flex flex-col sm:flex-row gap-3">
-            <input
-              type="number"
-              required
-              min="10"
-              max="5000"
-              placeholder="ระบุมูลค่าคูปอง เช่น 50, 100, 200, 500"
-              value={newVoucherValue}
-              onChange={(e) => setNewVoucherValue(e.target.value)}
-              onFocus={(e) => e.target.select()}
-              className="flex-1 h-10 px-3.5 bg-white border border-slate-200 rounded-xl outline-none text-xs font-mono font-bold shadow-2xs"
-            />
-            <button
-              type="submit"
-              className="px-6 h-10 text-white rounded-xl text-xs font-bold transition-all flex items-center justify-center space-x-1.5 shadow-sm cursor-pointer hover:opacity-90 active:scale-98 shrink-0"
-              style={{ backgroundColor: currentPrimaryColor }}
-            >
-              <Plus className="w-4 h-4" />
-              <span>เพิ่ม Voucher</span>
-            </button>
-          </div>
-        </form>
-
-        {/* Vouchers list */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {vouchers.map((v) => (
-            <div 
-              key={v.id} 
-              className={`p-4 rounded-2xl border transition-all flex items-center justify-between shadow-2xs ${
-                v.isActive 
-                  ? 'bg-slate-50 border-slate-200' 
-                  : 'bg-slate-50/50 border-slate-200 opacity-60'
-              }`}
-            >
-              <div className="flex items-center space-x-2.5">
-                <Tag className="w-4 h-4 text-slate-500" />
-                <div>
-                  <span className={`text-sm font-black font-mono ${v.isActive ? 'text-slate-900' : 'text-slate-400 line-through'}`}>
-                    Voucher {formatBaht(v.value)}
-                  </span>
-                  <span className="block text-[10px] text-slate-400">
-                    {v.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                  </span>
-                </div>
-              </div>
-
-              <div className="flex items-center space-x-1">
-                <button
-                  type="button"
-                  onClick={() => handleToggleVoucherActive(v.id)}
-                  className={`p-2 rounded-xl transition-all cursor-pointer ${
-                    v.isActive 
-                      ? 'text-emerald-600 hover:bg-emerald-50' 
-                      : 'text-slate-400 hover:bg-slate-200'
-                  }`}
-                  title={v.isActive ? 'เปิดใช้งาน' : 'ปิดใช้งาน'}
-                >
-                  <Power className="w-4 h-4" />
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => handleDeleteVoucher(v.id)}
-                  className="p-2 text-rose-400 hover:text-rose-600 hover:bg-rose-50 rounded-xl transition-all cursor-pointer"
-                  title="ลบคูปอง"
-                >
-                  <Trash2 className="w-4 h-4" />
-                </button>
-              </div>
-            </div>
-          ))}
-        </div>
-      </div>
-
-      {/* 6. SYSTEM RESET & DATA MAINTENANCE */}
+      {/* 5. SYSTEM RESET & DATA MAINTENANCE */}
       <div className="bg-white rounded-3xl shadow-sm border border-slate-200/80 p-6 sm:p-8 space-y-6">
         <div className="flex items-center space-x-3 border-b border-slate-100 pb-4">
           <div className="w-10 h-10 rounded-2xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
@@ -2099,7 +1917,7 @@ export default function ConfigTab({
           </div>
           <div>
             <h3 className="text-base sm:text-lg font-black text-slate-900 tracking-tight">
-              6. การสำรองข้อมูล & รีเซ็ตระบบ (1-Year Backup & System Maintenance)
+              5. การสำรองข้อมูล & รีเซ็ตระบบ (1-Year Backup & System Maintenance)
             </h3>
             <p className="text-xs text-slate-500">
               ระบบสำรองข้อมูลย้อนหลัง 1 ปี อัตโนมัติ และเครื่องมือจัดการข้อมูลร้านค้า
@@ -2265,8 +2083,8 @@ export default function ConfigTab({
       </div>
 
       {/* Custom Confirmation Modal */}
-      {confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs transition-opacity">
+      {confirmDialog.isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs transition-opacity">
           <div className="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-slate-100 space-y-5">
             <div className="flex items-start space-x-3.5">
               <div className={`w-11 h-11 rounded-2xl flex items-center justify-center shrink-0 ${
@@ -2301,12 +2119,13 @@ export default function ConfigTab({
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Custom Alert Modal */}
-      {alertDialog.isOpen && (
-        <div className="fixed inset-0 z-[999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs transition-opacity">
+      {alertDialog.isOpen && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/60 backdrop-blur-xs transition-opacity">
           <div className="bg-white rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-100 space-y-4 text-center">
             <div className="w-12 h-12 bg-emerald-50 text-emerald-600 rounded-2xl flex items-center justify-center mx-auto shadow-inner">
               <Check className="w-6 h-6" />
@@ -2323,7 +2142,8 @@ export default function ConfigTab({
               ตกลง
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </div>

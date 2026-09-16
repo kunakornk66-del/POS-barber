@@ -1,20 +1,78 @@
 @import "tailwindcss";
 
-/* Global button click tactile action feedback */
-button, [role="button"] {
-  transition: transform 0.1s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.1s ease, box-shadow 0.1s ease, background-color 0.15s ease;
+/* Global button tactile interaction feedback */
+button, [role="button"], input[type="button"], input[type="submit"] {
+  position: relative;
+  transition: transform 0.16s cubic-bezier(0.34, 1.45, 0.64, 1), 
+              box-shadow 0.16s cubic-bezier(0.16, 1, 0.3, 1), 
+              filter 0.15s ease, 
+              background-color 0.15s ease,
+              opacity 0.15s ease;
   user-select: none;
+  -webkit-tap-highlight-color: transparent;
 }
 
-button:active:not(:disabled), [role="button"]:active {
+/* Instant active state for touch and click */
+button:active:not(:disabled), [role="button"]:active:not([aria-disabled="true"]), input[type="button"]:active:not(:disabled), input[type="submit"]:active:not(:disabled) {
+  transform: scale(0.96) translateY(1px) !important;
+  filter: brightness(0.95) !important;
+  box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.3), inset 0 1px 3px rgba(0, 0, 0, 0.12) !important;
+}
+
+/* JavaScript-triggered sustained press effect (visibly holds for smooth tactile response) */
+.btn-press-active {
   transform: scale(0.95) translateY(1px) !important;
-  opacity: 0.88 !important;
+  filter: brightness(0.95) !important;
+  box-shadow: 0 0 0 2.5px rgba(99, 102, 241, 0.35), inset 0 1px 3px rgba(0, 0, 0, 0.15) !important;
+  transition: transform 0.12s cubic-bezier(0.34, 1.4, 0.64, 1), filter 0.12s ease, box-shadow 0.12s ease !important;
 }
 
-button:disabled {
+button:disabled, [role="button"][aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.55;
   transform: none !important;
+}
+
+/* Beautiful expanding ripple animation for all button presses */
+.btn-ripple-container {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 50;
+}
+
+.btn-ripple-wave {
+  position: absolute;
+  border-radius: 50%;
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(0);
+  animation: btnRipplePop 0.42s cubic-bezier(0.1, 0.8, 0.25, 1) forwards;
+}
+
+/* Bright luminous ripple for dark background buttons */
+.btn-ripple-light {
+  background: radial-gradient(circle, rgba(255, 255, 255, 0.85) 0%, rgba(255, 255, 255, 0.35) 45%, transparent 75%);
+}
+
+/* Vibrant indigo ripple for light, white or transparent buttons */
+.btn-ripple-dark {
+  background: radial-gradient(circle, rgba(99, 102, 241, 0.45) 0%, rgba(79, 70, 229, 0.22) 45%, transparent 75%);
+}
+
+@keyframes btnRipplePop {
+  0% {
+    transform: translate(-50%, -50%) scale(0);
+    opacity: 0.85;
+  }
+  40% {
+    opacity: 0.65;
+  }
+  100% {
+    transform: translate(-50%, -50%) scale(2.6);
+    opacity: 0;
+  }
 }
 
 @keyframes slideUp {

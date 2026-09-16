@@ -21,7 +21,8 @@ import {
   RotateCcw, 
   CheckCircle2, 
   Clock4,
-  Filter
+  Filter,
+  Banknote
 } from 'lucide-react';
 
 interface BookingTabProps {
@@ -124,7 +125,60 @@ export default function BookingTab({
   const [formCustomerPhone, setFormCustomerPhone] = useState<string>('');
   const [formNotes, setFormNotes] = useState<string>('');
   const [formMemberId, setFormMemberId] = useState<string>('');
+  const [formServicePrice, setFormServicePrice] = useState<string>('');
   const [formStatus, setFormStatus] = useState<'pending' | 'in-progress' | 'completed'>('pending');
+  const [showAllSlotsModal, setShowAllSlotsModal] = useState<boolean>(false);
+
+  // Selected barber object for currently selected barber
+  const selectedBarber = useMemo(() => barbers.find(b => b.id === formBarberId), [barbers, formBarberId]);
+
+  // Calculate Open / Available Time Slots for current barber & date
+  const timeSlotList = useMemo(() => {
+    if (!formBarberId || !formDate) return [];
+    
+    // Barber shop standard booking hours: 10:00 to 20:00
+    const startHour = 10;
+    const endHour = 20;
+    const step = durationMinutes || 60;
+    
+    const existingForBarber = bookings.filter(b => 
+      b.barberId === formBarberId && 
+      b.date === formDate && 
+      b.id !== editingBooking?.id
+    );
+
+    const totalMinutesStart = startHour * 60;
+    const totalMinutesEnd = endHour * 60;
+    const list: { startTime: string; endTime: string; isAvailable: boolean; bookedBy?: string }[] = [];
+
+    for (let m = totalMinutesStart; m < totalMinutesEnd; m += step) {
+      const slotStartH = Math.floor(m / 60);
+      const slotStartM = m % 60;
+      const slotStartTime = `${String(slotStartH).padStart(2, '0')}:${String(slotStartM).padStart(2, '0')}`;
+      const slotEndTime = calcEndTime(slotStartTime, step);
+
+      const slotStartMinutes = m;
+      const slotEndMinutes = m + step;
+
+      const collision = existingForBarber.find(b => {
+        const bStart = parseTimeToMinutes(b.startTime);
+        const bEnd = parseTimeToMinutes(b.endTime);
+        if (bStart < 0 || bEnd < 0) return false;
+        return Math.max(slotStartMinutes, bStart) < Math.min(slotEndMinutes, bEnd);
+      });
+
+      list.push({
+        startTime: slotStartTime,
+        endTime: slotEndTime,
+        isAvailable: !collision,
+        bookedBy: collision?.customerName
+      });
+    }
+
+    return list;
+  }, [formBarberId, formDate, durationMinutes, bookings, editingBooking]);
+
+  const availableSlots = useMemo(() => timeSlotList.filter(s => s.isAvailable), [timeSlotList]);
 
   // UI Toast / Feedback
   const [toastMessage, setToastMessage] = useState<string | null>(null);
@@ -154,6 +208,7 @@ export default function BookingTab({
     setFormCustomerPhone('');
     setFormNotes('');
     setFormMemberId('');
+    setFormServicePrice('');
     setFormStatus('pending');
   };
 
@@ -168,6 +223,7 @@ export default function BookingTab({
     setFormCustomerPhone(booking.customerPhone || '');
     setFormNotes(booking.notes || '');
     setFormMemberId(booking.memberId || '');
+    setFormServicePrice(booking.servicePrice !== undefined && booking.servicePrice !== null ? String(booking.servicePrice) : '');
     setFormStatus(booking.status || 'pending');
     
     showToast(`✏️ กำลังแก้ไขคิวคุณ ${booking.customerName}`);
@@ -198,6 +254,7 @@ export default function BookingTab({
   const executeSaveBooking = () => {
     const barberObj = barbers.find(b => b.id === formBarberId);
     const barberName = barberObj ? barberObj.name : 'ช่าง';
+    const parsedPrice = formServicePrice.trim() ? parseFloat(formServicePrice) : undefined;
 
     if (editingBooking) {
       const updated: Booking = {
@@ -211,6 +268,7 @@ export default function BookingTab({
         customerPhone: formCustomerPhone.trim(),
         notes: formNotes.trim(),
         memberId: formMemberId || undefined,
+        servicePrice: parsedPrice !== undefined && !isNaN(parsedPrice) ? parsedPrice : undefined,
         status: formStatus,
         updatedAt: new Date().toISOString()
       };
@@ -229,6 +287,7 @@ export default function BookingTab({
         customerPhone: formCustomerPhone.trim(),
         notes: formNotes.trim(),
         memberId: formMemberId || undefined,
+        servicePrice: parsedPrice !== undefined && !isNaN(parsedPrice) ? parsedPrice : undefined,
         status: formStatus,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString()
@@ -240,6 +299,7 @@ export default function BookingTab({
       setFormCustomerPhone('');
       setFormNotes('');
       setFormMemberId('');
+      setFormServicePrice('');
       setFormStatus('pending');
     }
   };
@@ -316,7 +376,8 @@ export default function BookingTab({
     const pendingCount = list.filter(b => (b.status || 'pending') === 'pending').length;
     const inProgressCount = list.filter(b => b.status === 'in-progress').length;
     const completedCount = list.filter(b => b.status === 'completed').length;
-    return { total, pendingCount, inProgressCount, completedCount };
+    const estimatedRevenue = list.reduce((sum, b) => sum + (b.servicePrice || 0), 0);
+    return { total, pendingCount, inProgressCount, completedCount, estimatedRevenue };
   }, [bookings, selectedDate]);
 
   return (
@@ -527,6 +588,65 @@ export default function BookingTab({
                   </select>
                 </div>
               </div>
+
+              {/* Available Time Slots Quick Selector for Selected Barber */}
+              {timeSlotList.length > 0 && (
+                <div className="pt-1.5 space-y-1.5 bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/80">
+                  <div className="flex items-center justify-between text-[11px]">
+                    <span className="font-bold text-slate-700 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-emerald-600" />
+                      <span>
+                        ช่วงเวลาว่างช่าง{selectedBarber?.name || ''} ({availableSlots.length}/{timeSlotList.length}):
+                      </span>
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setShowAllSlotsModal(true)}
+                      className="text-[10.5px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
+                    >
+                      ดูตารางเวลาทั้งหมด
+                    </button>
+                  </div>
+
+                  {availableSlots.length === 0 ? (
+                    <div className="p-2 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] font-bold text-center">
+                      ⚠️ ช่าง{selectedBarber?.name || ''} คิวเต็มทุกช่วงเวลาในวันนี้แล้ว
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-0.5">
+                      {timeSlotList.map((slot) => {
+                        const isChosen = formStartTime === slot.startTime;
+                        return (
+                          <button
+                            key={slot.startTime}
+                            type="button"
+                            disabled={!slot.isAvailable && !isChosen}
+                            onClick={() => {
+                              if (slot.isAvailable) {
+                                handleStartTimeChange(slot.startTime);
+                              }
+                            }}
+                            className={`px-2 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer ${
+                              isChosen
+                                ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-amber-400'
+                                : slot.isAvailable
+                                ? 'bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 hover:border-emerald-300 shadow-2xs'
+                                : 'bg-slate-200/60 text-slate-400 border border-slate-200 line-through cursor-not-allowed opacity-50'
+                            }`}
+                            title={
+                              slot.isAvailable
+                                ? `คลิกเพื่อเลือกเวลา ${slot.startTime} - ${slot.endTime} น.`
+                                : `มีนัดหมายแล้ว (${slot.bookedBy || 'ติดคิว'})`
+                            }
+                          >
+                            {slot.startTime}
+                          </button>
+                        );
+                      })}
+                    </div>
+                  )}
+                </div>
+              )}
             </div>
 
             {/* 4. ชื่อลูกค้า */}
@@ -578,10 +698,51 @@ export default function BookingTab({
               />
             </div>
 
-            {/* 6. หมายเหตุเพิ่มเติม */}
+            {/* 6. ราคาค่าบริการโดยประมาณ */}
+            <div className="space-y-1">
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-black text-slate-700">
+                  💰 6. ราคาค่าบริการโดยประมาณ (฿)
+                </label>
+                <span className="text-[10px] text-slate-500">
+                  ส่งต่อเข้าหน้าคิดเงิน POS อัตโนมัติ
+                </span>
+              </div>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">฿</span>
+                <input
+                  type="number"
+                  min="0"
+                  step="50"
+                  placeholder="เช่น 350 (ระบุหรือไม่ระบุก็ได้)"
+                  value={formServicePrice}
+                  onChange={(e) => setFormServicePrice(e.target.value)}
+                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
+                />
+              </div>
+              {/* Quick price presets */}
+              <div className="flex flex-wrap gap-1 pt-0.5">
+                {[250, 300, 350, 450, 500, 800].map((price) => (
+                  <button
+                    key={price}
+                    type="button"
+                    onClick={() => setFormServicePrice(String(price))}
+                    className={`px-2 py-0.5 rounded text-[10.5px] font-mono font-bold transition-all cursor-pointer ${
+                      formServicePrice === String(price)
+                        ? 'bg-emerald-600 text-white shadow-2xs'
+                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
+                    }`}
+                  >
+                    ฿{price}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            {/* 7. หมายเหตุเพิ่มเติม */}
             <div className="space-y-1">
               <label className="block text-xs font-black text-slate-700">
-                💬 6. หมายเหตุ / ทรงผมที่ต้องการ
+                💬 7. หมายเหตุ / ทรงผมที่ต้องการ
               </label>
               <input
                 type="text"
@@ -592,10 +753,10 @@ export default function BookingTab({
               />
             </div>
 
-            {/* 7. สถานะคิว */}
+            {/* 8. สถานะคิว */}
             <div className="space-y-1.5">
               <label className="block text-xs font-black text-slate-700">
-                ⚡ 7. สถานะคิว
+                ⚡ 8. สถานะคิว
               </label>
               <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
                 <button
@@ -812,14 +973,20 @@ export default function BookingTab({
           </div>
 
           {/* Clean Booked Queue List Header */}
-          <div className="flex items-center justify-between px-2">
-            <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-2">
+            <div className="flex flex-wrap items-center gap-2">
               <h3 className="text-sm font-black text-slate-800 flex items-center gap-2">
                 <span>📋 รายการคิวที่จองเข้ามา</span>
                 <span className="px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded-full text-xs font-bold">
                   {filteredBookings.length} คิว
                 </span>
               </h3>
+              {dateStats.estimatedRevenue > 0 && (
+                <span className="inline-flex items-center gap-1 bg-emerald-100 text-emerald-900 px-2.5 py-0.5 rounded-full text-xs font-black border border-emerald-200">
+                  <Banknote className="w-3.5 h-3.5 text-emerald-700" />
+                  <span>ยอดประมาณการ: ฿{dateStats.estimatedRevenue.toLocaleString()}</span>
+                </span>
+              )}
             </div>
             <span className="text-xs text-slate-500 font-medium">
               {selectedDate === 'all' ? 'แสดงคิวทุกวัน' : `วันที่ ${formatThaiDate(selectedDate)}`}
@@ -891,6 +1058,14 @@ export default function BookingTab({
                               {b.customerName}
                             </h4>
                             
+                            {/* Service Price Badge */}
+                            {b.servicePrice !== undefined && b.servicePrice > 0 && (
+                              <span className="inline-flex items-center gap-1 bg-emerald-50 text-emerald-800 px-2.5 py-0.5 rounded-lg font-black text-xs border border-emerald-200 shadow-2xs">
+                                <Banknote className="w-3.5 h-3.5 text-emerald-600" />
+                                <span>฿{b.servicePrice.toLocaleString()}</span>
+                              </span>
+                            )}
+
                             {/* Barber Tag */}
                             <span className="inline-flex items-center gap-1 bg-indigo-50 text-indigo-900 px-2.5 py-0.5 rounded-lg font-bold text-xs border border-indigo-100">
                               <Scissors className="w-3 h-3 text-indigo-600" />
@@ -1063,6 +1238,122 @@ export default function BookingTab({
                 className="flex-1 py-2.5 bg-rose-600 hover:bg-rose-500 text-white rounded-xl text-xs font-black transition-all shadow-md active:scale-95 cursor-pointer"
               >
                 ยืนยันลบ
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* 4. Comprehensive Open Time Slots Modal */}
+      {showAllSlotsModal && (
+        <div className="fixed inset-0 bg-slate-950/70 backdrop-blur-xs flex items-center justify-center z-50 p-4 animate-fade-in text-left">
+          <div className="bg-white rounded-3xl max-w-xl w-full max-h-[85vh] flex flex-col shadow-2xl border border-slate-100 overflow-hidden">
+            {/* Modal Header */}
+            <div className="p-5 bg-gradient-to-r from-slate-900 to-indigo-950 text-white flex items-center justify-between border-b border-slate-800">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl bg-amber-400 text-slate-950 flex items-center justify-center font-black shadow-xs">
+                  <Clock className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-base font-black">
+                    ตารางเช็คช่วงเวลาว่าง (Open Time Slots)
+                  </h4>
+                  <p className="text-xs text-slate-300">
+                    ช่าง{selectedBarber?.name || 'ที่เลือก'} • วันที่ {formatThaiDate(formDate)}
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowAllSlotsModal(false)}
+                className="w-8 h-8 rounded-xl bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center cursor-pointer transition-all"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Modal Sub-Header Stats */}
+            <div className="px-5 py-3 bg-slate-50 border-b border-slate-200 flex flex-wrap items-center justify-between gap-2 text-xs font-bold">
+              <div className="flex items-center gap-2">
+                <span className="px-2.5 py-1 rounded-lg bg-emerald-100 text-emerald-800 border border-emerald-200">
+                  🟢 ว่าง {availableSlots.length} ช่วง
+                </span>
+                <span className="px-2.5 py-1 rounded-lg bg-slate-200 text-slate-700">
+                  🔴 มีคิวแล้ว {timeSlotList.length - availableSlots.length} ช่วง
+                </span>
+              </div>
+              <span className="text-slate-500 font-mono text-[11px]">
+                ความยาวคิวละ {durationMinutes} นาที
+              </span>
+            </div>
+
+            {/* Modal Content - Slots Grid */}
+            <div className="p-5 overflow-y-auto max-h-[55vh] space-y-2.5">
+              <p className="text-xs text-slate-600 font-medium">
+                คลิกที่ช่วงเวลาว่างสีเขียวเพื่อเลือกเวลานัดหมายและนำมากรอกในแบบฟอร์มอัตโนมัติ:
+              </p>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+                {timeSlotList.map((slot) => {
+                  const isCurrentSelected = formStartTime === slot.startTime;
+                  return (
+                    <div
+                      key={slot.startTime}
+                      onClick={() => {
+                        if (slot.isAvailable) {
+                          handleStartTimeChange(slot.startTime);
+                          showToast(`⏰ เลือกเวลา ${slot.startTime} - ${slot.endTime} น.`);
+                          setShowAllSlotsModal(false);
+                        }
+                      }}
+                      className={`p-3 rounded-2xl border transition-all flex items-center justify-between ${
+                        slot.isAvailable
+                          ? 'bg-emerald-50/70 hover:bg-emerald-100/80 border-emerald-200 text-emerald-950 cursor-pointer shadow-2xs hover:shadow-xs hover:border-emerald-400'
+                          : 'bg-slate-50 border-slate-200/80 text-slate-400 cursor-not-allowed opacity-70'
+                      } ${isCurrentSelected ? 'ring-2 ring-indigo-500 border-indigo-400' : ''}`}
+                    >
+                      <div className="space-y-0.5">
+                        <div className="flex items-center gap-2 font-mono font-black text-sm">
+                          <span>{slot.startTime} - {slot.endTime} น.</span>
+                          {isCurrentSelected && (
+                            <span className="px-1.5 py-0.5 bg-indigo-600 text-white rounded text-[10px] font-sans font-bold">
+                              กำลังเลือก
+                            </span>
+                          )}
+                        </div>
+                        <p className="text-[11px] font-medium">
+                          {slot.isAvailable ? (
+                            <span className="text-emerald-700 font-bold">✨ ช่วงเวลาว่าง (คลิกเพื่อเลือก)</span>
+                          ) : (
+                            <span className="text-slate-500">จองโดย: {slot.bookedBy || 'ลูกค้า'}</span>
+                          )}
+                        </p>
+                      </div>
+
+                      <div className="shrink-0">
+                        {slot.isAvailable ? (
+                          <div className="w-8 h-8 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold text-xs shadow-xs">
+                            <Check className="w-4 h-4 stroke-[3]" />
+                          </div>
+                        ) : (
+                          <div className="w-8 h-8 rounded-xl bg-slate-200 text-slate-400 flex items-center justify-center text-xs">
+                            <Clock className="w-4 h-4" />
+                          </div>
+                        )}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Modal Footer */}
+            <div className="p-4 bg-slate-50 border-t border-slate-200 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowAllSlotsModal(false)}
+                className="px-5 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition-all cursor-pointer shadow-xs"
+              >
+                ปิดหน้าต่าง
               </button>
             </div>
           </div>

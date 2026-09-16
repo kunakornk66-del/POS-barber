@@ -433,7 +433,7 @@ export default function App() {
           const newSub: CustomerSubscription = {
             email: cleanEmail,
             shopName: shopConfig?.shopName || 'ร้านบาร์เบอร์/ทำผม',
-            status: 'approved',
+            status: 'pending',
             monthsAllowed: 1,
             startDate,
             expiryDate,
@@ -2165,10 +2165,11 @@ export default function App() {
     );
   }
 
-  // Check if non-admin user is suspended or expired
+  // Check if non-admin user is suspended, expired, or pending admin approval
   const isSuperAdminUser = userEmail?.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase();
 
   if (!isSuperAdminUser && userSubscription) {
+    const isPending = userSubscription.status === 'pending' || userSubscription.status !== 'approved';
     const isSuspended = userSubscription.status === 'suspended';
     
     // Check expiration
@@ -2179,6 +2180,74 @@ export default function App() {
       if (expDate < new Date()) {
         isExpired = true;
       }
+    }
+
+    if (isPending && !isSuspended) {
+      return (
+        <div className="min-h-screen bg-slate-900 flex flex-col items-center justify-center p-4 font-sans text-white">
+          <div className="w-full max-w-md bg-slate-800 border border-amber-500/40 rounded-3xl p-6 sm:p-8 text-center space-y-5 shadow-2xl">
+            <div className="w-18 h-18 rounded-3xl bg-amber-500/20 border border-amber-500/40 text-amber-400 flex items-center justify-center mx-auto shadow-lg shadow-amber-950/40">
+              <Clock className="w-9 h-9 text-amber-400" />
+            </div>
+            
+            <div className="space-y-2">
+              <span className="px-3 py-1 rounded-full text-[11px] font-extrabold uppercase bg-amber-500/20 text-amber-300 border border-amber-500/30 tracking-wider">
+                รอการอนุมัติสิทธิ์ (Pending Approval)
+              </span>
+              <h1 className="text-xl sm:text-2xl font-black text-white">
+                รอผู้ดูแลระบบ (Admin) อนุมัติ
+              </h1>
+              <p className="text-xs sm:text-sm text-slate-300 leading-relaxed font-medium">
+                อีเมลใหม่ของคุณเข้าสู่ระบบแล้ว แต่ต้องให้ Admin กดอนุมัติเปิดสิทธิ์การใช้งานก่อน จึงจะสามารถเข้าใช้งานระบบได้
+              </p>
+            </div>
+
+            <div className="p-4 bg-slate-900/70 border border-slate-700/80 rounded-2xl text-left space-y-2.5 text-xs">
+              <div className="flex items-center justify-between text-slate-400">
+                <span>บัญชีอีเมลของคุณ:</span>
+                <span className="font-mono font-bold text-white">{userEmail}</span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400 border-t border-slate-800 pt-2">
+                <span>สถานะบัญชี:</span>
+                <span className="inline-flex items-center gap-1.5 font-bold text-amber-400">
+                  <span className="w-2 h-2 rounded-full bg-amber-400 animate-pulse"></span>
+                  รอ Admin กดอนุมัติ
+                </span>
+              </div>
+              <div className="flex items-center justify-between text-slate-400 border-t border-slate-800 pt-2">
+                <span>ผู้ดูแลระบบผู้อนุมัติ:</span>
+                <span className="font-mono font-bold text-indigo-300">{ADMIN_EMAIL}</span>
+              </div>
+            </div>
+
+            <div className="pt-2 space-y-2.5">
+              <button
+                type="button"
+                onClick={() => {
+                  window.location.reload();
+                }}
+                className="w-full py-3 bg-amber-500 hover:bg-amber-400 text-slate-950 rounded-2xl text-xs sm:text-sm font-black transition-all cursor-pointer flex items-center justify-center gap-2 shadow-lg shadow-amber-500/20"
+              >
+                <RefreshCw className="w-4 h-4" />
+                <span>รีเฟรช / ตรวจสอบการอนุมัติอีกครั้ง</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleLogout}
+                className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
+              >
+                <LogOut className="w-4 h-4" />
+                <span>ออกจากระบบ / สลับบัญชีอื่น</span>
+              </button>
+            </div>
+            
+            <p className="text-[11px] text-slate-500">
+              เมื่อ Admin ทำการกดอนุมัติ ระบบจะเปิดการใช้งานให้อัตโนมัติทันที
+            </p>
+          </div>
+        </div>
+      );
     }
 
     if (isSuspended) {
@@ -2345,19 +2414,17 @@ export default function App() {
               transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
             }
 
-            /* Gentle app entry fade-in animation */
+            /* Gentle app entry fade-in animation without transform containing block */
             .tab-content-enter {
-              animation: tabFadeIn 0.35s ease-out forwards;
+              animation: tabFadeIn 0.25s ease-out forwards;
             }
 
             @keyframes tabFadeIn {
               from {
                 opacity: 0;
-                transform: translateY(8px);
               }
               to {
                 opacity: 1;
-                transform: translateY(0);
               }
             }
 

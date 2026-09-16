@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Barber, Product, ShareConfig, SaleRecord, Voucher, ChemicalPromo, Member, MemberPackage, formatMemberDisplayName } from '../types';
 import { formatBaht, getBarberTheme } from '../utils';
-import { Check, ClipboardList, Scissors, Sparkles, ShoppingBag, Gift, Heart, CreditCard, Landmark, Percent, Calendar, Clock, Coins, Link as LinkIcon, Crown, User, X, Plus, Zap, Award, Star } from 'lucide-react';
+import { Check, ClipboardList, Scissors, Sparkles, ShoppingBag, Gift, Heart, CreditCard, Landmark, Percent, Calendar, Clock, Coins, Crown, User, X, Plus, Zap, Award, Star } from 'lucide-react';
 
 interface SalesTabProps {
   sales?: SaleRecord[];
@@ -53,12 +53,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
   const [quickPaymentMethod, setQuickPaymentMethod] = useState<'cash' | 'transfer'>('transfer');
   const [quickNotes, setQuickNotes] = useState<string>('');
   
-  // Group Payment Option States
-  const [isGroupPayment, setIsGroupPayment] = useState<boolean>(false);
-  const [groupPaymentOption, setGroupPaymentOption] = useState<'new' | 'link'>('new');
-  const [newGroupCode, setNewGroupCode] = useState<string>('');
-  const [selectedGroupLink, setSelectedGroupLink] = useState<string>('');
-
   // chemical service discount state additions
   const [applyChemicalDiscount, setApplyChemicalDiscount] = useState<boolean>(false);
   const [chemicalDiscountValueInput, setChemicalDiscountValueInput] = useState<string>('');
@@ -113,44 +107,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
   }, [initialPrefill]);
 
   // Derived calculations
-  const selectedDateStr = customDateTime.split('T')[0];
-
-  const activeGroups = React.useMemo(() => {
-    const groups: { id: string; label: string; totalAmount: number; count: number }[] = [];
-    const seenGroupIds = new Set<string>();
-    
-    // Find today's transfers
-    const todayTransfers = sales.filter(s => s.date === selectedDateStr && s.paymentMethod === 'transfer');
-    
-    // 1. Gather existing groups
-    todayTransfers.forEach(s => {
-      if (s.groupPaymentId && !seenGroupIds.has(s.groupPaymentId)) {
-        seenGroupIds.add(s.groupPaymentId);
-        const groupRecords = todayTransfers.filter(r => r.groupPaymentId === s.groupPaymentId);
-        const total = groupRecords.reduce((sumVal, r) => sumVal + r.customerPaid, 0);
-        groups.push({
-          id: s.groupPaymentId,
-          label: s.groupPaymentCode || `กลุ่มโอนร่วม #${s.groupPaymentId.slice(-4)}`,
-          totalAmount: total,
-          count: groupRecords.length
-        });
-      }
-    });
-
-    // 2. Gather individual transfer transactions of today that have no group ID yet (potential groups)
-    const potentialSingles = todayTransfers.filter(s => !s.groupPaymentId);
-
-    return {
-      existingGroups: groups,
-      potentialSingles: potentialSingles.map(s => ({
-        id: s.id, // can serve as group UID directly
-        label: `${s.customerName ? s.customerName : 'ลูกค้าช่าง' + s.barberName} (${formatBaht(s.customerPaid)})`,
-        count: 1,
-        totalAmount: s.customerPaid
-      }))
-    };
-  }, [sales, selectedDateStr]);
-
   const haircutPrice = Math.max(0, parseFloat(haircutInput) || 0);
   const chemicalPrice = shareConfig.enableChemicalService !== false ? (Math.max(0, parseFloat(chemicalInput) || 0)) : 0;
   
@@ -222,10 +178,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
     setPaymentMethod('transfer');
     setSplitCashInput('');
     setSplitTransferInput('');
-    setIsGroupPayment(false);
-    setGroupPaymentOption('new');
-    setNewGroupCode('');
-    setSelectedGroupLink('');
     setMobileTab('items');
   };
 
@@ -316,31 +268,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
 
     const selectedPromo = chemicalPromos.find(c => c.id === selectedChemicalPromoId);
 
-    // Group payment resolving logic
-    let finalGroupPaymentId: string | undefined = undefined;
-    let finalGroupPaymentCode: string | undefined = undefined;
-
-    if (paymentMethod === 'transfer' && isGroupPayment) {
-      if (groupPaymentOption === 'new') {
-        const generatedId = `group-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-        finalGroupPaymentId = generatedId;
-        finalGroupPaymentCode = newGroupCode.trim() || 'กลุ่มโอนทางร้าน';
-      } else if (groupPaymentOption === 'link' && selectedGroupLink) {
-        const existingGrp = activeGroups.existingGroups.find(g => g.id === selectedGroupLink);
-        if (existingGrp) {
-          finalGroupPaymentId = existingGrp.id;
-          finalGroupPaymentCode = existingGrp.label;
-        } else {
-          const singleGrp = activeGroups.potentialSingles.find(s => s.id === selectedGroupLink);
-          if (singleGrp) {
-            finalGroupPaymentId = singleGrp.id;
-            // Also let's keep original label
-            finalGroupPaymentCode = `โอนร่วมกับ ${singleGrp.label.split(' (')[0]}`;
-          }
-        }
-      }
-    }
-
     const saleData = {
       barberId: selectedBarberId,
       barberName: selectedBarber ? selectedBarber.name : 'ไม่ระบุ',
@@ -373,8 +300,8 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
       shopTotalShare: devShopTotalShare,
       timestamp: timestampToPass,
       date: dateToPass,
-      groupPaymentId: finalGroupPaymentId,
-      groupPaymentCode: finalGroupPaymentCode,
+      groupPaymentId: undefined,
+      groupPaymentCode: undefined,
       memberId: selectedMemberId || undefined,
       memberName: selectedMember ? formatMemberDisplayName(selectedMember) : undefined,
       memberCode: selectedMember ? selectedMember.memberCode : undefined,
@@ -946,7 +873,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                 type="button"
                 onClick={() => {
                   setPaymentMethod('cash');
-                  setIsGroupPayment(false);
                 }}
                 className={`relative flex flex-col items-center justify-center p-3 rounded-2xl border-2 transition-all cursor-pointer select-none group ${
                   paymentMethod === 'cash'
@@ -973,7 +899,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                 type="button"
                 onClick={() => {
                   setPaymentMethod('split');
-                  setIsGroupPayment(false);
                   if (!splitCashInput && !splitTransferInput && payableAmount > 0) {
                     const defaultCash = payableAmount >= 100 ? Math.floor(payableAmount * 0.8 / 10) * 10 : Math.floor(payableAmount / 2);
                     setSplitCashInput(defaultCash.toString());
@@ -1000,140 +925,6 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
                 )}
               </button>
             </div>
-
-            {/* Transfer Group Payment Interactive Card */}
-            {paymentMethod === 'transfer' && (
-              <div className="bg-sky-50/70 border-2 border-sky-200 p-4 rounded-2xl space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
-                <div className="flex items-center justify-between">
-                  <label className="flex items-center space-x-2.5 cursor-pointer select-none">
-                    <input
-                      id="pos-group-transfer-checkbox"
-                      type="checkbox"
-                      checked={isGroupPayment}
-                      onChange={(e) => {
-                        setIsGroupPayment(e.target.checked);
-                        if (e.target.checked && !selectedGroupLink && (activeGroups.existingGroups.length > 0 || activeGroups.potentialSingles.length > 0)) {
-                          if (activeGroups.existingGroups.length > 0) {
-                            setSelectedGroupLink(activeGroups.existingGroups[0].id);
-                            setGroupPaymentOption('link');
-                          }
-                        }
-                      }}
-                      className="w-4.5 h-4.5 text-sky-600 bg-white border-slate-300 rounded focus:ring-sky-500 cursor-pointer"
-                    />
-                    <div>
-                      <span className="text-xs font-black text-sky-950 flex items-center gap-1.5">
-                        <LinkIcon className="w-3.5 h-3.5 text-sky-600" />
-                        <span>ลูกค้าโอนรวมหลายคน/หลายหัว (สลิปเดียวรวมหลายบิล)</span>
-                      </span>
-                      <span className="text-[10px] text-slate-500 font-sans block">
-                        เช่น พ่อโอนก้อนเดียวจ่ายให้ลูก 2-3 คน ระบบจะผูกยอดสลิปเข้าด้วยกัน และคำนวณส่วนแบ่งช่างแต่ละคนถูกต้อง
-                      </span>
-                    </div>
-                  </label>
-                </div>
-
-                {isGroupPayment && (
-                  <div className="pt-2 border-t border-sky-200/80 space-y-3 animate-in fade-in duration-200">
-                    <div className="flex items-center gap-2">
-                      <button
-                        type="button"
-                        onClick={() => setGroupPaymentOption('new')}
-                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                          groupPaymentOption === 'new'
-                            ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        ✨ 1. สร้างกลุ่มสลิปใหม่ (คนแรก)
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setGroupPaymentOption('link');
-                          if (!selectedGroupLink) {
-                            if (activeGroups.existingGroups.length > 0) {
-                              setSelectedGroupLink(activeGroups.existingGroups[0].id);
-                            } else if (activeGroups.potentialSingles.length > 0) {
-                              setSelectedGroupLink(activeGroups.potentialSingles[0].id);
-                            }
-                          }
-                        }}
-                        className={`flex-1 py-2 px-3 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
-                          groupPaymentOption === 'link'
-                            ? 'bg-sky-600 text-white border-sky-600 shadow-xs'
-                            : 'bg-white text-slate-700 border-slate-200 hover:bg-slate-50'
-                        }`}
-                      >
-                        🔗 2. ผูกเข้ากับกลุ่มเดิม (คนถัดไป)
-                      </button>
-                    </div>
-
-                    {groupPaymentOption === 'new' ? (
-                      <div className="space-y-1.5 bg-white p-3 rounded-xl border border-sky-200">
-                        <label className="block text-[11px] font-bold text-slate-700">
-                          ชื่อหรือป้ายกำกับกลุ่มสลิปโอนร่วม (เช่น พ่อ+ลูก 2 คน):
-                        </label>
-                        <input
-                          type="text"
-                          placeholder="เช่น พ่อ + ลูก 2 คน หรือ ครอบครัวคุณเอก"
-                          value={newGroupCode}
-                          onChange={(e) => setNewGroupCode(e.target.value)}
-                          className="w-full px-3 py-1.5 text-xs border border-slate-300 rounded-lg outline-none focus:ring-1 focus:ring-sky-600"
-                        />
-                        <p className="text-[10px] text-slate-500">
-                          💡 เมื่อบันทึกบิลนี้เสร็จแล้ว สำหรับบิลของคนที่ 2 และ 3 ให้เลือก <strong>"2. ผูกเข้ากับกลุ่มเดิม"</strong> เพื่อรวมยอดสลิป
-                        </p>
-                      </div>
-                    ) : (
-                      <div className="space-y-1.5 bg-white p-3 rounded-xl border border-sky-200">
-                        <label className="block text-[11px] font-bold text-slate-700">
-                          เลือกกลุ่มหรือบิลที่ต้องการผูกรวมสลิปในวันนี้:
-                        </label>
-                        {(activeGroups.existingGroups.length === 0 && activeGroups.potentialSingles.length === 0) ? (
-                          <div className="text-xs text-amber-700 bg-amber-50 p-2.5 rounded-lg border border-amber-200">
-                            ยังไม่มีรายการโอนเงินอื่นในวันนี้ กรุณาเลือก "1. สร้างกลุ่มสลิปใหม่" สำหรับบิลแรก
-                          </div>
-                        ) : (
-                          <div className="space-y-2">
-                            <select
-                              value={selectedGroupLink}
-                              onChange={(e) => setSelectedGroupLink(e.target.value)}
-                              className="w-full px-3 py-2 text-xs border border-slate-300 rounded-lg bg-slate-50 font-bold text-slate-800 outline-none focus:ring-1 focus:ring-sky-600 cursor-pointer"
-                            >
-                              <option value="">-- กรุณาเลือกกลุ่มบิลที่ต้องการผูก --</option>
-                              {activeGroups.existingGroups.map(g => (
-                                <option key={g.id} value={g.id}>
-                                  🏷️ กลุ่ม: {g.label} (รวม {g.count} บิล • มียอดแล้ว {formatBaht(g.totalAmount)})
-                                </option>
-                              ))}
-                              {activeGroups.potentialSingles.map(s => (
-                                <option key={s.id} value={s.id}>
-                                  👤 บิลเดี่ยว: {s.label}
-                                </option>
-                              ))}
-                            </select>
-
-                            {selectedGroupLink && (() => {
-                              const existing = activeGroups.existingGroups.find(g => g.id === selectedGroupLink);
-                              const single = activeGroups.potentialSingles.find(s => s.id === selectedGroupLink);
-                              const prevTotal = existing ? existing.totalAmount : single ? single.totalAmount : 0;
-                              const combinedTotal = prevTotal + payableAmount;
-                              return (
-                                <div className="p-2 bg-sky-50 rounded-lg border border-sky-200 text-[11px] text-sky-950 font-sans flex items-center justify-between font-bold">
-                                  <span>ยอดเดิม {formatBaht(prevTotal)} + บิลนี้ {formatBaht(payableAmount)}</span>
-                                  <span className="text-sky-700 font-mono text-xs">✨ รวมสลิปนี้: {formatBaht(combinedTotal)}</span>
-                                </div>
-                              );
-                            })()}
-                          </div>
-                        )}
-                      </div>
-                    )}
-                  </div>
-                )}
-              </div>
-            )}
 
             {/* Member Credit Payment Interactive Panel */}
             {shareConfig?.enableMemberSystem !== false && paymentMethod === 'member_credit' && (
