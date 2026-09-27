@@ -657,7 +657,6 @@ export default function BookingTab({
               <input
                 type="text"
                 required
-                placeholder="เช่น คุณเอก, คุณสมชาย"
                 value={formCustomerName}
                 onChange={(e) => setFormCustomerName(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
@@ -691,72 +690,29 @@ export default function BookingTab({
               </label>
               <input
                 type="tel"
-                placeholder="เช่น 081-234-5678"
                 value={formCustomerPhone}
                 onChange={(e) => setFormCustomerPhone(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
-            {/* 6. ราคาค่าบริการโดยประมาณ */}
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <label className="block text-xs font-black text-slate-700">
-                  💰 6. ราคาค่าบริการโดยประมาณ (฿)
-                </label>
-                <span className="text-[10px] text-slate-500">
-                  ส่งต่อเข้าหน้าคิดเงิน POS อัตโนมัติ
-                </span>
-              </div>
-              <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-xs">฿</span>
-                <input
-                  type="number"
-                  min="0"
-                  step="50"
-                  placeholder="เช่น 350 (ระบุหรือไม่ระบุก็ได้)"
-                  value={formServicePrice}
-                  onChange={(e) => setFormServicePrice(e.target.value)}
-                  className="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-mono font-bold text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                />
-              </div>
-              {/* Quick price presets */}
-              <div className="flex flex-wrap gap-1 pt-0.5">
-                {[250, 300, 350, 450, 500, 800].map((price) => (
-                  <button
-                    key={price}
-                    type="button"
-                    onClick={() => setFormServicePrice(String(price))}
-                    className={`px-2 py-0.5 rounded text-[10.5px] font-mono font-bold transition-all cursor-pointer ${
-                      formServicePrice === String(price)
-                        ? 'bg-emerald-600 text-white shadow-2xs'
-                        : 'bg-slate-100 hover:bg-slate-200 text-slate-700'
-                    }`}
-                  >
-                    ฿{price}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 7. หมายเหตุเพิ่มเติม */}
+            {/* 6. หมายเหตุเพิ่มเติม */}
             <div className="space-y-1">
               <label className="block text-xs font-black text-slate-700">
-                💬 7. หมายเหตุ / ทรงผมที่ต้องการ
+                💬 6. หมายเหตุ / ทรงผมที่ต้องการ
               </label>
               <input
                 type="text"
-                placeholder="เช่น ตัดผมสั้น+กันหน้า, ดัดวอลลุ่ม"
                 value={formNotes}
                 onChange={(e) => setFormNotes(e.target.value)}
                 className="w-full px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
               />
             </div>
 
-            {/* 8. สถานะคิว */}
+            {/* 7. สถานะคิว */}
             <div className="space-y-1.5">
               <label className="block text-xs font-black text-slate-700">
-                ⚡ 8. สถานะคิว
+                ⚡ 7. สถานะคิว
               </label>
               <div className="grid grid-cols-3 gap-1.5 p-1 bg-slate-100 rounded-xl border border-slate-200">
                 <button
