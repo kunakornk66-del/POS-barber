@@ -1942,6 +1942,7 @@ export default function App() {
 
   const confirmLogout = () => {
     localStorage.removeItem('barber_pos_user_email');
+    setUserSubscription(null);
     setUserEmail(null);
     setEmailInput('');
     setLoginError('');
@@ -2234,7 +2235,7 @@ export default function App() {
 
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={confirmLogout}
                 className="w-full py-2.5 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
@@ -2284,7 +2285,7 @@ export default function App() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={confirmLogout}
                 className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
@@ -2334,7 +2335,7 @@ export default function App() {
             <div className="pt-2">
               <button
                 type="button"
-                onClick={handleLogout}
+                onClick={confirmLogout}
                 className="w-full py-3 bg-slate-700 hover:bg-slate-600 text-white rounded-2xl text-xs sm:text-sm font-bold transition-all cursor-pointer flex items-center justify-center gap-2"
               >
                 <LogOut className="w-4 h-4" />
