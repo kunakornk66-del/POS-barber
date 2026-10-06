@@ -48,10 +48,10 @@ export const PWAInstallButton: React.FC<PWAInstallButtonProps> = ({
       <button
         type="button"
         onClick={handleInstallClick}
-        className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-xs font-extrabold shadow-xs transition-all cursor-pointer shrink-0"
+        className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 text-slate-950 text-[11px] font-extrabold shadow-2xs transition-all cursor-pointer whitespace-nowrap shrink-0"
         title="ติดตั้งโปรแกรมไว้บนหน้าจอหลักแท็บเล็ต/มือถือ พร้อมไอคอนโลโก้ร้านของคุณ"
       >
-        <Download className="w-3.5 h-3.5 stroke-[2.5]" />
+        <Download className="w-3.5 h-3.5 stroke-[2.5] shrink-0" />
         <span>ติดตั้งแอป</span>
       </button>
 

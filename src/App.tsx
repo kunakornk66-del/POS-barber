@@ -2482,87 +2482,146 @@ export default function App() {
       })()}
       
       {/* 1. Global Navigation Bar */}
-      <header className="sticky top-0 z-50 bg-white border-b border-slate-100 shadow-xs">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row items-center justify-between gap-4">
+      <header className="sticky top-0 z-50 bg-white/95 backdrop-blur-md border-b border-slate-200/80 shadow-2xs">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 space-y-2.5">
           
-          {/* Brand Logo and Title */}
-          <div className="flex items-center space-x-3 text-left">
-            <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center overflow-hidden text-amber-400 shadow-md">
-              {shopConfig?.logoUrl ? (
-                <img 
-                  src={shopConfig.logoUrl} 
-                  alt={shopConfig.shopName} 
-                  className="w-full h-full object-cover" 
-                  referrerPolicy="no-referrer" 
-                />
-              ) : (
-                <Scissors className="w-5 h-5" />
-              )}
-            </div>
-            <div>
-              <div className="flex items-center space-x-2">
-                <h1 className="text-base font-extrabold text-slate-900 leading-none">
-                  {shopConfig.shopName}
-                </h1>
-                {/* Clean Sync Pill next to the shop name */}
-                {firebaseStatus === 'connected' ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-2xs" title="ฐานข้อมูลและทุกเครื่องอัปเดตตรงกันเรียลไทม์ 100%">
-                    <span className="relative flex h-1.5 w-1.5 mr-1">
-                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                      <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
-                    </span>
-                    <span>เรียลไทม์ ซิงก์สด</span>
-                  </span>
-                ) : firebaseStatus === 'checking' ? (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200/50 animate-pulse">
-                    <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1 animate-spin"></span>
-                    <span>กำลังซิงก์...</span>
-                  </span>
+          {/* Top Row: Brand Logo & Title (Left) + Status Pills & Actions (Right) */}
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            {/* Brand Logo and Title */}
+            <div className="flex items-center gap-3 text-left min-w-0">
+              <div className="w-10 h-10 bg-slate-900 rounded-xl flex items-center justify-center overflow-hidden text-amber-400 shadow-md shrink-0">
+                {shopConfig?.logoUrl ? (
+                  <img 
+                    src={shopConfig.logoUrl} 
+                    alt={shopConfig.shopName} 
+                    className="w-full h-full object-cover" 
+                    referrerPolicy="no-referrer" 
+                  />
                 ) : (
-                  <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200/50">
-                    <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1"></span>
-                    <span>ออฟไลน์</span>
-                  </span>
+                  <Scissors className="w-5 h-5" />
                 )}
               </div>
-              <p className="text-[10px] text-slate-400 font-mono tracking-widest uppercase mt-1">
-                SYSTEM INTERFACE • FINANCIAL POS PLATFORM
-              </p>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+                  <h1 className="text-base font-extrabold text-slate-900 leading-none truncate">
+                    {shopConfig.shopName}
+                  </h1>
+                  {/* Clean Sync Pill next to the shop name */}
+                  {firebaseStatus === 'connected' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/60 shadow-2xs whitespace-nowrap shrink-0" title="ฐานข้อมูลและทุกเครื่องอัปเดตตรงกันเรียลไทม์ 100%">
+                      <span className="relative flex h-1.5 w-1.5 mr-1 shrink-0">
+                        <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                        <span className="relative inline-flex rounded-full h-1.5 w-1.5 bg-emerald-500"></span>
+                      </span>
+                      <span>เรียลไทม์ ซิงก์สด</span>
+                    </span>
+                  ) : firebaseStatus === 'checking' ? (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-amber-50 text-amber-700 border border-amber-200/50 animate-pulse whitespace-nowrap shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-amber-500 mr-1 animate-spin shrink-0"></span>
+                      <span>กำลังซิงก์...</span>
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[9px] font-bold bg-rose-50 text-rose-700 border border-rose-200/50 whitespace-nowrap shrink-0">
+                      <span className="w-1.5 h-1.5 rounded-full bg-rose-500 mr-1 shrink-0"></span>
+                      <span>ออฟไลน์</span>
+                    </span>
+                  )}
+                </div>
+                <p className="text-[10px] text-slate-400 font-mono tracking-widest uppercase mt-1 truncate">
+                  SYSTEM INTERFACE • FINANCIAL POS PLATFORM
+                </p>
+              </div>
+            </div>
+
+            {/* Tenant Status Pills & Action Buttons (Uniform Height & No Wrapping) */}
+            <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap justify-end ml-auto">
+              {/* Subscription Status or Admin Badge */}
+              {isSuperAdminUser ? (
+                <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-[11px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200/80 whitespace-nowrap shrink-0 shadow-2xs">
+                  <Crown className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
+                  <span>Super Admin</span>
+                </span>
+              ) : userSubscription?.expiryDate ? (
+                <span
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200/80 whitespace-nowrap shrink-0 shadow-2xs"
+                  title={`วันหมดอายุการใช้งาน: ${formatThaiDate(userSubscription.expiryDate)}`}
+                >
+                  <Clock className="w-3.5 h-3.5 text-emerald-600 shrink-0" />
+                  <span>ถึง {formatThaiDate(userSubscription.expiryDate)}</span>
+                </span>
+              ) : null}
+
+              {/* Cloud Connection Status Pill */}
+              {firebaseStatus === 'connected' ? (
+                <span
+                  className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-[11px] font-bold bg-slate-50 text-emerald-600 border border-slate-200/80 whitespace-nowrap shrink-0 shadow-2xs"
+                  title="เชื่อมต่อกับ Cloud Firestore สำเร็จ ข้อมูลจะบันทึกและซิงก์สดทันที"
+                >
+                  <Wifi className="w-3.5 h-3.5 text-emerald-500 shrink-0" />
+                  <span>เชื่อมต่อเรียบร้อย</span>
+                </span>
+              ) : firebaseStatus === 'checking' ? (
+                <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200/80 whitespace-nowrap shrink-0 shadow-2xs">
+                  <RefreshCw className="w-3.5 h-3.5 text-amber-500 animate-spin shrink-0" />
+                  <span>กำลังซิงก์...</span>
+                </span>
+              ) : (
+                <span className="inline-flex items-center gap-1.5 h-8 px-3 rounded-xl text-[11px] font-bold bg-rose-50 text-rose-600 border border-rose-200/80 whitespace-nowrap shrink-0 shadow-2xs">
+                  <WifiOff className="w-3.5 h-3.5 text-rose-500 animate-pulse shrink-0" />
+                  <span>ออฟไลน์</span>
+                </span>
+              )}
+
+              {/* PWA Install Button */}
+              <PWAInstallButton
+                shopName={shopConfig?.shopName}
+                logoUrl={shopConfig?.logoUrl}
+              />
+
+              {/* Logout Button */}
+              <button
+                onClick={handleLogout}
+                className="inline-flex items-center justify-center gap-1.5 h-8 px-2.5 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 hover:border-rose-200 text-slate-500 rounded-xl text-[11px] font-bold transition-all border border-slate-200/80 whitespace-nowrap shrink-0 cursor-pointer shadow-2xs"
+                title="ออกจากระบบ"
+              >
+                <LogOut className="w-3.5 h-3.5 shrink-0" />
+                <span className="hidden sm:inline">ออก</span>
+              </button>
             </div>
           </div>
 
-          {/* Tab Controller Buttons */}
-          <div className="flex flex-col sm:flex-row items-center gap-4 w-full md:w-auto">
-            <nav className="flex flex-wrap gap-y-1 bg-slate-100 p-1.5 rounded-2xl w-full sm:w-auto justify-center">
+          {/* Bottom Row: Navigation Tabs (Centered) */}
+          <div className="flex items-center justify-center overflow-x-auto no-scrollbar">
+            <nav className="inline-flex items-center gap-1.5 bg-slate-100/90 p-1.5 rounded-2xl mx-auto justify-center overflow-x-auto">
               {[
-                { id: 'sales' as const, label: 'หน้าบันทึกการขาย', icon: <Scissors className="w-3.5 h-3.5 text-indigo-500 animate-pulse" /> },
-                { id: 'dashboard' as const, label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500" /> },
-                ...(shopConfig?.enableBookings !== false ? [{ id: 'bookings' as const, label: 'จองคิวช่าง', icon: <CalendarDays className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
-                { id: 'expenses' as const, label: 'ควบคุมรายจ่าย/เบิกเงิน', icon: <ArrowDownCircle className="w-3.5 h-3.5 text-rose-500" /> },
-                ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500" /> }] : []),
+                { id: 'sales' as const, label: 'หน้าบันทึกการขาย', icon: <Scissors className="w-3.5 h-3.5 text-indigo-500 animate-pulse shrink-0" /> },
+                { id: 'dashboard' as const, label: 'Dashboard', icon: <LayoutDashboard className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> },
+                ...(shopConfig?.enableBookings !== false ? [{ id: 'bookings' as const, label: 'จองคิวช่าง', icon: <CalendarDays className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> }] : []),
+                { id: 'expenses' as const, label: 'ควบคุมรายจ่าย/เบิกเงิน', icon: <ArrowDownCircle className="w-3.5 h-3.5 text-rose-500 shrink-0" /> },
+                ...(shopConfig?.enablePayslips !== false ? [{ id: 'payslips' as const, label: 'สลิปเงินเดือน', icon: <Briefcase className="w-3.5 h-3.5 text-indigo-500 shrink-0" /> }] : []),
                 { 
                   id: 'config' as const, 
                   label: 'ตั้งค่า', 
                   icon: isSettingsUnlocked ? (
-                    <Settings className="w-3.5 h-3.5 text-indigo-500" />
+                    <Settings className="w-3.5 h-3.5 text-indigo-500 shrink-0" />
                   ) : (
-                    <Lock className="w-3.5 h-3.5 text-amber-600 animate-pulse" />
+                    <Lock className="w-3.5 h-3.5 text-amber-600 animate-pulse shrink-0" />
                   ),
                   isLocked: !isSettingsUnlocked
                 },
                 ...(userEmail?.trim().toLowerCase() === ADMIN_EMAIL.toLowerCase() ? [{
                   id: 'admin' as const,
                   label: 'ระบบ Admin',
-                  icon: <ShieldAlert className="w-3.5 h-3.5 text-indigo-600" />
+                  icon: <ShieldAlert className="w-3.5 h-3.5 text-indigo-600 shrink-0" />
                 }] : []),
               ].map((tab, idx) => (
                 <button
                   key={tab.id}
                   onClick={() => handleSelectTab(tab.id)}
-                  className={`flex items-center space-x-1.5 px-4 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+                  className={`flex items-center space-x-1.5 px-3.5 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer whitespace-nowrap shrink-0 ${
                     activeTab === tab.id
-                      ? 'bg-white text-slate-900 shadow-sm border border-slate-200/40'
-                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+                      ? 'bg-white text-slate-900 shadow-xs border border-slate-200/50'
+                      : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50/80'
                   }`}
                 >
                   {tab.icon}
@@ -2578,58 +2637,6 @@ export default function App() {
                 </button>
               ))}
             </nav>
-
-            {/* Tenant details & Logout */}
-            <div className="flex items-center space-x-3 border-l border-slate-200 pl-4 h-8 self-center">
-              {/* Subscription Status or Admin Badge */}
-              {isSuperAdminUser ? (
-                <span className="hidden xl:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-extrabold bg-indigo-50 text-indigo-700 border border-indigo-200">
-                  <Crown className="w-3 h-3 text-indigo-600" />
-                  <span>Super Admin</span>
-                </span>
-              ) : userSubscription?.expiryDate ? (
-                <span className="hidden xl:inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-semibold bg-emerald-50 text-emerald-700 border border-emerald-200" title={`หมดอายุ: ${formatThaiDate(userSubscription.expiryDate)}`}>
-                  <Clock className="w-3 h-3 text-emerald-600" />
-                  <span>ถึง {formatThaiDate(userSubscription.expiryDate)}</span>
-                </span>
-              ) : null}
-
-              {/* Cloud Status */}
-              <div className="hidden lg:flex items-center text-right">
-                <span className="text-[10px] text-slate-400 font-medium flex items-center justify-end gap-1">
-                  {firebaseStatus === 'connected' ? (
-                    <span className="text-emerald-600 font-bold flex items-center gap-1" title="เชื่อมต่อกับ Cloud Firestore สำเร็จ ข้อมูลจะบันทึกและซิงก์สดทันที">
-                      <Wifi className="w-3 h-3 text-emerald-500" />
-                      <span>เชื่อมต่อเรียบร้อย</span>
-                    </span>
-                  ) : firebaseStatus === 'checking' ? (
-                    <span className="text-amber-600 font-bold flex items-center gap-1">
-                      <RefreshCw className="w-3 h-3 text-amber-500 animate-spin" />
-                      <span>กำลังซิงก์...</span>
-                    </span>
-                  ) : (
-                    <span className="text-rose-600 font-bold flex items-center gap-1">
-                      <WifiOff className="w-3 h-3 text-rose-500 animate-pulse" />
-                      <span>ออฟไลน์</span>
-                    </span>
-                  )}
-                </span>
-              </div>
-
-              {/* PWA Install Button */}
-              <PWAInstallButton
-                shopName={shopConfig?.shopName}
-                logoUrl={shopConfig?.logoUrl}
-              />
-
-              <button
-                onClick={handleLogout}
-                className="p-1.5 bg-slate-50 hover:bg-rose-50 hover:text-rose-600 text-slate-400 rounded-lg transition-all border border-slate-100"
-                title="ออกจากระบบ"
-              >
-                <LogOut className="w-4 h-4" />
-              </button>
-            </div>
           </div>
 
         </div>
