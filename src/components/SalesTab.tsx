@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Barber, Product, ShareConfig, SaleRecord, Voucher, ChemicalPromo, Member, MemberPackage, formatMemberDisplayName } from '../types';
-import { formatBaht, getBarberTheme } from '../utils';
+import { formatBaht, getBarberTheme, formatThaiDate } from '../utils';
+import DayMonthYearPicker from './DayMonthYearPicker';
 import { Check, ClipboardList, Scissors, Sparkles, ShoppingBag, Gift, Heart, CreditCard, Landmark, Percent, Calendar, Clock, Coins, Crown, User, X, Plus, Zap, Award, Star } from 'lucide-react';
 
 interface SalesTabProps {
@@ -1143,24 +1144,60 @@ export default function SalesTab({ sales = [], barbers, products, chemicalPromos
             )}
           </div>
 
-          {/* 7. Date & Time adjustment */}
-          <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/80 space-y-2">
-            <label className="text-sm font-semibold text-slate-700 flex items-center space-x-2">
-              <Calendar className="w-4 h-4 text-indigo-500" />
-              <span>ระบุวันที่/เวลา บันทึกบิล</span>
-            </label>
-            <div>
-              <input
-                type="datetime-local"
-                value={customDateTime}
-                onChange={(e) => setCustomDateTime(e.target.value)}
-                className="w-full px-3 py-2 border border-slate-200 rounded-xl outline-none focus:ring-2 focus:ring-slate-800 focus:border-transparent transition-all font-mono text-sm bg-white"
-              />
-              <p className="text-[10px] text-slate-400 mt-1 leading-relaxed">
-                * ระบบตั้งค่าเวลาปัจจุบันให้อัตโนมัติ หากต้องการบันทึกบิลย้อนหลังหรือเทียบสลิปโมบายแบงก์กิ้งเพื่อลงบันทึกเวลาที่ถูกต้อง สามารถแก้ไขเวลาตรงนี้ได้เลย
-              </p>
-            </div>
-          </div>
+          {/* 7. Date & Time adjustment (วัน เดือน ปี) */}
+          {(() => {
+            const customDate = customDateTime?.includes('T') ? customDateTime.split('T')[0] : (new Date().toISOString().split('T')[0]);
+            const customTime = customDateTime?.includes('T') ? (customDateTime.split('T')[1]?.substring(0, 5) || '12:00') : '12:00';
+
+            return (
+              <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/80 space-y-2.5">
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <label className="text-sm font-semibold text-slate-700 flex items-center space-x-2">
+                    <Calendar className="w-4 h-4 text-indigo-500" />
+                    <span>ระบุวันที่/เวลา บันทึกบิล (วัน เดือน ปี)</span>
+                  </label>
+                  <span className="text-xs font-bold text-indigo-700 bg-indigo-50 px-2.5 py-1 rounded-xl border border-indigo-100 shadow-2xs">
+                    📅 {formatThaiDate(customDate)} เวลา {customTime} น.
+                  </span>
+                </div>
+
+                <div className="flex flex-wrap items-center gap-2">
+                  {/* วัน เดือน ปี Selector */}
+                  <DayMonthYearPicker
+                    value={customDate}
+                    onChange={(newDate) => setCustomDateTime(`${newDate}T${customTime}`)}
+                  />
+
+                  {/* เวลา (HH:mm) */}
+                  <div className="flex items-center bg-white border border-slate-200 rounded-xl px-2.5 py-1.5 focus-within:ring-2 focus-within:ring-indigo-500 shadow-2xs">
+                    <Clock className="w-3.5 h-3.5 text-slate-400 mr-1.5" />
+                    <span className="text-[11px] font-bold text-slate-500 mr-1 select-none">เวลา</span>
+                    <input
+                      type="time"
+                      value={customTime}
+                      onChange={(e) => setCustomDateTime(`${customDate}T${e.target.value || '12:00'}`)}
+                      className="text-xs font-bold font-mono text-slate-800 bg-transparent outline-none cursor-pointer"
+                    />
+                  </div>
+
+                  {/* ตั้งเป็นเวลาปัจจุบัน */}
+                  <button
+                    type="button"
+                    onClick={() => setCustomDateTime(getLocalISODateTime())}
+                    className="px-3 py-1.5 bg-slate-200/70 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-bold transition-all cursor-pointer flex items-center gap-1 shadow-2xs"
+                    title="ตั้งค่าเป็นวันและเวลาปัจจุบัน"
+                  >
+                    <Clock className="w-3.5 h-3.5" />
+                    <span>เวลาปัจจุบัน</span>
+                  </button>
+                </div>
+
+                <p className="text-[10px] text-slate-400 leading-relaxed">
+                  * รูปแบบ: วัน เดือน ปี (พ.ศ.) • ระบบตั้งค่าเวลาปัจจุบันให้อัตโนมัติ สามารถปรับแก้วันที่และเวลาได้ตามต้องการ
+                </p>
+              </div>
+            );
+          })()}
 
           {/* 8. Notes / Remarks */}
           <div className="bg-slate-50 rounded-2xl p-4 border border-slate-100/80 space-y-2">

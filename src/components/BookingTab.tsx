@@ -2,6 +2,7 @@ import React, { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'motion/react';
 import { Booking, Barber, Member, ShopConfig } from '../types';
 import { formatThaiDate, parseTimeToMinutes } from '../utils';
+import DayMonthYearPicker from './DayMonthYearPicker';
 import { 
   Calendar, 
   Clock, 
@@ -516,29 +517,21 @@ export default function BookingTab({
               </div>
             </div>
 
-            {/* 2. วันที่จอง */}
+            {/* 2. วันที่จอง (วัน เดือน ปี) */}
             <div className="space-y-1.5">
-              <label className="block text-xs font-black text-slate-700">
-                📅 2. วันที่จอง <span className="text-rose-500">*</span>
-              </label>
-              <div className="flex items-center gap-2">
-                <input
-                  type="date"
-                  required
-                  value={formDate}
-                  onChange={(e) => setFormDate(e.target.value)}
-                  className="flex-1 px-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs font-bold text-slate-800 focus:bg-white focus:outline-hidden focus:ring-2 focus:ring-indigo-500"
-                />
-                <button
-                  type="button"
-                  onClick={() => setFormDate(todayStr)}
-                  className={`px-3 py-2 rounded-xl text-xs font-bold transition-all cursor-pointer ${
-                    formDate === todayStr ? 'bg-indigo-600 text-white shadow-2xs' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'
-                  }`}
-                >
-                  วันนี้
-                </button>
+              <div className="flex items-center justify-between">
+                <label className="block text-xs font-black text-slate-700">
+                  📅 2. วันที่จอง (วัน เดือน ปี) <span className="text-rose-500">*</span>
+                </label>
+                <span className="text-[11px] font-bold text-indigo-700 bg-indigo-50 px-2 py-0.5 rounded-lg border border-indigo-100">
+                  {formatThaiDate(formDate)}
+                </span>
               </div>
+              <DayMonthYearPicker
+                value={formDate}
+                onChange={setFormDate}
+                showToday
+              />
             </div>
 
             {/* 3. ช่วงเวลา (เริ่ม - สิ้นสุด) */}
@@ -588,65 +581,6 @@ export default function BookingTab({
                   </select>
                 </div>
               </div>
-
-              {/* Available Time Slots Quick Selector for Selected Barber */}
-              {timeSlotList.length > 0 && (
-                <div className="pt-1.5 space-y-1.5 bg-slate-50/80 p-2.5 rounded-2xl border border-slate-200/80">
-                  <div className="flex items-center justify-between text-[11px]">
-                    <span className="font-bold text-slate-700 flex items-center gap-1.5">
-                      <Clock className="w-3.5 h-3.5 text-emerald-600" />
-                      <span>
-                        ช่วงเวลาว่างช่าง{selectedBarber?.name || ''} ({availableSlots.length}/{timeSlotList.length}):
-                      </span>
-                    </span>
-                    <button
-                      type="button"
-                      onClick={() => setShowAllSlotsModal(true)}
-                      className="text-[10.5px] font-bold text-indigo-600 hover:text-indigo-800 underline cursor-pointer"
-                    >
-                      ดูตารางเวลาทั้งหมด
-                    </button>
-                  </div>
-
-                  {availableSlots.length === 0 ? (
-                    <div className="p-2 bg-rose-50 border border-rose-200 rounded-xl text-rose-700 text-[11px] font-bold text-center">
-                      ⚠️ ช่าง{selectedBarber?.name || ''} คิวเต็มทุกช่วงเวลาในวันนี้แล้ว
-                    </div>
-                  ) : (
-                    <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-0.5">
-                      {timeSlotList.map((slot) => {
-                        const isChosen = formStartTime === slot.startTime;
-                        return (
-                          <button
-                            key={slot.startTime}
-                            type="button"
-                            disabled={!slot.isAvailable && !isChosen}
-                            onClick={() => {
-                              if (slot.isAvailable) {
-                                handleStartTimeChange(slot.startTime);
-                              }
-                            }}
-                            className={`px-2 py-1 rounded-lg text-[11px] font-mono font-bold transition-all cursor-pointer ${
-                              isChosen
-                                ? 'bg-indigo-600 text-white shadow-xs ring-2 ring-amber-400'
-                                : slot.isAvailable
-                                ? 'bg-white hover:bg-emerald-50 text-emerald-700 border border-emerald-200 hover:border-emerald-300 shadow-2xs'
-                                : 'bg-slate-200/60 text-slate-400 border border-slate-200 line-through cursor-not-allowed opacity-50'
-                            }`}
-                            title={
-                              slot.isAvailable
-                                ? `คลิกเพื่อเลือกเวลา ${slot.startTime} - ${slot.endTime} น.`
-                                : `มีนัดหมายแล้ว (${slot.bookedBy || 'ติดคิว'})`
-                            }
-                          >
-                            {slot.startTime}
-                          </button>
-                        );
-                      })}
-                    </div>
-                  )}
-                </div>
-              )}
             </div>
 
             {/* 4. ชื่อลูกค้า */}
@@ -786,17 +720,17 @@ export default function BookingTab({
             
             {/* Top row: Date Selector & Search Box */}
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5">
-              {/* Date Selector */}
+              {/* Date Selector (วัน เดือน ปี) */}
               <div className="flex flex-wrap items-center gap-1.5">
-                <div className="flex items-center gap-1 bg-slate-100 px-2.5 py-1.5 rounded-xl border border-slate-200 text-xs font-bold text-slate-700">
+                <div className="flex items-center gap-1 text-xs font-bold text-slate-700 mr-0.5">
                   <Calendar className="w-3.5 h-3.5 text-indigo-600" />
-                  <input
-                    type="date"
-                    value={selectedDate === 'all' ? '' : selectedDate}
-                    onChange={(e) => setSelectedDate(e.target.value || 'all')}
-                    className="bg-white px-2 py-0.5 rounded-lg text-xs font-bold text-slate-900 border border-slate-200 focus:outline-hidden focus:ring-1 focus:ring-indigo-500 cursor-pointer"
-                  />
+                  <span>วันที่:</span>
                 </div>
+                <DayMonthYearPicker
+                  value={selectedDate === 'all' ? todayStr : selectedDate}
+                  onChange={(newDate) => setSelectedDate(newDate)}
+                  size="sm"
+                />
 
                 <button
                   type="button"
@@ -996,8 +930,8 @@ export default function BookingTab({
                             ? 'bg-sky-600 text-white shadow-xs'
                             : 'bg-slate-900 text-white'
                         }`}>
-                          <span className={`text-[10px] font-bold uppercase ${isCompleted ? 'text-slate-600' : isInProgress ? 'text-sky-100' : 'text-amber-300'}`}>
-                            {formatThaiDate(b.date).split(' ')[0]} {formatThaiDate(b.date).split(' ')[1]}
+                          <span className={`text-[10px] font-bold leading-tight ${isCompleted ? 'text-slate-600' : isInProgress ? 'text-sky-100' : 'text-amber-300'}`}>
+                            {formatThaiDate(b.date)}
                           </span>
                           <span className={`text-base font-mono font-black ${isCompleted ? 'line-through opacity-70' : 'text-white'}`}>
                             {b.startTime}

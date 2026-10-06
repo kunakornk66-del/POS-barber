@@ -29,7 +29,30 @@ import {
 const app = express();
 const PORT = 3000;
 
-app.use(express.json());
+app.use(express.json({ limit: "10mb" }));
+
+interface CachedPwaBrand {
+  shopName: string;
+  themeColor: string;
+  icon192?: Buffer;
+  icon512?: Buffer;
+  icon180?: Buffer;
+  updatedAt: number;
+}
+
+const pwaBrandCache = new Map<string, CachedPwaBrand>();
+let latestActiveEmail = "";
+
+function dataUrlToBuffer(dataUrl?: string): Buffer | undefined {
+  if (!dataUrl || typeof dataUrl !== "string") return undefined;
+  const match = dataUrl.match(/^data:image\/[a-zA-Z0-9.+-]+;base64,(.+)$/);
+  if (!match || !match[1]) return undefined;
+  try {
+    return Buffer.from(match[1], "base64");
+  } catch {
+    return undefined;
+  }
+}
 
 // Load Firebase configuration
 const CONFIG_FILE = path.join(process.cwd(), "firebase-applet-config.json");
@@ -399,6 +422,160 @@ app.post("/api/reset", async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 });
+
+// ------------------------------------------
+// DYNAMIC PWA MANIFEST & CUSTOM SHOP LOGO ICONS
+// ------------------------------------------
+app.post("/api/pwa-icons", (req, res) => {
+  try {
+    const email = String(req.body?.email || "").trim().toLowerCase();
+    const shopName = String(req.body?.shopName || "Barber POS").trim() || "Barber POS";
+    const themeColor = String(req.body?.themeColor || "#0f172a").trim() || "#0f172a";
+    const icon192 = dataUrlToBuffer(req.body?.icon192);
+    const icon512 = dataUrlToBuffer(req.body?.icon512);
+    const icon180 = dataUrlToBuffer(req.body?.icon180);
+
+    const key = email || "default";
+    latestActiveEmail = key;
+    pwaBrandCache.set(key, {
+      shopName,
+      themeColor,
+      icon192,
+      icon512,
+      icon180,
+      updatedAt: Date.now(),
+    });
+    res.json({ success: true });
+  } catch (err: any) {
+    res.status(500).json({ error: err?.message || "Failed to cache PWA icons" });
+  }
+});
+
+async function resolveTenantBrand(emailParam?: string): Promise<CachedPwaBrand> {
+  const email = (emailParam || latestActiveEmail || "").trim().toLowerCase();
+  if (email && pwaBrandCache.has(email)) {
+    return pwaBrandCache.get(email)!;
+  }
+  if (email && db) {
+    try {
+      const salonSnap = await getDoc(doc(db, "salons", email));
+      if (salonSnap.exists()) {
+        const data = salonSnap.data();
+        const shopName = data?.shopConfig?.shopName || data?.shopName || "Barber POS";
+        const themeColor = data?.shopConfig?.primaryColor || "#0f172a";
+        const logoBuf = dataUrlToBuffer(data?.shopConfig?.logoUrl);
+        const brand: CachedPwaBrand = {
+          shopName,
+          themeColor,
+          icon192: logoBuf,
+          icon512: logoBuf,
+          icon180: logoBuf,
+          updatedAt: Date.now(),
+        };
+        pwaBrandCache.set(email, brand);
+        return brand;
+      }
+    } catch {
+      // Ignore Firestore lookup error and fall back to default
+    }
+  }
+  if (latestActiveEmail && pwaBrandCache.has(latestActiveEmail)) {
+    return pwaBrandCache.get(latestActiveEmail)!;
+  }
+  return {
+    shopName: "Barber POS คิดเงินร้านตัดผม",
+    themeColor: "#0f172a",
+    updatedAt: Date.now(),
+  };
+}
+
+const serveDynamicPng = (size: "192" | "512" | "180") => async (req: express.Request, res: express.Response, next: express.NextFunction) => {
+  try {
+    const email = String(req.query.email || "");
+    const brand = await resolveTenantBrand(email);
+    const buf =
+      size === "192"
+        ? brand.icon192 || brand.icon512
+        : size === "180"
+        ? brand.icon180 || brand.icon192 || brand.icon512
+        : brand.icon512 || brand.icon192;
+
+    if (buf && buf.length > 0) {
+      res.set("Content-Type", "image/png");
+      res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+      res.send(buf);
+      return;
+    }
+  } catch {
+    // Fall back to static file
+  }
+  const fallbackFile =
+    size === "192"
+      ? "pwa-192x192.png"
+      : size === "180"
+      ? "apple-touch-icon.png"
+      : "pwa-512x512.png";
+  const publicPath = path.join(process.cwd(), "public", fallbackFile);
+  if (fs.existsSync(publicPath)) {
+    res.set("Content-Type", "image/png");
+    res.sendFile(publicPath);
+    return;
+  }
+  next();
+};
+
+app.get("/api/pwa-icon/192.png", serveDynamicPng("192"));
+app.get("/api/pwa-icon/512.png", serveDynamicPng("512"));
+app.get("/api/pwa-icon/180.png", serveDynamicPng("180"));
+app.get("/pwa-192x192.png", serveDynamicPng("192"));
+app.get("/pwa-512x512.png", serveDynamicPng("512"));
+app.get("/pwa-maskable-512x512.png", serveDynamicPng("512"));
+app.get("/apple-touch-icon.png", serveDynamicPng("180"));
+
+const serveDynamicManifest = async (req: express.Request, res: express.Response) => {
+  const email = String(req.query.email || "").trim().toLowerCase();
+  const brand = await resolveTenantBrand(email);
+  const fullShopName = brand.shopName || "Barber POS คิดเงินร้านตัดผม";
+  const shortName = fullShopName.length > 12 ? fullShopName.slice(0, 12) : fullShopName;
+  const querySuffix = email ? `?email=${encodeURIComponent(email)}&v=${brand.updatedAt}` : `?v=${brand.updatedAt}`;
+
+  res.set("Content-Type", "application/manifest+json");
+  res.set("Cache-Control", "no-cache, no-store, must-revalidate");
+  res.json({
+    id: "/",
+    name: fullShopName,
+    short_name: shortName,
+    description: "ระบบคิดเงินร้านตัดผม บันทึกยอดขาย คำนวณส่วนแบ่งรายได้ช่าง แสดงรายงานรายวันและรายเดือนสำหรับนักบัญชี",
+    theme_color: brand.themeColor || "#0f172a",
+    background_color: "#0f172a",
+    display: "standalone",
+    start_url: "/",
+    scope: "/",
+    icons: [
+      {
+        src: `/api/pwa-icon/192.png${querySuffix}`,
+        sizes: "192x192",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: `/api/pwa-icon/512.png${querySuffix}`,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "any",
+      },
+      {
+        src: `/api/pwa-icon/512.png${querySuffix}&maskable=1`,
+        sizes: "512x512",
+        type: "image/png",
+        purpose: "maskable",
+      },
+    ],
+  });
+};
+
+app.get("/api/manifest.webmanifest", serveDynamicManifest);
+app.get("/manifest.webmanifest", serveDynamicManifest);
 
 async function startServer() {
   if (process.env.NODE_ENV !== "production") {

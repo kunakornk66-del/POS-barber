@@ -142,11 +142,19 @@ export function formatBahtWithDecimals(amount: number): string {
 // Convert date to Thai format (e.g. 9 มิถุนายน 2569)
 export function formatThaiDate(dateStr: string): string {
   if (!dateStr) return '';
-  const date = new Date(dateStr);
+  const datePart = dateStr.includes('T') ? dateStr.split('T')[0] : dateStr;
   const months = [
     'มกราคม', 'กุมภาพันธ์', 'มีนาคม', 'เมษายน', 'พฤษภาคม', 'มิถุนายน',
     'กรกฎาคม', 'สิงหาคม', 'กันยายน', 'ตุลาคม', 'พฤศจิกายน', 'ธันวาคม'
   ];
+  if (/^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const [y, m, d] = datePart.split('-').map(Number);
+    if (!isNaN(y) && !isNaN(m) && !isNaN(d) && m >= 1 && m <= 12) {
+      return `${d} ${months[m - 1]} ${y + 543}`;
+    }
+  }
+  const date = new Date(dateStr);
+  if (isNaN(date.getTime())) return dateStr;
   return `${date.getDate()} ${months[date.getMonth()]} ${date.getFullYear() + 543}`;
 }
 

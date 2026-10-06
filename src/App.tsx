@@ -22,6 +22,7 @@ import AnnualResetModal from './components/AnnualResetModal';
 import DeleteMonthModal from './components/DeleteMonthModal';
 import { ExpensesTab } from './components/ExpensesTab';
 import { PinModal } from './components/PinModal';
+import { PWAInstallButton } from './components/PWAInstallButton';
 import { 
   SystemBackupData, 
   exportFullSystemBackupJson, 
@@ -473,84 +474,119 @@ export default function App() {
   const [showFullResetConfirm, setShowFullResetConfirm] = useState(false);
   const [installTab, setInstallTab] = useState<'ios' | 'android'>('ios');
 
-  // Dynamically update document icon and apple-touch-icon with shop logo if configured
+  // Dynamically update document icon, apple-touch-icon, and server PWA manifest with shop logo
   useEffect(() => {
-    if (shopConfig?.logoUrl) {
-      // 1. Update standard shortcut icon / favicon
-      let favIcon = document.querySelector('link[rel="icon"]') as HTMLLinkElement;
-      if (!favIcon) {
-        favIcon = document.createElement('link');
-        favIcon.rel = 'icon';
-        document.head.appendChild(favIcon);
-      }
-      favIcon.href = shopConfig.logoUrl;
+    let cancelled = false;
+    const shopName = shopConfig?.shopName || 'Barber POS';
+    const logoUrl = shopConfig?.logoUrl || '';
+    const themeColor = shopConfig?.primaryColor || '#0f172a';
 
-      // 2. Update iOS apple-touch-icon for Add to Home Screen logo
-      let appleTouchIcon = document.querySelector('link[rel="apple-touch-icon"]') as HTMLLinkElement;
-      if (!appleTouchIcon) {
-        appleTouchIcon = document.createElement('link');
-        appleTouchIcon.rel = 'apple-touch-icon';
-        document.head.appendChild(appleTouchIcon);
+    const setDomIconLink = (rel: string, href: string, sizes?: string) => {
+      let link = document.querySelector(
+        sizes ? `link[rel="${rel}"][sizes="${sizes}"]` : `link[rel="${rel}"]`
+      ) as HTMLLinkElement | null;
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = rel;
+        if (sizes) link.sizes = sizes;
+        document.head.appendChild(link);
       }
-      appleTouchIcon.href = shopConfig.logoUrl;
-      
-      // 3. For complete coverage, support apple-touch-icon-precomposed too
-      let applePrecomposed = document.querySelector('link[rel="apple-touch-icon-precomposed"]') as HTMLLinkElement;
-      if (!applePrecomposed) {
-        applePrecomposed = document.createElement('link');
-        applePrecomposed.rel = 'apple-touch-icon-precomposed';
-        document.head.appendChild(applePrecomposed);
-      }
-      applePrecomposed.href = shopConfig.logoUrl;
-    }
-  }, [shopConfig?.logoUrl]);
-
-  // Dynamically generate web manifest so that Android/iOS PWA prompt uses shop logo & shop name
-  useEffect(() => {
-    const shopName = shopConfig?.shopName || "Barber POS";
-    const logoUrl = shopConfig?.logoUrl || "";
-
-    const manifestObj = {
-      name: shopName,
-      short_name: shopName,
-      start_url: window.location.origin + window.location.pathname,
-      display: "standalone",
-      background_color: "#0f172a",
-      theme_color: "#4f46e5",
-      orientation: "any",
-      icons: logoUrl ? [
-        {
-          src: logoUrl,
-          sizes: "192x192",
-          type: logoUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg"
-        },
-        {
-          src: logoUrl,
-          sizes: "512x512",
-          type: logoUrl.startsWith("data:image/png") ? "image/png" : "image/jpeg"
-        }
-      ] : []
+      link.type = 'image/png';
+      link.href = href;
     };
 
-    const stringManifest = JSON.stringify(manifestObj);
-    const blob = new Blob([stringManifest], { type: 'application/manifest+json' });
-    const manifestUrl = URL.createObjectURL(blob);
+    const renderSquarePng = (img: HTMLImageElement, size: number): string => {
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      if (!ctx) return logoUrl;
+      ctx.fillStyle = '#0f172a';
+      ctx.fillRect(0, 0, size, size);
+      const scale = Math.max(size / (img.width || 1), size / (img.height || 1));
+      const drawW = (img.width || size) * scale;
+      const drawH = (img.height || size) * scale;
+      const offsetX = (size - drawW) / 2;
+      const offsetY = (size - drawH) / 2;
+      ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+      return canvas.toDataURL('image/png');
+    };
 
-    let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement;
-    if (!manifestLink) {
-      manifestLink = document.createElement('link');
-      manifestLink.rel = 'manifest';
-      document.head.appendChild(manifestLink);
+    const syncPwaToServerAndDom = async (icon192?: string, icon512?: string, icon180?: string) => {
+      if (cancelled) return;
+      if (icon192) {
+        // Remove default svg link if present so browser uses PNG shop logo
+        const svgIcons = document.querySelectorAll('link[rel="icon"][type="image/svg+xml"]');
+        svgIcons.forEach((el) => el.removeAttribute('type'));
+
+        setDomIconLink('icon', icon192);
+        setDomIconLink('icon', icon192, '192x192');
+        setDomIconLink('shortcut icon', icon192);
+      }
+      if (icon512) {
+        setDomIconLink('icon', icon512, '512x512');
+      }
+      if (icon180) {
+        setDomIconLink('apple-touch-icon', icon180);
+        setDomIconLink('apple-touch-icon-precomposed', icon180);
+      }
+
+      try {
+        await fetch('/api/pwa-icons', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: userEmail || '',
+            shopName,
+            themeColor,
+            icon192,
+            icon512,
+            icon180,
+          }),
+        });
+      } catch {
+        // Offline safe fallback
+      }
+
+      if (cancelled) return;
+      let manifestLink = document.querySelector('link[rel="manifest"]') as HTMLLinkElement | null;
+      if (!manifestLink) {
+        manifestLink = document.createElement('link');
+        manifestLink.rel = 'manifest';
+        document.head.appendChild(manifestLink);
+      }
+      const emailParam = userEmail ? `email=${encodeURIComponent(userEmail)}&` : '';
+      manifestLink.href = `/api/manifest.webmanifest?${emailParam}t=${Date.now()}`;
+    };
+
+    if (logoUrl) {
+      const img = new window.Image();
+      if (!logoUrl.startsWith('data:')) {
+        img.crossOrigin = 'anonymous';
+      }
+      img.onload = () => {
+        if (cancelled) return;
+        try {
+          const icon192 = renderSquarePng(img, 192);
+          const icon512 = renderSquarePng(img, 512);
+          const icon180 = renderSquarePng(img, 180);
+          syncPwaToServerAndDom(icon192, icon512, icon180);
+        } catch {
+          syncPwaToServerAndDom(logoUrl, logoUrl, logoUrl);
+        }
+      };
+      img.onerror = () => {
+        syncPwaToServerAndDom();
+      };
+      img.src = logoUrl;
+    } else {
+      syncPwaToServerAndDom();
     }
-    const oldUrl = manifestLink.href;
-    manifestLink.href = manifestUrl;
 
     return () => {
-      if (oldUrl && oldUrl.startsWith('blob:')) {
-        URL.revokeObjectURL(oldUrl);
-      }
+      cancelled = true;
     };
-  }, [shopConfig?.shopName, shopConfig?.logoUrl]);
+  }, [shopConfig?.shopName, shopConfig?.logoUrl, shopConfig?.primaryColor, userEmail]);
 
   // Dynamically update document title and iOS app title with shop name if configured
   useEffect(() => {
@@ -805,13 +841,15 @@ export default function App() {
               });
             const hadPastBookings = validBookings.length !== rawBookings.length;
 
-            const localResetDate = localStorage.getItem(`barber_pos_last_reset_date_${userEmail}`);
-            if (lastResetDate !== todayStr || localResetDate !== todayStr || hadPastBookings) {
-              console.log(`⏰ [Daily Reset & Booking Purge] วันใหม่ล่วงเลยมาถึงแล้ว (${lastResetDate} -> ${todayStr}) รีเซ็ตสถานะช่างและล้างคิวเก่าที่พ้นวันแล้ว (${rawBookings.length - validBookings.length} คิว)`);
-              finalBarbers = finalBarbers.map((b: any) => ({
-                ...b,
-                isWorking: true
-              }));
+            const isCloudNewDay = lastResetDate !== todayStr;
+            if (isCloudNewDay || hadPastBookings) {
+              if (isCloudNewDay) {
+                console.log(`⏰ [Daily Reset & Booking Purge] วันใหม่ล่วงเลยมาถึงแล้ว (${lastResetDate} -> ${todayStr}) รีเซ็ตสถานะช่างและล้างคิวเก่าที่พ้นวันแล้ว (${rawBookings.length - validBookings.length} คิว)`);
+                finalBarbers = finalBarbers.map((b: any) => ({
+                  ...b,
+                  isWorking: true
+                }));
+              }
               
               localStorage.setItem(`barber_pos_last_reset_date_${userEmail}`, todayStr);
               localStorage.setItem(`barber_pos_barbers_${userEmail}`, JSON.stringify(finalBarbers));
@@ -911,7 +949,7 @@ export default function App() {
                     const batch = writeBatch(db);
                     unsyncedSales.forEach((sale) => {
                       const sRef = doc(db, "salons", userEmail, "sales", sale.id);
-                      batch.set(sRef, sale);
+                      batch.set(sRef, cleanUndefined(sale));
                     });
                     await batch.commit();
                     console.log(`🟢 POS [Reconciliation] ซิงก์ประวัติออฟไลน์ ${unsyncedSales.length} รายการ สำเร็จปลอดภัย!`);
@@ -1087,7 +1125,6 @@ export default function App() {
       // 1. Exceeded 1 Year + 30 Days Warning Grace Period (diffDays >= 395)
       if (diffDays >= 395) {
         console.warn(`⏰ [Annual Reset System] ครบกำหนด 1 ปี + ผ่อนผัน 1 เดือน (${diffDays} วัน) ระบบทำการ Factory Reset อัตโนมัติ`);
-        alert(`⏰ [แจ้งเตือนระบบ] ระบบได้ทำการ Factory Reset อัตโนมัติเรียบร้อยแล้ว\nเนื่องจากบัญชีของคุณ (${userEmail}) ครบรอบระยะเวลาใช้งาน 1 ปี + ผ่อนผันการแจ้งเตือน 1 เดือน (30 วัน)`);
         confirmFullReset();
         return;
       }
@@ -1753,51 +1790,60 @@ export default function App() {
   };
 
   const handleSaveBooking = (newBooking: Booking) => {
-    const updated = [newBooking, ...bookings];
-    setBookings(updated);
-    if (!userEmail) return;
-    localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
-    const docRef = doc(db, "salons", userEmail);
-    const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
-    setDoc(docRef, cleanedData, { merge: true })
-      .then(() => {
-        console.log("🟢 [Firebase] บันทึกข้อมูลจองคิวสำเร็จ (Save booking successfully)");
-      })
-      .catch((err) => {
-        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
-      });
+    setBookings((prev) => {
+      const updated = [newBooking, ...prev];
+      if (userEmail) {
+        localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
+        const docRef = doc(db, "salons", userEmail);
+        const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
+        setDoc(docRef, cleanedData, { merge: true })
+          .then(() => {
+            console.log("🟢 [Firebase] บันทึกข้อมูลจองคิวสำเร็จ (Save booking successfully)");
+          })
+          .catch((err) => {
+            handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+          });
+      }
+      return updated;
+    });
   };
 
   const handleUpdateBooking = (updatedBooking: Booking) => {
-    const updated = bookings.map(b => b.id === updatedBooking.id ? updatedBooking : b);
-    setBookings(updated);
-    if (!userEmail) return;
-    localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
-    const docRef = doc(db, "salons", userEmail);
-    const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
-    setDoc(docRef, cleanedData, { merge: true })
-      .then(() => {
-        console.log("🟢 [Firebase] อัปเดตข้อมูลจองคิวสำเร็จ (Update booking successfully)");
-      })
-      .catch((err) => {
-        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
-      });
+    setBookings((prev) => {
+      const updated = prev.map(b => b.id === updatedBooking.id ? updatedBooking : b);
+      if (userEmail) {
+        localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
+        const docRef = doc(db, "salons", userEmail);
+        const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
+        setDoc(docRef, cleanedData, { merge: true })
+          .then(() => {
+            console.log("🟢 [Firebase] อัปเดตข้อมูลจองคิวสำเร็จ (Update booking successfully)");
+          })
+          .catch((err) => {
+            handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+          });
+      }
+      return updated;
+    });
   };
 
   const handleDeleteBooking = (bookingId: string) => {
-    const updated = bookings.filter(b => b.id !== bookingId);
-    setBookings(updated);
-    if (!userEmail) return;
-    localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
-    const docRef = doc(db, "salons", userEmail);
-    const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
-    setDoc(docRef, cleanedData, { merge: true })
-      .then(() => {
-        console.log("🟢 [Firebase] ลบข้อมูลจองคิวสำเร็จ (Delete booking successfully)");
-      })
-      .catch((err) => {
-        handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
-      });
+    setBookings((prev) => {
+      const updated = prev.filter(b => b.id !== bookingId);
+      if (userEmail) {
+        localStorage.setItem(`barber_pos_bookings_${userEmail}`, JSON.stringify(updated));
+        const docRef = doc(db, "salons", userEmail);
+        const cleanedData = cleanUndefined({ bookings: updated, updatedAt: new Date().toISOString() });
+        setDoc(docRef, cleanedData, { merge: true })
+          .then(() => {
+            console.log("🟢 [Firebase] ลบข้อมูลจองคิวสำเร็จ (Delete booking successfully)");
+          })
+          .catch((err) => {
+            handleFirestoreError(err, OperationType.UPDATE, `salons/${userEmail}`);
+          });
+      }
+      return updated;
+    });
   };
 
   const handleClearAllBookings = () => {
@@ -1821,7 +1867,7 @@ export default function App() {
       customerName: booking.customerName + (booking.customerPhone ? ` (${booking.customerPhone})` : ''),
       haircutPrice: (booking.servicePrice !== undefined && booking.servicePrice > 0) ? booking.servicePrice : 350,
       chemicalPrice: 0,
-      notes: `[คิวจอง ${booking.date} เวลา ${booking.startTime}-${booking.endTime}]${booking.notes ? ' - ' + booking.notes : ''}`
+      notes: `[คิวจอง ${formatThaiDate(booking.date)} เวลา ${booking.startTime}-${booking.endTime}]${booking.notes ? ' - ' + booking.notes : ''}`
     });
     setActiveTab('sales');
   };
@@ -1834,8 +1880,9 @@ export default function App() {
     notes?: string
   ) => {
     const now = new Date().toISOString();
-    let targetMemberName = '';
-    let targetMemberCode = '';
+    const existingMember = members.find(m => m.id === memberId);
+    let targetMemberName = existingMember?.name || '';
+    let targetMemberCode = existingMember?.memberCode || '';
 
     setMembers(prevMembers => {
       const targetMember = prevMembers.find(m => m.id === memberId);
@@ -2568,6 +2615,12 @@ export default function App() {
                   )}
                 </span>
               </div>
+
+              {/* PWA Install Button */}
+              <PWAInstallButton
+                shopName={shopConfig?.shopName}
+                logoUrl={shopConfig?.logoUrl}
+              />
 
               <button
                 onClick={handleLogout}

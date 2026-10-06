@@ -204,31 +204,22 @@ export default function ConfigTab({
       const img = new window.Image();
       img.src = event.target?.result as string;
       img.onload = () => {
+        const SIZE = 256;
         const canvas = document.createElement('canvas');
-        const MAX_WIDTH = 256;
-        const MAX_HEIGHT = 256;
-        let width = img.width;
-        let height = img.height;
-
-        if (width > height) {
-          if (width > MAX_WIDTH) {
-            height = Math.round((height * MAX_WIDTH) / width);
-            width = MAX_WIDTH;
-          }
-        } else {
-          if (height > MAX_HEIGHT) {
-            width = Math.round((width * MAX_HEIGHT) / height);
-            height = MAX_HEIGHT;
-          }
-        }
-
-        canvas.width = width;
-        canvas.height = height;
+        canvas.width = SIZE;
+        canvas.height = SIZE;
         const ctx = canvas.getContext('2d');
         if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
-          setShopLogoUrl(compressedDataUrl);
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(0, 0, SIZE, SIZE);
+          const scale = Math.max(SIZE / (img.width || 1), SIZE / (img.height || 1));
+          const drawW = img.width * scale;
+          const drawH = img.height * scale;
+          const offsetX = (SIZE - drawW) / 2;
+          const offsetY = (SIZE - drawH) / 2;
+          ctx.drawImage(img, offsetX, offsetY, drawW, drawH);
+          const pngDataUrl = canvas.toDataURL('image/png');
+          setShopLogoUrl(pngDataUrl);
         }
       };
     };
